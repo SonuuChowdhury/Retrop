@@ -58,32 +58,32 @@ export const waiterService = {
 };
 
 // ============================================================================
-// USER SERVICE
+// customer SERVICE
 // ============================================================================
 
-export const userService = {
-  // Create new user
-  create: async (userData) => {
+export const customerService = {
+  // Create new customer
+  create: async (customerData) => {
     try {
       const { data, error } = await supabase
-        .from('user')
-        .insert([userData])
+        .from('customer')
+        .insert([customerData])
         .select();
       
       if (error) throw error;
-      logger.debug('User created:', userData.mobile);
+      logger.debug('customer created:', customerData.mobile);
       return { success: true, data: data[0] };
     } catch (error) {
-      logger.error('Failed to create user', error.message);
+      logger.error('Failed to create customer', error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // Get user by mobile
+  // Get customer by mobile
   getByMobile: async (mobile) => {
     try {
       const { data, error } = await supabase
-        .from('user')
+        .from('customer')
         .select('*')
         .eq('mobile', mobile)
         .single();
@@ -91,16 +91,16 @@ export const userService = {
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
-      logger.error('Failed to get user', error.message);
+      logger.error('Failed to get customer', error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // Update user last login
+  // Update customer last login
   updateLastLogin: async (mobile) => {
     try {
       const { data, error } = await supabase
-        .from('user')
+        .from('customer')
         .update({ lastLogIn: new Date().toISOString() })
         .eq('mobile', mobile)
         .select();
@@ -118,7 +118,7 @@ export const userService = {
 // MENU SERVICE
 // ============================================================================
 
-export const menuService = {
+export const mencustomervice = {
   // Create new menu item
   create: async (menuData) => {
     try {
@@ -143,7 +143,7 @@ export const menuService = {
         .from('menu')
         .select('*')
         .eq('isAvailable', true)
-        .order('category', { ascending: true });
+        .orders('category', { ascending: true });
       
       if (error) throw error;
       return { success: true, data };
@@ -189,57 +189,57 @@ export const menuService = {
 };
 
 // ============================================================================
-// ORDER SERVICE
+// orders SERVICE
 // ============================================================================
 
 export const orderService = {
-  // Create new order
-  create: async (orderData) => {
+  // Create new orders
+  create: async (ordersData) => {
     try {
       const { data, error } = await supabase
-        .from('order')
-        .insert([orderData])
+        .from('orders')
+        .insert([ordersData])
         .select();
       
       if (error) throw error;
-      logger.debug('Order created:', data[0]?.orderId);
+      logger.debug('orders created:', data[0]?.ordersId);
       return { success: true, data: data[0] };
     } catch (error) {
-      logger.error('Failed to create order', error.message);
+      logger.error('Failed to create orders', error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // Get order by ID
-  getById: async (orderId) => {
+  // Get orders by ID
+  getById: async (ordersId) => {
     try {
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .select('*')
-        .eq('orderId', orderId)
+        .eq('ordersId', ordersId)
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
-      logger.error('Failed to get order', error.message);
+      logger.error('Failed to get orders', error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // Get orders by user mobile
+  // Get orders by customer mobile
   getByMobile: async (mobile) => {
     try {
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .select('*')
         .eq('mobile', mobile)
-        .order('createdAt', { ascending: false });
+        .orders('createdAt', { ascending: false });
       
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      logger.error('Failed to fetch user orders', error.message);
+      logger.error('Failed to fetch customer orders', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -248,11 +248,11 @@ export const orderService = {
   getByWaiterId: async (waiterId) => {
     try {
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .select('*')
         .eq('waiterId', waiterId)
         .neq('orderStatus', 'completed')
-        .order('createdAt', { ascending: false });
+        .orders('createdAt', { ascending: false });
       
       if (error) throw error;
       return { success: true, data };
@@ -262,39 +262,39 @@ export const orderService = {
     }
   },
 
-  // Update order status
-  updateStatus: async (orderId, newStatus) => {
+  // Update orders status
+  updateStatus: async (ordersId, newStatus) => {
     try {
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .update({ 
           orderStatus: newStatus,
           updatedAt: new Date().toISOString(),
           ...(newStatus === 'served' && { servedAt: new Date().toISOString() })
         })
-        .eq('orderId', orderId)
+        .eq('ordersId', ordersId)
         .select();
       
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
-      logger.error('Failed to update order status', error.message);
+      logger.error('Failed to update orders status', error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // Add items to order (update orderUpdateInfo)
-  addOrderItems: async (orderId, newItems) => {
+  // Add items to orders (update ordersUpdateInfo)
+  addordersItems: async (ordersId, newItems) => {
     try {
-      const { data: order, error: fetchError } = await supabase
-        .from('order')
-        .select('orderUpdateInfo')
-        .eq('orderId', orderId)
+      const { data: orders, error: fetchError } = await supabase
+        .from('orders')
+        .select('ordersUpdateInfo')
+        .eq('ordersId', ordersId)
         .single();
       
       if (fetchError) throw fetchError;
 
-      const updateInfo = order.orderUpdateInfo || [];
+      const updateInfo = orders.ordersUpdateInfo || [];
       updateInfo.push({
         timestamp: new Date().toISOString(),
         action: 'items_added',
@@ -302,33 +302,33 @@ export const orderService = {
       });
 
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .update({ 
-          orderUpdateInfo: updateInfo,
+          ordersUpdateInfo: updateInfo,
           updatedAt: new Date().toISOString()
         })
-        .eq('orderId', orderId)
+        .eq('ordersId', ordersId)
         .select();
       
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
-      logger.error('Failed to add order items', error.message);
+      logger.error('Failed to add orders items', error.message);
       return { success: false, error: error.message };
     }
   },
 
   // Mark payment as completed
-  markPaymentCompleted: async (orderId, paymentMethod) => {
+  markPaymentCompleted: async (ordersId, paymentMethod) => {
     try {
       const { data, error } = await supabase
-        .from('order')
+        .from('orders')
         .update({ 
           isPaymentCompleted: true,
           paymentMethod: paymentMethod,
           updatedAt: new Date().toISOString()
         })
-        .eq('orderId', orderId)
+        .eq('ordersId', ordersId)
         .select();
       
       if (error) throw error;

@@ -25,25 +25,25 @@ CREATE TABLE IF NOT EXISTS waiter (
 CREATE INDEX IF NOT EXISTS idx_waiter_mobile ON waiter(mobile);
 
 -- ============================================================================
--- 2. USER TABLE (Customers)
+-- 2. customer TABLE (Customers)
 -- ============================================================================
 -- Stores customer information
 -- Primary Key: mobile (phone number serves as unique identifier)
 -- Note: Each customer is identified by their mobile number
 
-CREATE TABLE IF NOT EXISTS "user" (
+CREATE TABLE IF NOT EXISTS "customer" (
   mobile VARCHAR(20) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   lastLogIn TIMESTAMP WITH TIME ZONE,
-  totalOrders INTEGER DEFAULT 0, -- Cached count for analytics
+  totalorders INTEGER DEFAULT 0, -- Cached count for analytics
   fcmToken VARCHAR(255), -- Firebase Cloud Messaging token for push notifications
   isActive BOOLEAN DEFAULT true,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index on email for lookups (if needed)
-CREATE INDEX IF NOT EXISTS idx_user_email ON "user"(email);
+-- Create index on mobile for lookups (if needed)
+CREATE INDEX IF NOT EXISTS idx_customer_mobile ON "customer"(mobile);
 
 -- ============================================================================
 -- 3. MENU TABLE (Dishes)
@@ -72,37 +72,37 @@ CREATE INDEX IF NOT EXISTS idx_menu_category ON menu(category);
 CREATE INDEX IF NOT EXISTS idx_menu_isAvailable ON menu(isAvailable);
 
 -- ============================================================================
--- 4. ORDER TABLE
+-- 4. orders TABLE
 -- ============================================================================
 -- Stores customer orders
--- Primary Key: orderId (UUID)
--- Foreign Keys: mobile (references user), waiterId (references waiter)
+-- Primary Key: ordersId (UUID)
+-- Foreign Keys: mobile (references customer), waiterId (references waiter)
 
-CREATE TABLE IF NOT EXISTS "order" (
-  orderId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mobile VARCHAR(20) NOT NULL REFERENCES "user"(mobile) ON DELETE CASCADE,
-  waiterId UUID NOT NULL REFERENCES waiter(waiterId) ON DELETE SET NULL,
-  orderStatus VARCHAR(50) DEFAULT 'ordering', -- Values: ordering, preparing, served, completed, cancelled
-  -- orderInfo stores initial order items in JSON format
+CREATE TABLE IF NOT EXISTS "orders" (
+  ordersId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mobile VARCHAR(20) NOT NULL REFERENCES "customer"(mobile) ON DELETE CASCADE,
+  waiterId UUID REFERENCES waiter(waiterId) ON DELETE SET NULL,
+  orderStatus VARCHAR(50) DEFAULT 'ordersing', -- Values: ordersing, preparing, served, completed, cancelled
+  -- ordersInfo stores initial orders items in JSON format
   -- Structure: [{dishId: UUID, quantity: number, remarks: string}]
-  orderInfo JSONB NOT NULL,
-  -- orderUpdateInfo tracks additional items added during order preparation
+  ordersInfo JSONB NOT NULL,
+  -- ordersUpdateInfo tracks additional items added during orders preparation
   -- Structure: [{timestamp: ISO string, action: string, items: [{dishId, quantity, remarks}]}]
-  orderUpdateInfo JSONB DEFAULT '[]'::jsonb,
+  ordersUpdateInfo JSONB DEFAULT '[]'::jsonb,
   totalAmount DECIMAL(10, 2),
   isPaymentCompleted BOOLEAN DEFAULT false,
   paymentMethod VARCHAR(50), -- Values: 'cash', 'online', 'upi'
   invoice VARCHAR(500), -- URL/path to PDF invoice
-  servedAt TIMESTAMP WITH TIME ZONE, -- When the order was served
+  servedAt TIMESTAMP WITH TIME ZONE, -- When the orders was served
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_order_mobile ON "order"(mobile);
-CREATE INDEX IF NOT EXISTS idx_order_waiterId ON "order"(waiterId);
-CREATE INDEX IF NOT EXISTS idx_order_status ON "order"(orderStatus);
-CREATE INDEX IF NOT EXISTS idx_order_createdAt ON "order"(createdAt DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_mobile ON "orders"(mobile);
+CREATE INDEX IF NOT EXISTS idx_orders_waiterId ON "orders"(waiterId);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON "orders"(orderStatus);
+CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON "orders"(createdAt DESC);
 
 -- ============================================================================
 -- 5. Admins
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS admin (
 -- NOTES FOR DEVELOPERS
 -- ============================================================================
 -- 1. All timestamps are in UTC (WITH TIME ZONE)
--- 2. JSONB is used for flexible data storage (orderInfo, orderUpdateInfo)
+-- 2. JSONB is used for flexible data storage (ordersInfo, ordersUpdateInfo)
 -- 3. Password field should store bcrypt hashed values only
 -- 4. Foreign key constraints ensure data integrity
 -- 5. Indexes improve query performance for frequent lookups

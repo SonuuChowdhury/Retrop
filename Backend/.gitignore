@@ -11,3 +11,6 @@ yarn-error.log*
 .DS_Store
 DATABASE_DESIGN_SUMMARY.md
 DATABASE_SETUP.md
+context.py
+output.txt
+output.md
