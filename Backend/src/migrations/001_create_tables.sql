@@ -12,17 +12,17 @@
 -- Unique Constraint: mobile (used for login)
 
 CREATE TABLE IF NOT EXISTS waiter (
-  waiterId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  waiterName VARCHAR(255) NOT NULL,
-  mobile VARCHAR(20) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL, -- Store hashed password only
-  isActive BOOLEAN DEFAULT true,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  "waiterId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "waiterName" VARCHAR(255) NOT NULL,
+  "mobile" VARCHAR(20) UNIQUE NOT NULL,
+  "password" VARCHAR(255) NOT NULL, -- Store hashed password only
+  "isActive" BOOLEAN DEFAULT true,
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index on mobile for faster lookups during login
-CREATE INDEX IF NOT EXISTS idx_waiter_mobile ON waiter(mobile);
+CREATE INDEX IF NOT EXISTS idx_waiter_mobile ON waiter("mobile");
 
 -- ============================================================================
 -- 2. customer TABLE (Customers)
@@ -32,18 +32,18 @@ CREATE INDEX IF NOT EXISTS idx_waiter_mobile ON waiter(mobile);
 -- Note: Each customer is identified by their mobile number
 
 CREATE TABLE IF NOT EXISTS "customer" (
-  mobile VARCHAR(20) PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  lastLogIn TIMESTAMP WITH TIME ZONE,
-  totalorders INTEGER DEFAULT 0, -- Cached count for analytics
-  fcmToken VARCHAR(255), -- Firebase Cloud Messaging token for push notifications
-  isActive BOOLEAN DEFAULT true,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  "mobile" VARCHAR(20) PRIMARY KEY,
+  "name" VARCHAR(255) NOT NULL,
+  "lastLogIn" TIMESTAMP WITH TIME ZONE,
+  "totalorders" INTEGER DEFAULT 0, -- Cached count for analytics
+  "fcmToken" VARCHAR(255), -- Firebase Cloud Messaging token for push notifications
+  "isActive" BOOLEAN DEFAULT true,
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index on mobile for lookups (if needed)
-CREATE INDEX IF NOT EXISTS idx_customer_mobile ON "customer"(mobile);
+CREATE INDEX IF NOT EXISTS idx_customer_mobile ON "customer"("mobile");
 
 -- ============================================================================
 -- 3. MENU TABLE (Dishes)
@@ -53,23 +53,23 @@ CREATE INDEX IF NOT EXISTS idx_customer_mobile ON "customer"(mobile);
 -- Tracks availability and preparation time
 
 CREATE TABLE IF NOT EXISTS menu (
-  dishId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  dishName VARCHAR(255) NOT NULL,
-  price DECIMAL(10, 2) NOT NULL,
-  isAvailable BOOLEAN DEFAULT true,
-  category VARCHAR(100), -- e.g., 'Appetizer', 'Main Course', 'Dessert'
-  description TEXT,
-  imageUrl VARCHAR(500), -- URL to dish image
-  preparationTime INTEGER DEFAULT 15, -- Time in minutes to prepare
-  spicyLevel VARCHAR(50), -- e.g., 'Mild', 'Medium', 'Spicy'
-  isVegetarian BOOLEAN DEFAULT false,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  "dishId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "dishName" VARCHAR(255) NOT NULL,
+  "price" DECIMAL(10, 2) NOT NULL,
+  "isAvailable" BOOLEAN DEFAULT true,
+  "category" VARCHAR(100), -- e.g., 'Appetizer', 'Main Course', 'Dessert'
+  "description" TEXT,
+  "imageUrl" VARCHAR(500), -- URL to dish image
+  "preparationTime" INTEGER DEFAULT 15, -- Time in minutes to prepare
+  "spicyLevel" VARCHAR(50), -- e.g., 'Mild', 'Medium', 'Spicy'
+  "isVegetarian" BOOLEAN DEFAULT false,
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index on category for filtering
-CREATE INDEX IF NOT EXISTS idx_menu_category ON menu(category);
-CREATE INDEX IF NOT EXISTS idx_menu_isAvailable ON menu(isAvailable);
+CREATE INDEX IF NOT EXISTS idx_menu_category ON menu("category");
+CREATE INDEX IF NOT EXISTS idx_menu_isAvailable ON menu("isAvailable");
 
 -- ============================================================================
 -- 4. orders TABLE
@@ -79,47 +79,30 @@ CREATE INDEX IF NOT EXISTS idx_menu_isAvailable ON menu(isAvailable);
 -- Foreign Keys: mobile (references customer), waiterId (references waiter)
 
 CREATE TABLE IF NOT EXISTS "orders" (
-  ordersId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mobile VARCHAR(20) NOT NULL REFERENCES "customer"(mobile) ON DELETE CASCADE,
-  waiterId UUID REFERENCES waiter(waiterId) ON DELETE SET NULL,
-  orderStatus VARCHAR(50) DEFAULT 'ordersing', -- Values: ordersing, preparing, served, completed, cancelled
+  "ordersId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "mobile" VARCHAR(20) NOT NULL REFERENCES "customer"("mobile") ON DELETE CASCADE,
+  "waiterId" UUID REFERENCES waiter("waiterId") ON DELETE SET NULL,
+  "orderStatus" VARCHAR(50) DEFAULT 'ordersing', -- Values: ordersing, preparing, served, completed, cancelled
   -- ordersInfo stores initial orders items in JSON format
   -- Structure: [{dishId: UUID, quantity: number, remarks: string}]
-  ordersInfo JSONB NOT NULL,
+  "ordersInfo" JSONB NOT NULL,
   -- ordersUpdateInfo tracks additional items added during orders preparation
   -- Structure: [{timestamp: ISO string, action: string, items: [{dishId, quantity, remarks}]}]
-  ordersUpdateInfo JSONB DEFAULT '[]'::jsonb,
-  totalAmount DECIMAL(10, 2),
-  isPaymentCompleted BOOLEAN DEFAULT false,
-  paymentMethod VARCHAR(50), -- Values: 'cash', 'online', 'upi'
-  invoice VARCHAR(500), -- URL/path to PDF invoice
-  servedAt TIMESTAMP WITH TIME ZONE, -- When the orders was served
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  "ordersUpdateInfo" JSONB DEFAULT '[]'::jsonb,
+  "totalAmount" DECIMAL(10, 2),
+  "isPaymentCompleted" BOOLEAN DEFAULT false,
+  "paymentMethod" VARCHAR(50), -- Values: 'cash', 'online', 'upi'
+  "invoice" VARCHAR(500), -- URL/path to PDF invoice
+  "servedAt" TIMESTAMP WITH TIME ZONE, -- When the orders was served
+  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_orders_mobile ON "orders"(mobile);
-CREATE INDEX IF NOT EXISTS idx_orders_waiterId ON "orders"(waiterId);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON "orders"(orderStatus);
-CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON "orders"(createdAt DESC);
-
--- ============================================================================
--- 5. Admins
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS admin (
-  adminId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  role VARCHAR(50) NOT NULL, -- e.g., 'owner', 'manager'
-  adminName VARCHAR(255) NOT NULL,
-  mobile VARCHAR(20) UNIQUE NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL, -- Store hashed password only
-  isActive BOOLEAN DEFAULT true,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
+CREATE INDEX IF NOT EXISTS idx_orders_mobile ON "orders"("mobile");
+CREATE INDEX IF NOT EXISTS idx_orders_waiterId ON "orders"("waiterId");
+CREATE INDEX IF NOT EXISTS idx_orders_status ON "orders"("orderStatus");
+CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON "orders"("createdAt" DESC);
 
 -- ============================================================================
 -- NOTES FOR DEVELOPERS

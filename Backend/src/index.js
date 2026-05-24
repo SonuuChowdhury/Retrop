@@ -1,17 +1,18 @@
+import './config/env.js';
+// ===== THEN IMPORT OTHER MODULES =====
 import express from 'express';
-import { SERVER_CONFIG } from './src/config/constants.js';
-import { helmetMiddleware, generalLimiter } from './src/middleware/security.js';
-import routes from './src/routes/index.js';
-import { logger } from './src/utils/logger.js';
-import { testSupabaseConnection } from './src/config/supabase.js';
-import dotenv from 'dotenv';
-
-dotenv.config({silent: true});
+import { SERVER_CONFIG } from './config/constants.js';
+import { helmetMiddleware, generalLimiter } from './middleware/security.js';
+import router from './routes/routes.js';
+import { logger } from './utils/logger.js';
+import { testSupabaseConnection } from './config/supabase.js';
 
 const app = express();
 
 // ===== Security Middleware =====
+// Helmet - protects against common vulnerabilities
 app.use(helmetMiddleware);
+
 // Rate Limiting - protects against DDoS attacks
 app.use(generalLimiter);
 
@@ -26,7 +27,7 @@ app.use((req, res, next) => {
 });
 
 // ===== Routes =====
-app.use('/', routes);
+app.use(router)
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -38,12 +39,13 @@ app.use((err, req, res, next) => {
 });
 
 // ===== Start Server =====
-app.listen(SERVER_CONFIG.PORT, async () => {
+const server = app.listen(SERVER_CONFIG.PORT, async () => {
   logger.info(`🚀 Server running on port ${SERVER_CONFIG.PORT}`);
   logger.info(`📋 Environment: ${SERVER_CONFIG.NODE_ENV}`);
   logger.info('✓ Helmet security middleware enabled');
   logger.info('✓ Rate limiting enabled (100 requests per 15 min)');
   logger.info('✓ Strict rate limiting on /login (5 requests per 15 min)');
+  logger.info('✓ Admin authentication system initialized');
   
   // Test Supabase connection on startup
   const dbConnected = await testSupabaseConnection();
