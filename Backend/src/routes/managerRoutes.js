@@ -28,6 +28,18 @@ import {
   updateTableCapacity,
 } from '../controllers/managerController.js';
 
+import {
+  getAllMenuItems,
+  getMenuItemById,
+  getMenuCategories,
+  addMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  toggleMenuItemAvailability,
+  toggleCategoryAvailability,
+  getMenuStats,
+} from '../controllers/menuController.js';
+
 const router = express.Router();
 
 // ============================================================================
@@ -71,5 +83,18 @@ router.get('/tables/:tableNo', getTableDetails);
 router.post('/tables', addTable);
 router.delete('/tables/:tableNo', deleteTable);
 router.patch('/tables/:tableNo/capacity', updateTableCapacity);
+
+// ============================================================================
+// MENU MANAGEMENT ROUTES
+// ============================================================================
+router.get('/menu', getAllMenuItems);
+router.get('/menu/categories', getMenuCategories);
+router.get('/menu/stats', getMenuStats);
+router.get('/menu/:dishId', getMenuItemById);
+router.post('/menu', addMenuItem);
+router.put('/menu/:dishId', updateMenuItem);
+router.delete('/menu/:dishId', deleteMenuItem);
+router.patch('/menu/:dishId/availability', toggleMenuItemAvailability);
+router.patch('/menu/category/:category/availability', toggleCategoryAvailability);
 
 export default router;
