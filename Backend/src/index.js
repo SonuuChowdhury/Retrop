@@ -3,7 +3,10 @@ import './config/env.js';
 import express from 'express';
 import { SERVER_CONFIG } from './config/constants.js';
 import { helmetMiddleware, generalLimiter } from './middleware/security.js';
+import { authMiddleware, requireRole } from './middleware/auth.js';
 import router from './routes/routes.js';
+import managerRoutes from './routes/managerRoutes.js';
+import { setupSocket } from './config/socket.js';
 import { logger } from './utils/logger.js';
 import { testSupabaseConnection } from './config/supabase.js';
 
@@ -27,7 +30,10 @@ app.use((req, res, next) => {
 });
 
 // ===== Routes =====
-app.use(router)
+app.use(router);
+
+// ===== Protected Manager Routes =====
+app.use('/api/manager', authMiddleware, requireRole(['owner', 'manager']), managerRoutes);
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -38,7 +44,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ===== Start Server =====
+// ===== Start Server with Socket.io =====
 const server = app.listen(SERVER_CONFIG.PORT, async () => {
   logger.info(`🚀 Server running on port ${SERVER_CONFIG.PORT}`);
   logger.info(`📋 Environment: ${SERVER_CONFIG.NODE_ENV}`);
@@ -46,6 +52,8 @@ const server = app.listen(SERVER_CONFIG.PORT, async () => {
   logger.info('✓ Rate limiting enabled (100 requests per 15 min)');
   logger.info('✓ Strict rate limiting on /login (5 requests per 15 min)');
   logger.info('✓ Admin authentication system initialized');
+  logger.info('✓ Manager dashboard endpoints initialized');
+  logger.info('✓ WebSocket (Socket.io) connection ready');
   
   // Test Supabase connection on startup
   const dbConnected = await testSupabaseConnection();
@@ -54,6 +62,19 @@ const server = app.listen(SERVER_CONFIG.PORT, async () => {
   } else {
     logger.warn('⚠ Database connection failed - check credentials');
   }
+});
+
+// ===== Setup Socket.io =====
+const io = setupSocket(server);
+
+// ===== Graceful Shutdown =====
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    io.close();
+    process.exit(0);
+  });
 });
 
 export default app;

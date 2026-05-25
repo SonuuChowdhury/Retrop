@@ -1,19 +1,18 @@
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
+import { nowIST } from '../utils/time.js';
 
 // ============================================================================
 // WAITER SERVICE
 // ============================================================================
 
 export const waiterService = {
-  // Create new waiter
   create: async (waiterData) => {
     try {
       const { data, error } = await supabase
         .from('waiter')
         .insert([waiterData])
         .select();
-      
       if (error) throw error;
       logger.debug('Waiter created:', data[0]?.waiterId);
       return { success: true, data: data[0] };
@@ -23,7 +22,6 @@ export const waiterService = {
     }
   },
 
-  // Get waiter by mobile
   getByMobile: async (mobile) => {
     try {
       const { data, error } = await supabase
@@ -31,7 +29,6 @@ export const waiterService = {
         .select('*')
         .eq('mobile', mobile)
         .single();
-      
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
@@ -40,14 +37,12 @@ export const waiterService = {
     }
   },
 
-  // Get all active waiters
   getAll: async () => {
     try {
       const { data, error } = await supabase
         .from('waiter')
         .select('*')
         .eq('isActive', true);
-      
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -58,18 +53,16 @@ export const waiterService = {
 };
 
 // ============================================================================
-// customer SERVICE
+// CUSTOMER SERVICE
 // ============================================================================
 
 export const customerService = {
-  // Create new customer
   create: async (customerData) => {
     try {
       const { data, error } = await supabase
         .from('customer')
         .insert([customerData])
         .select();
-      
       if (error) throw error;
       logger.debug('customer created:', customerData.mobile);
       return { success: true, data: data[0] };
@@ -79,7 +72,6 @@ export const customerService = {
     }
   },
 
-  // Get customer by mobile
   getByMobile: async (mobile) => {
     try {
       const { data, error } = await supabase
@@ -87,7 +79,6 @@ export const customerService = {
         .select('*')
         .eq('mobile', mobile)
         .single();
-      
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
@@ -96,15 +87,14 @@ export const customerService = {
     }
   },
 
-  // Update customer last login
+  // FIX: use IST timestamp for lastLogIn
   updateLastLogin: async (mobile) => {
     try {
       const { data, error } = await supabase
         .from('customer')
-        .update({ lastLogIn: new Date().toISOString() })
+        .update({ lastLogIn: nowIST() })
         .eq('mobile', mobile)
         .select();
-      
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -118,15 +108,13 @@ export const customerService = {
 // MENU SERVICE
 // ============================================================================
 
-export const mencustomervice = {
-  // Create new menu item
+export const menuService = {
   create: async (menuData) => {
     try {
       const { data, error } = await supabase
         .from('menu')
         .insert([menuData])
         .select();
-      
       if (error) throw error;
       logger.debug('Menu item created:', data[0]?.dishId);
       return { success: true, data: data[0] };
@@ -136,15 +124,14 @@ export const mencustomervice = {
     }
   },
 
-  // Get all available menu items
+  // FIX: .orders() → .order()
   getAllAvailable: async () => {
     try {
       const { data, error } = await supabase
         .from('menu')
         .select('*')
         .eq('isAvailable', true)
-        .orders('category', { ascending: true });
-      
+        .order('category', { ascending: true });
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -153,7 +140,6 @@ export const mencustomervice = {
     }
   },
 
-  // Get menu by category
   getByCategory: async (category) => {
     try {
       const { data, error } = await supabase
@@ -161,7 +147,6 @@ export const mencustomervice = {
         .select('*')
         .eq('category', category)
         .eq('isAvailable', true);
-      
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -170,7 +155,6 @@ export const mencustomervice = {
     }
   },
 
-  // Get dish by ID
   getById: async (dishId) => {
     try {
       const { data, error } = await supabase
@@ -178,7 +162,6 @@ export const mencustomervice = {
         .select('*')
         .eq('dishId', dishId)
         .single();
-      
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
@@ -189,18 +172,16 @@ export const mencustomervice = {
 };
 
 // ============================================================================
-// orders SERVICE
+// ORDER SERVICE
 // ============================================================================
 
 export const orderService = {
-  // Create new orders
   create: async (ordersData) => {
     try {
       const { data, error } = await supabase
         .from('orders')
         .insert([ordersData])
         .select();
-      
       if (error) throw error;
       logger.debug('orders created:', data[0]?.ordersId);
       return { success: true, data: data[0] };
@@ -210,7 +191,6 @@ export const orderService = {
     }
   },
 
-  // Get orders by ID
   getById: async (ordersId) => {
     try {
       const { data, error } = await supabase
@@ -218,7 +198,6 @@ export const orderService = {
         .select('*')
         .eq('ordersId', ordersId)
         .single();
-      
       if (error && error.code !== 'PGRST116') throw error;
       return { success: true, data };
     } catch (error) {
@@ -227,15 +206,14 @@ export const orderService = {
     }
   },
 
-  // Get orders by customer mobile
+  // FIX: .orders() → .order()
   getByMobile: async (mobile) => {
     try {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .eq('mobile', mobile)
-        .orders('createdAt', { ascending: false });
-      
+        .order('createdAt', { ascending: false });
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -244,7 +222,7 @@ export const orderService = {
     }
   },
 
-  // Get orders by waiter ID
+  // FIX: .orders() → .order()
   getByWaiterId: async (waiterId) => {
     try {
       const { data, error } = await supabase
@@ -252,8 +230,7 @@ export const orderService = {
         .select('*')
         .eq('waiterId', waiterId)
         .neq('orderStatus', 'completed')
-        .orders('createdAt', { ascending: false });
-      
+        .order('createdAt', { ascending: false });
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -262,19 +239,18 @@ export const orderService = {
     }
   },
 
-  // Update orders status
+  // FIX: use IST timestamps for updatedAt and servedAt
   updateStatus: async (ordersId, newStatus) => {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .update({ 
+        .update({
           orderStatus: newStatus,
-          updatedAt: new Date().toISOString(),
-          ...(newStatus === 'served' && { servedAt: new Date().toISOString() })
+          updatedAt: nowIST(),
+          ...(newStatus === 'served' && { servedAt: nowIST() }),
         })
         .eq('ordersId', ordersId)
         .select();
-      
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -283,33 +259,28 @@ export const orderService = {
     }
   },
 
-  // Add items to orders (update ordersUpdateInfo)
-  addordersItems: async (ordersId, newItems) => {
+  // FIX: use IST timestamp for update info timestamps
+  addOrderItems: async (ordersId, newItems) => {
     try {
       const { data: orders, error: fetchError } = await supabase
         .from('orders')
         .select('ordersUpdateInfo')
         .eq('ordersId', ordersId)
         .single();
-      
       if (fetchError) throw fetchError;
 
       const updateInfo = orders.ordersUpdateInfo || [];
       updateInfo.push({
-        timestamp: new Date().toISOString(),
+        timestamp: nowIST(),
         action: 'items_added',
-        items: newItems
+        items: newItems,
       });
 
       const { data, error } = await supabase
         .from('orders')
-        .update({ 
-          ordersUpdateInfo: updateInfo,
-          updatedAt: new Date().toISOString()
-        })
+        .update({ ordersUpdateInfo: updateInfo, updatedAt: nowIST() })
         .eq('ordersId', ordersId)
         .select();
-      
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -318,19 +289,18 @@ export const orderService = {
     }
   },
 
-  // Mark payment as completed
+  // FIX: use IST timestamp
   markPaymentCompleted: async (ordersId, paymentMethod) => {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .update({ 
+        .update({
           isPaymentCompleted: true,
-          paymentMethod: paymentMethod,
-          updatedAt: new Date().toISOString()
+          paymentMethod,
+          updatedAt: nowIST(),
         })
         .eq('ordersId', ordersId)
         .select();
-      
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {

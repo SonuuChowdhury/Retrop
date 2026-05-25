@@ -9,8 +9,8 @@ const LogLevel = {
 
 const colorize = (level) => {
   const colors = {
-    INFO: '\x1b[36m', // Cyan
-    WARN: '\x1b[33m', // Yellow
+    INFO: '\x1b[36m',  // Cyan
+    WARN: '\x1b[33m',  // Yellow
     ERROR: '\x1b[31m', // Red
     DEBUG: '\x1b[35m', // Magenta
     RESET: '\x1b[0m',
@@ -22,7 +22,7 @@ const colorize = (level) => {
 const getISTTimestamp = () => {
   const now = new Date();
   const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-  return istTime.toISOString().replace('Z', ' IST');
+  return istTime.toISOString().replace('Z', '+05:30');
 };
 
 export const logger = {
