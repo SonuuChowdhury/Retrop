@@ -1,14 +1,15 @@
 import './config/env.js';
 // ===== THEN IMPORT OTHER MODULES =====
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { SERVER_CONFIG } from './config/constants.js';
 import { helmetMiddleware, generalLimiter } from './middleware/security.js';
-import { authMiddleware, requireRole } from './middleware/auth.js';
 import router from './routes/routes.js';
-import managerRoutes from './routes/managerRoutes.js';
-import { setupSocket } from './config/socket.js';
 import { logger } from './utils/logger.js';
 import { testSupabaseConnection } from './config/supabase.js';
+import { notFound } from './controllers/healthController.js';
+import { socketService } from './services/socketService.js';
 
 const app = express();
 
@@ -20,8 +21,19 @@ app.use(helmetMiddleware);
 app.use(generalLimiter);
 
 // ===== Body Parser Middleware =====
+// JSON body (for most endpoints + base64 image uploads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Raw binary body for direct image uploads
+// This allows the image upload endpoint to receive raw bytes
+// when the client sends Content-Type: image/*
+app.use(
+  express.raw({
+    type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    limit: '6mb', // slightly above 5MB to give a clean error rather than a truncation
+  })
+);
 
 // ===== Request Logging Middleware =====
 app.use((req, res, next) => {
@@ -32,8 +44,7 @@ app.use((req, res, next) => {
 // ===== Routes =====
 app.use(router);
 
-// ===== Protected Manager Routes =====
-app.use('/api/manager', authMiddleware, requireRole(['owner', 'manager']), managerRoutes);
+router.use(notFound);
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -45,7 +56,23 @@ app.use((err, req, res, next) => {
 });
 
 // ===== Start Server with Socket.io =====
-const server = app.listen(SERVER_CONFIG.PORT, async () => {
+const httpServer = createServer(app);
+
+// Initialize Socket.io with CORS configuration
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+    credentials: false,
+    allowedHeaders: ['authorization'],
+  },
+  transports: ['websocket', 'polling'],
+});
+
+// Initialize socket connection handlers
+socketService.initializeSocket(io);
+
+const server = httpServer.listen(SERVER_CONFIG.PORT, async () => {
   logger.info(`🚀 Server running on port ${SERVER_CONFIG.PORT}`);
   logger.info(`📋 Environment: ${SERVER_CONFIG.NODE_ENV}`);
   logger.info('✓ Helmet security middleware enabled');
@@ -53,8 +80,9 @@ const server = app.listen(SERVER_CONFIG.PORT, async () => {
   logger.info('✓ Strict rate limiting on /login (5 requests per 15 min)');
   logger.info('✓ Admin authentication system initialized');
   logger.info('✓ Manager dashboard endpoints initialized');
-  logger.info('✓ WebSocket (Socket.io) connection ready');
-  
+  logger.info('✓ WebSocket (Socket.io) server initialized and running');
+  logger.info('✓ Menu image upload (Supabase Storage) enabled');
+
   // Test Supabase connection on startup
   const dbConnected = await testSupabaseConnection();
   if (dbConnected) {
@@ -64,15 +92,19 @@ const server = app.listen(SERVER_CONFIG.PORT, async () => {
   }
 });
 
-// ===== Setup Socket.io =====
-const io = setupSocket(server);
-
 // ===== Graceful Shutdown =====
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  
+  // Close socket service and all active sessions
+  await socketService.closeService();
+  
+  // Close Socket.io
+  io.close();
+  
+  // Close HTTP server
   server.close(() => {
     logger.info('HTTP server closed');
-    io.close();
     process.exit(0);
   });
 });

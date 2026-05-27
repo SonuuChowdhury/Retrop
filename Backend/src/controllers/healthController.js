@@ -16,14 +16,6 @@ export const getHealth = (req, res) => {
   });
 };
 
-export const handleLogin = (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    message: 'Login endpoint with strict rate limiting enabled',
-    timestamp: getIndianISOTime(),
-  });
-};
-
 export const notFound = (req, res) => {
   res.status(404).json({
     status: 'error',
