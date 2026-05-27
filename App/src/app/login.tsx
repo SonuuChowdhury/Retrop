@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
@@ -16,6 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenAnimationWrapper } from '@/components/ScreenAnimationWrapper';
 import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 type Role = 'waiter' | 'manager' | 'kitchen';
 
@@ -29,6 +31,7 @@ export default function LoginScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { login } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<Role>('waiter');
   const [mobile, setMobile] = useState('');
@@ -36,6 +39,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mobileError, setMobileError] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [touched, setTouched] = useState({ mobile: false, uuid: false, password: false });
 
   const handleRoleSwitch = (role: Role) => {
@@ -44,6 +49,7 @@ export default function LoginScreen() {
     setUuid('');
     setPassword('');
     setMobileError('');
+    setLoginError('');
     setShowPassword(false);
     setTouched({ mobile: false, uuid: false, password: false });
   };
@@ -55,9 +61,9 @@ export default function LoginScreen() {
   };
 
   const handleMobileChange = (value: string) => {
-    // Only allow digits, max 10
     const cleaned = value.replace(/\D/g, '').slice(0, 10);
     setMobile(cleaned);
+    setLoginError('');
     if (touched.mobile) {
       setMobileError(validateMobile(cleaned));
     }
@@ -68,18 +74,46 @@ export default function LoginScreen() {
     setMobileError(validateMobile(mobile));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setLoginError('');
     const newTouched = { mobile: true, uuid: true, password: true };
     setTouched(newTouched);
 
-    if (selectedRole !== 'kitchen') {
-      const err = validateMobile(mobile);
-      setMobileError(err);
-      if (err) return;
+    // Kitchen role — not yet implemented
+    if (selectedRole === 'kitchen') {
+      setLoginError('Kitchen login is not available yet.');
+      return;
     }
 
-    // TODO: connect to auth API in next step
-    console.log('Login pressed:', { role: selectedRole, mobile, uuid, password });
+    // Waiter role — not yet implemented via this screen
+    if (selectedRole === 'waiter') {
+      setLoginError('Waiter login is not available via this screen.');
+      return;
+    }
+
+    // Manager login
+    const err = validateMobile(mobile);
+    setMobileError(err);
+    if (err) return;
+
+    if (!password) {
+      setLoginError('Password is required.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await login(mobile, password);
+      if (result.success) {
+        router.replace('/manager/dashboard');
+      } else {
+        setLoginError(result.message ?? 'Login failed. Please try again.');
+      }
+    } catch {
+      setLoginError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const c = theme.colors;
@@ -202,6 +236,7 @@ export default function LoginScreen() {
                       onChangeText={handleMobileChange}
                       onBlur={handleMobileBlur}
                       returnKeyType="next"
+                      editable={!isLoading}
                     />
                     {mobile.length === 10 && !mobileError && (
                       <MaterialCommunityIcons name="check-circle" size={18} color={c.success} />
@@ -243,6 +278,7 @@ export default function LoginScreen() {
                       value={uuid}
                       onChangeText={setUuid}
                       returnKeyType="next"
+                      editable={!isLoading}
                     />
                   </View>
                 </View>
@@ -269,13 +305,15 @@ export default function LoginScreen() {
                     placeholderTextColor={c.textSecondary + '80'}
                     secureTextEntry={!showPassword}
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={(v) => { setPassword(v); setLoginError(''); }}
                     returnKeyType="done"
                     onSubmitEditing={handleSubmit}
+                    editable={!isLoading}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword((prev) => !prev)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    disabled={isLoading}
                   >
                     <MaterialCommunityIcons
                       name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -285,20 +323,35 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+
+              {/* Login Error Banner */}
+              {loginError ? (
+                <View style={[styles.loginErrorBanner, { backgroundColor: c.error + '12', borderColor: c.error + '30' }]}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={15} color={c.error} />
+                  <Text style={[styles.loginErrorText, { color: c.error }]}>{loginError}</Text>
+                </View>
+              ) : null}
             </View>
 
             {/* Login Button */}
             <Pressable
               onPress={handleSubmit}
+              disabled={isLoading}
               style={({ pressed }) => [
                 styles.loginButton,
-                { backgroundColor: c.primary, opacity: pressed ? 0.85 : 1 },
+                { backgroundColor: c.primary, opacity: pressed || isLoading ? 0.75 : 1 },
               ]}
             >
-              <Text style={[styles.loginButtonText, { color: c.buttonText }]}>
-                Sign In as {ROLES.find((r) => r.key === selectedRole)?.label}
-              </Text>
-              <MaterialCommunityIcons name="arrow-right" size={20} color={c.buttonText} />
+              {isLoading ? (
+                <ActivityIndicator size="small" color={c.buttonText} />
+              ) : (
+                <>
+                  <Text style={[styles.loginButtonText, { color: c.buttonText }]}>
+                    Sign In as {ROLES.find((r) => r.key === selectedRole)?.label}
+                  </Text>
+                  <MaterialCommunityIcons name="arrow-right" size={20} color={c.buttonText} />
+                </>
+              )}
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -398,9 +451,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  fieldGroup: {
-    // spacing handled per instance
-  },
+  fieldGroup: {},
   label: {
     fontSize: 12,
     fontWeight: '600',
@@ -440,6 +491,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 5,
     textAlign: 'right',
+  },
+  loginErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  loginErrorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
 
   // Login Button
