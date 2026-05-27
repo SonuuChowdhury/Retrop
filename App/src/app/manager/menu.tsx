@@ -93,7 +93,7 @@ function DishFormModal({
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo library access.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true, aspect: [4, 3], quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
@@ -102,18 +102,44 @@ function DishFormModal({
     }
   };
 
+  // FIX: Use base64 JSON upload instead of FormData/object body
+  // which causes "Unsupported BodyInit type" error in Expo's fetch
   const uploadImage = async (dishId: string, uri: string) => {
-    const filename = uri.split('/').pop() ?? 'photo.jpg';
-    const formData = new FormData();
-    formData.append('image', { uri, name: filename, type: imageMime } as any);
-    const headers = getAuthHeaders();
-    delete (headers as any)['Content-Type'];
-    const res = await fetch(ENDPOINTS.MENU_ITEM_IMAGE(dishId), {
-      method: 'POST',
-      headers: { ...headers, 'X-File-Name': filename, 'Content-Type': imageMime },
-      body: { uri, name: filename, type: imageMime } as any,
-    });
-    return res.json();
+    try {
+      // Read file as base64
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          // Strip data URI prefix: "data:image/jpeg;base64,..."
+          const base64Data = result.includes(',') ? result.split(',')[1] : result;
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const filename = uri.split('/').pop() ?? 'photo.jpg';
+      const headers = getAuthHeaders();
+      // Content-Type must be application/json for base64 upload
+      headers['Content-Type'] = 'application/json';
+
+      const res = await fetch(ENDPOINTS.MENU_ITEM_IMAGE(dishId), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          image: base64,
+          mimeType: imageMime,
+          fileName: filename,
+        }),
+      });
+      return res.json();
+    } catch (err) {
+      console.error('Image upload error:', err);
+      throw err;
+    }
   };
 
   const handleSave = async () => {
@@ -140,13 +166,11 @@ function DishFormModal({
         const res = await fetch(ENDPOINTS.MENU_ITEM(dishId), {
           method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body),
         });
-        // Guard against non-JSON
         const ct = res.headers.get('content-type') ?? '';
         if (!ct.includes('application/json')) { setError('Server error. Try again.'); setLoading(false); return; }
         const json = await res.json();
         if (json?.status !== 'success') { setError(json?.message ?? 'Update failed.'); setLoading(false); return; }
       } else {
-        // FIX #9: POST to add dish — guard content-type to detect server errors
         const res = await fetch(ENDPOINTS.MENU, {
           method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body),
         });
@@ -173,8 +197,6 @@ function DishFormModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      {/* FIX #8: KeyboardAvoidingView wraps the modal so keyboard doesn't cover inputs.
-          Using flex:1 to take up available space */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={[styles.modalOverlay, { flex: 1 }]}
@@ -183,9 +205,6 @@ function DishFormModal({
         <View style={[styles.formModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>{isEdit ? 'Edit Dish' : 'Add New Dish'}</Text>
 
-          {/* FIX #8: ScrollView with keyboardShouldPersistTaps ensures scroll works
-              even when keyboard is open and you tap on a non-input area. 
-              Removed maxHeight to allow proper scrolling. */}
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -344,13 +363,116 @@ function DishCard({ item, onEdit, onToggle, onDelete, colors }: {
 }
 
 // ============================================================================
+// DROPDOWN COMPONENT
+// ============================================================================
+
+function FilterDropdown({
+  label,
+  options,
+  selected,
+  onSelect,
+  colors,
+  activeColor,
+}: {
+  label: string;
+  options: { value: string | null; label: string }[];
+  selected: string | null | boolean;
+  onSelect: (val: any) => void;
+  colors: any;
+  activeColor?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find(
+    (o) => o.value === selected || (o.value === String(selected) && selected !== null)
+  )?.label;
+  const isActive = selected !== null && selected !== undefined;
+  const accentColor = activeColor ?? colors.primary;
+
+  return (
+    <View style={{ position: 'relative' }}>
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        style={[
+          styles.dropdownBtn,
+          {
+            backgroundColor: isActive ? accentColor + '15' : colors.inputBackground,
+            borderColor: isActive ? accentColor : colors.border,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.dropdownBtnText,
+            { color: isActive ? accentColor : colors.textSecondary },
+          ]}
+          numberOfLines={1}
+        >
+          {isActive && selectedLabel ? selectedLabel : label}
+        </Text>
+        <MaterialCommunityIcons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={isActive ? accentColor : colors.textSecondary}
+        />
+      </Pressable>
+
+      {open && (
+        <View
+          style={[
+            styles.dropdownMenu,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          {options.map((opt) => {
+            const isSelected =
+              opt.value === selected ||
+              (opt.value !== null && opt.value === String(selected));
+            return (
+              <Pressable
+                key={opt.value ?? '__null__'}
+                onPress={() => {
+                  onSelect(opt.value);
+                  setOpen(false);
+                }}
+                style={[
+                  styles.dropdownItem,
+                  {
+                    backgroundColor: isSelected ? accentColor + '15' : 'transparent',
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                {isSelected && (
+                  <MaterialCommunityIcons name="check" size={14} color={accentColor} />
+                )}
+                <Text
+                  style={[
+                    styles.dropdownItemText,
+                    {
+                      color: isSelected ? accentColor : colors.text,
+                      fontWeight: isSelected ? '700' : '500',
+                      marginLeft: isSelected ? 0 : 18,
+                    },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ============================================================================
 // MAIN SCREEN
 // ============================================================================
 
 export default function MenuScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
-  // FIX #1: Use insets for paddingTop — no SafeAreaView
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -380,16 +502,15 @@ export default function MenuScreen() {
         fetch(buildUrl(), { headers: getAuthHeaders() }),
         fetch(ENDPOINTS.MENU_CATEGORIES, { headers: getAuthHeaders() }),
       ]);
-      
-      // Check content-type
+
       const mContentType = mRes.headers.get('content-type') ?? '';
       const cContentType = cRes.headers.get('content-type') ?? '';
-      
+
       if (!mContentType.includes('application/json') || !cContentType.includes('application/json')) {
         setFetchError('Server returned an unexpected response. Check your connection.');
         return;
       }
-      
+
       const [mJson, cJson] = await Promise.all([mRes.json(), cRes.json()]);
       if (mJson?.status === 'success') setItems(mJson.data ?? []);
       else setFetchError(mJson?.message ?? 'Failed to load menu.');
@@ -433,8 +554,20 @@ export default function MenuScreen() {
     ]);
   };
 
+  const isAllActive = filterAvail === null && filterCat === null;
+
+  const availOptions = [
+    { value: null, label: 'All Status' },
+    { value: 'true', label: 'Available' },
+    { value: 'false', label: 'Unavailable' },
+  ];
+
+  const categoryOptions = [
+    { value: null, label: 'All Categories' },
+    ...categories.map((cat) => ({ value: cat, label: cat })),
+  ];
+
   return (
-    // FIX #1: Plain View instead of SafeAreaView
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={[styles.pageTitle, { color: c.text }]}>Menu</Text>
@@ -447,36 +580,50 @@ export default function MenuScreen() {
         </Pressable>
       </View>
 
-      {/* Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+      {/* Filters — All button + 2 dropdowns */}
+      <View style={styles.filterBar}>
+        {/* All button */}
         <Pressable
-          onPress={() => setFilterAvail(null)}
-          style={[styles.filterChip, { backgroundColor: filterAvail === null ? c.primary : c.inputBackground, borderColor: filterAvail === null ? c.primary : c.border }]}
+          onPress={() => { setFilterAvail(null); setFilterCat(null); }}
+          style={[
+            styles.allBtn,
+            {
+              backgroundColor: isAllActive ? c.primary : c.inputBackground,
+              borderColor: isAllActive ? c.primary : c.border,
+            },
+          ]}
         >
-          <Text style={[styles.filterChipText, { color: filterAvail === null ? '#fff' : c.textSecondary }]}>All</Text>
+          <Text style={[styles.allBtnText, { color: isAllActive ? '#fff' : c.textSecondary }]}>
+            All
+          </Text>
         </Pressable>
-        <Pressable
-          onPress={() => setFilterAvail(true)}
-          style={[styles.filterChip, { backgroundColor: filterAvail === true ? c.success : c.inputBackground, borderColor: filterAvail === true ? c.success : c.border }]}
-        >
-          <Text style={[styles.filterChipText, { color: filterAvail === true ? '#fff' : c.textSecondary }]}>Available</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setFilterAvail(false)}
-          style={[styles.filterChip, { backgroundColor: filterAvail === false ? c.error : c.inputBackground, borderColor: filterAvail === false ? c.error : c.border }]}
-        >
-          <Text style={[styles.filterChipText, { color: filterAvail === false ? '#fff' : c.textSecondary }]}>Unavailable</Text>
-        </Pressable>
-        {categories.map((cat) => (
-          <Pressable
-            key={cat}
-            onPress={() => setFilterCat(filterCat === cat ? null : cat)}
-            style={[styles.filterChip, { backgroundColor: filterCat === cat ? c.primary : c.inputBackground, borderColor: filterCat === cat ? c.primary : c.border }]}
-          >
-            <Text style={[styles.filterChipText, { color: filterCat === cat ? '#fff' : c.textSecondary }]}>{cat}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+
+        {/* Availability dropdown */}
+        <FilterDropdown
+          label="Status"
+          options={availOptions}
+          selected={filterAvail === null ? null : String(filterAvail)}
+          onSelect={(val: string | null) => {
+            if (val === null) setFilterAvail(null);
+            else setFilterAvail(val === 'true');
+          }}
+          colors={c}
+          activeColor={
+            filterAvail === true ? c.success :
+            filterAvail === false ? c.error :
+            c.primary
+          }
+        />
+
+        {/* Category dropdown */}
+        <FilterDropdown
+          label="Category"
+          options={categoryOptions}
+          selected={filterCat}
+          onSelect={(val: string | null) => setFilterCat(val)}
+          colors={c}
+        />
+      </View>
 
       {isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={c.primary} /></View>
@@ -528,7 +675,6 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  // FIX #1: container replaces SafeAreaView
   container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
@@ -540,12 +686,60 @@ const styles = StyleSheet.create({
     borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, gap: 4,
   },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  filterBar: { marginBottom: 8, maxHeight: 44 },
-  filterChip: {
-    paddingVertical: 6, paddingHorizontal: 14,
-    borderRadius: 20, borderWidth: 1.5,
+
+  // ─── Filter bar ────────────────────────────────────────────────────────────
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
   },
-  filterChipText: { fontSize: 12, fontWeight: '600' },
+  allBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  allBtnText: { fontSize: 13, fontWeight: '700' },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    gap: 4,
+    minWidth: 100,
+    maxWidth: 140,
+  },
+  dropdownBtnText: { fontSize: 13, fontWeight: '600', flex: 1 },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 42,
+    left: 0,
+    minWidth: 160,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dropdownItemText: { fontSize: 13 },
+
+  // ─── List ──────────────────────────────────────────────────────────────────
   list: { paddingHorizontal: 16, paddingBottom: 24 },
   center: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
@@ -568,7 +762,7 @@ const styles = StyleSheet.create({
   dishActions: { gap: 6, alignItems: 'center' },
   iconBtn: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
-  // Modal — FIX #8: overlay is now the KeyboardAvoidingView flex container
+  // ─── Modal ─────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -577,7 +771,6 @@ const styles = StyleSheet.create({
   formModal: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1,
     padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    // FIX #8: Removed maxHeight - use flex to allow ScrollView to work properly
     flex: 1,
   },
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 16 },
