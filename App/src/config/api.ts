@@ -6,7 +6,7 @@
 // ============================================================================
 
 const API_CONFIG = {
-  BASE_URL: 'https://21de-2401-4900-1c84-24ab-fc81-1321-ba25-a7cb.ngrok-free.app',
+  BASE_URL: 'https://8a39-2401-4900-1c84-24ab-966-d5c8-d49a-2495.ngrok-free.app',
   API_PREFIX: '/api',
   TIMEOUT_MS: 15000,
   SOCKET: {
@@ -68,14 +68,7 @@ export const ENDPOINTS = {
     `${API_BASE}/manager/menu/category/${encodeURIComponent(category)}/availability`,
 
   // Analytics
-  ANALYTICS_TODAY: `${API_BASE}/manager/analytics/sales/today`,
-  ANALYTICS_WEEKLY: `${API_BASE}/manager/analytics/sales/weekly`,
-  ANALYTICS_MONTHLY: `${API_BASE}/manager/analytics/sales/monthly`,
-  ANALYTICS_BEST_SELLING: `${API_BASE}/manager/analytics/dishes/best-selling`,
-  ANALYTICS_PAYMENT_METHODS: `${API_BASE}/manager/analytics/payment-methods`,
-  ANALYTICS_ORDERS_STATUS: `${API_BASE}/manager/analytics/orders/status`,
-  ANALYTICS_ORDERS: `${API_BASE}/manager/analytics/orders`,
-  ANALYTICS_TOP_CUSTOMERS: `${API_BASE}/manager/analytics/customers/top`,
+  ANALYTICS: `${API_BASE}/admins/analytics`,
 
   // Tables
   TABLES: `${API_BASE}/manager/tables`,
