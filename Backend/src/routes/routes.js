@@ -19,15 +19,7 @@ import {
   resetWaiterPassword,
   getWaiterCurrentTables,
   toggleWaiterStatus,
-  getTodaySales,
-  getWeeklySales,
-  getMonthlySales,
-  getBestSellingDishes,
-  getSalesByPaymentMethod,
-  getOrdersByStatus,
-  getDetailedOrders,
-  getTopCustomers,
-  getAverageCompletionTime,
+  getComprehensiveAnalytics,
   getAllTables,
   getTableDetails,
   getTableStatistics,
@@ -83,17 +75,9 @@ router.post('/api/manager/waiters/:waiterId/reset-password', authMiddleware, req
 router.patch('/api/manager/waiters/:waiterId/status', authMiddleware, requireRole(['manager']), toggleWaiterStatus);
 
 // ============================================================================
-// ORDER ANALYTICS ROUTES
+// ANALYTICS ROUTES
 // ============================================================================
-router.get('/api/manager/analytics/sales/today', authMiddleware, requireRole(['manager']), getTodaySales);
-router.get('/api/manager/analytics/sales/weekly', authMiddleware, requireRole(['manager']), getWeeklySales);
-router.get('/api/manager/analytics/sales/monthly', authMiddleware, requireRole(['manager']), getMonthlySales);
-router.get('/api/manager/analytics/dishes/best-selling', authMiddleware, requireRole(['manager']), getBestSellingDishes);
-router.get('/api/manager/analytics/payment-methods', authMiddleware, requireRole(['manager']), getSalesByPaymentMethod);
-router.get('/api/manager/analytics/orders/status', authMiddleware, requireRole(['manager']), getOrdersByStatus);
-router.get('/api/manager/analytics/orders', authMiddleware, requireRole(['manager']), getDetailedOrders);
-router.get('/api/manager/analytics/customers/top', authMiddleware, requireRole(['manager']), getTopCustomers);
-router.get('/api/manager/analytics/completion-time', authMiddleware, requireRole(['manager']), getAverageCompletionTime);
+router.get('/api/admins/analytics', authMiddleware, requireRole(['manager', 'owner']), getComprehensiveAnalytics);
 
 // ============================================================================
 // TABLE MANAGEMENT ROUTES

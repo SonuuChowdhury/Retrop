@@ -431,6 +431,174 @@ export const getAverageCompletionTime = async (req, res) => {
 };
 
 // ============================================================================
+// COMPREHENSIVE ANALYTICS ENDPOINT (combines all 9 analytics)
+// ============================================================================
+
+export const getComprehensiveAnalytics = async (req, res) => {
+  try {
+    const { metrics } = req.query;
+    const monthOffset = parseInt(req.query.monthOffset || 0);
+    const days = parseInt(req.query.days || 7);
+    const limit = parseInt(req.query.limit || 10);
+
+    // Parse requested metrics (if none specified, return all)
+    let requestedMetrics = [];
+    if (metrics) {
+      requestedMetrics = metrics.split(',').map(m => m.trim());
+    } else {
+      // If no metrics specified, return all by default
+      requestedMetrics = ['sales', 'dishes', 'paymentMethods', 'orderStatus', 'orders', 'customers', 'completionTime'];
+    }
+
+    // Validate metrics
+    const validMetrics = ['sales', 'dishes', 'paymentMethods', 'orderStatus', 'orders', 'customers', 'completionTime'];
+    const invalidMetrics = requestedMetrics.filter(m => !validMetrics.includes(m));
+    
+    if (invalidMetrics.length > 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid metrics: ${invalidMetrics.join(', ')}. Valid options: ${validMetrics.join(', ')}`,
+      });
+    }
+
+    const analyticsData = {};
+    const errors = [];
+
+    // Parallel execution of all requested analytics
+    const promises = [];
+
+    if (requestedMetrics.includes('sales')) {
+      promises.push(
+        Promise.all([
+          orderAnalyticsService.getTodaySales(),
+          orderAnalyticsService.getWeeklySales(),
+          orderAnalyticsService.getMonthlySales(monthOffset),
+        ]).then(([today, weekly, monthly]) => {
+          if (today.success && weekly.success && monthly.success) {
+            analyticsData.sales = {
+              today: today.data,
+              weekly: weekly.data,
+              monthly: monthly.data,
+            };
+          } else {
+            const failedSales = [];
+            if (!today.success) failedSales.push('today');
+            if (!weekly.success) failedSales.push('weekly');
+            if (!monthly.success) failedSales.push('monthly');
+            errors.push(`Sales metrics failed: ${failedSales.join(', ')}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('dishes')) {
+      promises.push(
+        orderAnalyticsService.getBestSellingDishes(days).then((result) => {
+          if (result.success) {
+            analyticsData.dishes = {
+              bestSelling: result.data,
+            };
+          } else {
+            errors.push(`Best selling dishes: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('paymentMethods')) {
+      promises.push(
+        orderAnalyticsService.getSalesByPaymentMethod(days).then((result) => {
+          if (result.success) {
+            analyticsData.paymentMethods = result.data;
+          } else {
+            errors.push(`Payment methods: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('orderStatus')) {
+      promises.push(
+        orderAnalyticsService.getOrdersByStatus().then((result) => {
+          if (result.success) {
+            analyticsData.orderStatus = result.data;
+          } else {
+            errors.push(`Order status: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('orders')) {
+      // Extract detailed orders filters from query
+      const filters = {
+        status: req.query.status,
+        paymentCompleted: req.query.paymentCompleted !== undefined
+          ? req.query.paymentCompleted === 'true'
+          : undefined,
+        waiterId: req.query.waiterId,
+        tableNo: req.query.tableNo,
+        startDate: req.query.startDate,
+        endDate: req.query.endDate,
+        limit: req.query.limit ? parseInt(req.query.limit) : 100,
+      };
+
+      promises.push(
+        orderAnalyticsService.getDetailedOrders(filters).then((result) => {
+          if (result.success) {
+            analyticsData.orders = result.data;
+          } else {
+            errors.push(`Detailed orders: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('customers')) {
+      promises.push(
+        orderAnalyticsService.getTopCustomers(limit).then((result) => {
+          if (result.success) {
+            analyticsData.customers = {
+              top: result.data,
+            };
+          } else {
+            errors.push(`Top customers: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    if (requestedMetrics.includes('completionTime')) {
+      promises.push(
+        orderAnalyticsService.getAverageCompletionTime(days).then((result) => {
+          if (result.success) {
+            analyticsData.completionTime = result.data;
+          } else {
+            errors.push(`Completion time: ${result.error}`);
+          }
+        })
+      );
+    }
+
+    // Wait for all promises to complete
+    await Promise.all(promises);
+
+    // Return results with any errors that occurred
+    res.status(200).json({
+      status: errors.length > 0 ? 'partial' : 'success',
+      data: analyticsData,
+      ...(errors.length > 0 && { errors }),
+    });
+  } catch (error) {
+    logger.error('Get comprehensive analytics error', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch analytics',
+    });
+  }
+};
+
+// ============================================================================
 // 4. TABLE MANAGEMENT ENDPOINTS
 // ============================================================================
 
