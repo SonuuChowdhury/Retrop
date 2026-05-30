@@ -6,7 +6,7 @@
 // ============================================================================
 
 const API_CONFIG = {
-  BASE_URL: 'https://8a39-2401-4900-1c84-24ab-966-d5c8-d49a-2495.ngrok-free.app',
+  BASE_URL: 'https://92db-2401-4900-1c01-d201-459e-a7a5-2169-673f.ngrok-free.app',
   API_PREFIX: '/api',
   TIMEOUT_MS: 15000,
   SOCKET: {

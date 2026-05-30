@@ -232,7 +232,7 @@ export const menuService = {
             description: description?.trim() || null,
             imageUrl: imageUrl?.trim() || null,
             preparationTime: preparationTime ? parseInt(preparationTime) : 15,
-            spicyLevel: spicyLevel?.trim() || null,
+            spicyLevel: spicyLevel !== undefined && spicyLevel !== null ? String(spicyLevel).trim() || null : null,
             isVegetarian: isVegetarian ?? false,
             isAvailable: isAvailable ?? true,
             createdAt: nowIST(),
