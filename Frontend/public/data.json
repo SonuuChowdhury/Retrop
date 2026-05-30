@@ -1,0 +1,106 @@
+{
+  "branding": {
+    "name": "The Golden Ladle",
+    "tagline": "Where every meal tells a story",
+    "shortDescription": "A celebration of authentic flavours, slow-cooked traditions, and warm hospitality — nestled in the heart of the city since 1998.",
+    "logoUrl": "https://placehold.co/120x120/1a1a1a/f5e6c8?text=TGL&font=playfair-display",
+    "heroImages": [
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80",
+      "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80",
+      "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?w=1200&q=80"
+    ],
+    "heroSlideIntervalMs": 4000,
+    "accentColor": "#c8963e",
+    "theme": "dark"
+  },
+
+  "contact": {
+    "phone": "+91 8420564402",
+    "whatsapp": "+91 8420564402",
+    "email": "chowdhurysonu047@gmail.com",
+    "address": "12, Park Street, Kolkata, West Bengal — 700016",
+    "socialLinks": {
+      "instagram": "https://instagram.com/thegoldenladle",
+      "facebook": "https://facebook.com/thegoldenladle"
+    }
+  },
+
+  "location": {
+    "googleMapsEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3684.4!2d88.3519!3d22.5448!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjLCsDMyJzQxLjMiTiA4OMKwMjEnMDYuOCJF!5e0!3m2!1sen!2sin!4v1000000000000",
+    "coordinates": {
+      "lat": 22.5448,
+      "lng": 88.3519
+    },
+    "googleMapsDirectionsUrl": "https://maps.google.com/?q=22.5448,88.3519"
+  },
+
+  "reviews": {
+    "googleReviewUrl": "https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review",
+    "averageRating": 4.7,
+    "totalReviews": 1248
+  },
+
+  "hours": {
+    "note": "Last orders 30 minutes before closing",
+    "schedule": [
+      { "days": "Monday – Thursday", "open": "12:00 PM", "close": "10:30 PM", "isClosed": false },
+      { "days": "Friday – Saturday",  "open": "12:00 PM", "close": "11:30 PM", "isClosed": false },
+      { "days": "Sunday",             "open": "11:00 AM", "close": "10:00 PM", "isClosed": false }
+    ]
+  },
+
+  "orderOnline": {
+    "isSwiggyActive": true,
+    "swiggyUrl": "https://www.swiggy.com/restaurants/the-golden-ladle",
+    "isZomatoActive": true,
+    "zomatoUrl": "https://www.zomato.com/kolkata/the-golden-ladle"
+  },
+
+  "signatureDishes": [
+    {
+      "id": "dish-001",
+      "name": "Raan-e-Sikandari",
+      "description": "Slow-roasted whole leg of lamb marinated 24 hours in aromatic spices, served with saffron rice and charred naan.",
+      "photoUrl": "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=800&q=80",
+      "isVeg": false,
+      "tag": "Chef's Pride",
+      "allergens": ["gluten", "dairy"]
+    },
+    {
+      "id": "dish-002",
+      "name": "Dal Makhani Royale",
+      "description": "Black lentils simmered overnight on a wood fire, finished with aged butter and a whisper of cream. A ritual, not a recipe.",
+      "photoUrl": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=800&q=80",
+      "isVeg": true,
+      "tag": "House Classic",
+      "allergens": ["dairy"]
+    },
+    {
+      "id": "dish-003",
+      "name": "Prawn Koliwada",
+      "description": "Crispy Konkan-style prawns tossed in coastal masala, served on a banana leaf with kokum chutney.",
+      "photoUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=800&q=80",
+      "isVeg": false,
+      "tag": "Coastal Special",
+      "allergens": ["shellfish", "gluten"]
+    },
+    {
+      "id": "dish-004",
+      "name": "Paneer Shahi Kofta",
+      "description": "Cottage cheese dumplings stuffed with dry fruits in a velvety Mughal gravy scented with rose water and cardamom.",
+      "photoUrl": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=800&q=80",
+      "isVeg": true,
+      "tag": "Bestseller",
+      "allergens": ["dairy", "nuts"]
+    },
+    {
+      "id": "dish-005",
+      "name": "Kolkata Biryani",
+      "description": "Fragrant long-grain rice layered with tender mutton and a boiled egg, kissed with kewra and mace — pure Nawabi legacy.",
+      "photoUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80",
+      "isVeg": false,
+      "tag": "City Legend",
+      "allergens": ["gluten", "eggs"]
+    }
+  ]
+}
