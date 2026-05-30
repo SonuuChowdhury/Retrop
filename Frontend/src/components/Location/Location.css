@@ -25,25 +25,76 @@
   gap: var(--space-6);
 }
 
-/* Map */
-.location__map-wrap {
-  width: 100%;
-  aspect-ratio: 16 / 9;
+/* ── Map card ── */
+.location__map-card {
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
+  background: #1c2b3a;
 }
 
-.location__map {
+.location__map-illustration {
   width: 100%;
-  height: 100%;
-  border: none;
-  display: block;
-  filter: grayscale(40%) invert(0.05);
+  line-height: 0; /* removes gap under svg */
 }
 
-/* Info */
+.location__map-illustration svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Bottom bar inside map card */
+.location__map-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.location__map-address {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  flex: 1;
+  min-width: 0;
+}
+
+.location__map-address span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.location__map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.location__map-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Info panel ── */
 .location__info {
   display: flex;
   flex-direction: column;
@@ -108,9 +159,5 @@
     grid-template-columns: 1.6fr 1fr;
     align-items: start;
     gap: var(--space-8);
-  }
-
-  .location__map-wrap {
-    aspect-ratio: 4 / 3;
   }
 }
