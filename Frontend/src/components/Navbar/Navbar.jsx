@@ -59,15 +59,6 @@ export default function Navbar({ branding }) {
             ))}
           </ul>
 
-          {/* Reserve CTA */}
-          <a
-            className="navbar__cta"
-            href={`tel:${branding.phone || ''}`}
-            aria-label="Make a reservation"
-          >
-            Reserve a Table
-          </a>
-
           {/* Mobile hamburger */}
           <button
             className={`navbar__hamburger ${menuOpen ? 'navbar__hamburger--open' : ''}`}
@@ -106,13 +97,6 @@ export default function Navbar({ branding }) {
               </li>
             ))}
           </ul>
-          <a
-            className="navbar__drawer-cta"
-            href="tel:"
-            onClick={() => setMenuOpen(false)}
-          >
-            Reserve a Table
-          </a>
         </div>
       </div>
 
