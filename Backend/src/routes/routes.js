@@ -28,7 +28,10 @@ import {
   deleteTable,
   updateTableCapacity,
 } from '../controllers/managerController.js';
-
+import {
+  getRestaurantSettings,
+  toggleRestaurantOpen,
+} from '../controllers/restaurantSettingsController.js';
 import {
   getAllMenuItems,
   getMenuItemById,
@@ -116,5 +119,12 @@ router.patch('/api/manager/menu/category/:category/availability', authMiddleware
 //                   Body: { "image": "<base64>", "mimeType": "image/jpeg", "fileName": "photo.jpg" }
 router.post('/api/manager/menu/:dishId/image', authMiddleware, requireRole(['manager']), uploadDishImage);
 router.delete('/api/manager/menu/:dishId/image', authMiddleware, requireRole(['manager']), deleteDishImage);
+
+
+// ============================================================================
+// RESTAURANT SETTINGS ROUTES
+// ============================================================================
+router.get('/api/manager/settings', authMiddleware, requireRole(['manager']), getRestaurantSettings);
+router.patch('/api/manager/settings/toggle', authMiddleware, requireRole(['manager']), toggleRestaurantOpen);
 
 export default router;
