@@ -1,6 +1,7 @@
 import './config/env.js';
 // ===== THEN IMPORT OTHER MODULES =====
 import express from 'express';
+import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { SERVER_CONFIG } from './config/constants.js';
@@ -10,28 +11,36 @@ import { logger } from './utils/logger.js';
 import { testSupabaseConnection } from './config/supabase.js';
 import { notFound } from './controllers/healthController.js';
 import { socketService } from './services/socketService.js';
+import { getRedisClient } from './config/redis.js';
 
 const app = express();
 
-// ===== Security Middleware =====
-// Helmet - protects against common vulnerabilities
-app.use(helmetMiddleware);
+// ===== Trust Proxy =====
+// Required when requests come through a proxy / local network (e.g. phone on LAN,
+// Nginx, or any reverse proxy). Without this, express-rate-limit throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when it sees the X-Forwarded-For header.
+// '1' means trust the first proxy hop only — safe for local dev and single-proxy prod.
+app.set('trust proxy', 1);
 
-// Rate Limiting - protects against DDoS attacks
+// ===== Security Middleware =====
+app.use(helmetMiddleware);
 app.use(generalLimiter);
 
+// ===== CORS Middleware =====
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: false,
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'X-Requested-With'],
+}));
+
 // ===== Body Parser Middleware =====
-// JSON body (for most endpoints + base64 image uploads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Raw binary body for direct image uploads
-// This allows the image upload endpoint to receive raw bytes
-// when the client sends Content-Type: image/*
 app.use(
   express.raw({
     type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-    limit: '6mb', // slightly above 5MB to give a clean error rather than a truncation
+    limit: '6mb',
   })
 );
 
@@ -43,8 +52,16 @@ app.use((req, res, next) => {
 
 // ===== Routes =====
 app.use(router);
-
 router.use(notFound);
+
+// ===== Body-parser SyntaxError Handler =====
+// Catches malformed / empty JSON bodies before they reach the global handler.
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ status: 'error', message: 'Invalid JSON body' });
+  }
+  next(err);
+});
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -58,7 +75,6 @@ app.use((err, req, res, next) => {
 // ===== Start Server with Socket.io =====
 const httpServer = createServer(app);
 
-// Initialize Socket.io with CORS configuration
 const io = new Server(httpServer, {
   cors: {
     origin: '*',
@@ -69,40 +85,43 @@ const io = new Server(httpServer, {
   transports: ['websocket', 'polling'],
 });
 
-// Initialize socket connection handlers
 socketService.initializeSocket(io);
 
 const server = httpServer.listen(SERVER_CONFIG.PORT, async () => {
   logger.info(`🚀 Server running on port ${SERVER_CONFIG.PORT}`);
   logger.info(`📋 Environment: ${SERVER_CONFIG.NODE_ENV}`);
   logger.info('✓ Helmet security middleware enabled');
-  logger.info('✓ Rate limiting enabled (100 requests per 15 min)');
-  logger.info('✓ Strict rate limiting on /login (5 requests per 15 min)');
+  logger.info('✓ Rate limiting enabled');
   logger.info('✓ Admin authentication system initialized');
-  logger.info('✓ Manager dashboard endpoints initialized');
+  logger.info('✓ Waiter authentication system initialized');
+  logger.info('✓ Kitchen authentication system initialized');
   logger.info('✓ WebSocket (Socket.io) server initialized and running');
   logger.info('✓ Menu image upload (Supabase Storage) enabled');
+  logger.info('✓ Customer public order flow enabled');
 
   // Test Supabase connection on startup
   const dbConnected = await testSupabaseConnection();
   if (dbConnected) {
-    logger.info('✓ Database connected successfully');
+    logger.info('✓ Database (Supabase) connected successfully');
   } else {
     logger.warn('⚠ Database connection failed - check credentials');
+  }
+
+  // Test Redis connection on startup
+  try {
+    await getRedisClient();
+    logger.info('✓ Redis connected successfully');
+  } catch (err) {
+    logger.warn('⚠ Redis connection failed - caching and session features degraded');
+    logger.warn('  Set REDIS_URL in .env to enable Redis features');
   }
 });
 
 // ===== Graceful Shutdown =====
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM signal received: closing HTTP server');
-  
-  // Close socket service and all active sessions
   await socketService.closeService();
-  
-  // Close Socket.io
   io.close();
-  
-  // Close HTTP server
   server.close(() => {
     logger.info('HTTP server closed');
     process.exit(0);
