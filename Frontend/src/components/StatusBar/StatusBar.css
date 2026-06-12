@@ -1,0 +1,92 @@
+.status-bar {
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.status-bar__brand {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.status-bar__steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.status-bar__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.status-bar__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.status-bar__step--active .status-bar__dot {
+  background: var(--color-accent);
+  color: #0d0d0d;
+  border-color: var(--color-accent);
+}
+
+.status-bar__step--done .status-bar__dot {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.status-bar__label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  transition: color var(--transition-base);
+}
+
+.status-bar__step--active .status-bar__label {
+  color: var(--color-text-primary);
+}
+
+.status-bar__step--done .status-bar__label {
+  color: var(--color-accent);
+}
+
+.status-bar__connector {
+  width: 28px;
+  height: 1px;
+  background: var(--color-border);
+  margin-inline: var(--space-2);
+  transition: background var(--transition-base);
+}
+
+.status-bar__connector--done {
+  background: var(--color-accent);
+}

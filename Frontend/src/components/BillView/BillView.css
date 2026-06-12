@@ -1,0 +1,135 @@
+.bill {
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  font-family: 'DM Sans', monospace, sans-serif;
+  font-size: 0.82rem;
+  max-width: 360px;
+  margin-inline: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.bill__header {
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+
+.bill__logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-inline: auto;
+  margin-bottom: var(--space-3);
+}
+
+.bill__restaurant {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.bill__address {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.bill__gstin {
+  font-size: 0.75rem;
+  color: #444;
+  margin-top: var(--space-2);
+}
+
+.bill__divider {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin-block: var(--space-4);
+}
+
+.bill__divider--dashed {
+  border-top-style: dashed;
+}
+
+.bill__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill__meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #555;
+}
+
+.bill__meta-val {
+  font-weight: 600;
+  color: #222;
+}
+
+.bill__meta-val--badge {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.bill__items-header {
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: var(--space-2);
+}
+
+.bill__item-row {
+  display: flex;
+  padding-block: 3px;
+  color: #222;
+}
+
+.bill__col-name  { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bill__col-qty   { width: 30px; text-align: center; }
+.bill__col-price { width: 56px; text-align: right; }
+.bill__col-total { width: 60px; text-align: right; font-weight: 600; }
+
+.bill__totals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill__total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #333;
+}
+
+.bill__total-row--tax {
+  color: #888;
+}
+
+.bill__total-row--grand {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111;
+  padding-top: var(--space-2);
+  border-top: 2px solid #111;
+  margin-top: var(--space-2);
+}
+
+.bill__footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #999;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

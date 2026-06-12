@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 context.py
 output.md
+*.md
+.env
