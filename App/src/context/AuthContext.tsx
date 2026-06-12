@@ -1,17 +1,13 @@
 // ============================================================================
-// AUTH CONTEXT
+// AUTH CONTEXT  (UPDATED — adds refreshToken export alias for apiCall compat)
 // ============================================================================
-// Manages global authentication state.
+// Manages global authentication state for Manager/Admin role.
 // Persists session securely and handles token lifecycle.
+// No breaking changes to existing API.
 // ============================================================================
 
 import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  ReactNode,
+  createContext, useContext, useState, useEffect, useCallback, ReactNode,
 } from 'react';
 import { TokenStorage } from '@/utils/storage';
 import { loginManager, refreshAccessToken } from '@/services/authService';
@@ -44,6 +40,8 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   getAuthHeaders: () => Record<string, string>;
   refreshSession: () => Promise<boolean>;
+  /** Alias for refreshSession — matches apiCall's onRefresh signature */
+  refreshToken: () => Promise<boolean>;
 }
 
 // ============================================================================
@@ -64,10 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     accessToken: null,
   });
 
-  // ─── Restore session on mount ───────────────────────────────────────────
-  useEffect(() => {
-    restoreSession();
-  }, []);
+  useEffect(() => { restoreSession(); }, []);
 
   const restoreSession = async () => {
     try {
@@ -89,17 +84,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      // Fetch manager profile to validate token
       const profileResult = await fetchManagerProfile(token);
       if (profileResult) {
-        setState({
-          isAuthenticated: true,
-          isLoading: false,
-          manager: profileResult,
-          accessToken: token,
-        });
+        setState({ isAuthenticated: true, isLoading: false, manager: profileResult, accessToken: token });
       } else {
-        // Token likely expired — try refresh
         const refreshed = await tryRefreshToken();
         if (!refreshed) {
           await TokenStorage.clearSession();
@@ -111,64 +99,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // ─── Login ───────────────────────────────────────────────────────────────
-  const login = useCallback(
-    async (mobile: string, password: string): Promise<{ success: boolean; message?: string }> => {
-      const result = await loginManager({ mobile, password });
+  // ─── Login ─────────────────────────────────────────────────────────────────
+  const login = useCallback(async (mobile: string, password: string) => {
+    const result = await loginManager({ mobile, password });
+    if (!result.success) return { success: false, message: result.message };
 
-      if (!result.success) {
-        return { success: false, message: result.message };
-      }
+    const { accessToken, refreshToken, adminId, role, name, mobile: adminMobile, email } = result.data;
+    const localProfile: Manager = { adminId, name: name ?? 'Manager', mobile: adminMobile ?? mobile, role: role as UserRole, email };
 
-      const { accessToken, refreshToken, adminId, role, name, mobile: adminMobile, email } = result.data;
+    await TokenStorage.saveSession({ accessToken, refreshToken, adminId, role, name: localProfile.name });
+    const profile = await fetchManagerProfile(accessToken) ?? localProfile;
 
-      // Build a local profile from login data immediately (no extra round-trip needed)
-      const localProfile: Manager = {
-        adminId,
-        name: name ?? 'Manager',
-        mobile: adminMobile ?? mobile,
-        role: role as UserRole,
-        email,
-      };
-
-      // Save session first so profile fetch has a valid token
-      await TokenStorage.saveSession({
-        accessToken,
-        refreshToken,
-        adminId,
-        role,
-        name: localProfile.name,
-      });
-
-      // Optionally enrich profile from /me endpoint (non-blocking failure)
-      const profile = await fetchManagerProfile(accessToken) ?? localProfile;
-
-      setState({
-        isAuthenticated: true,
-        isLoading: false,
-        manager: profile,
-        accessToken,
-      });
-
-      return { success: true };
-    },
-    []
-  );
-
-  // ─── Logout ──────────────────────────────────────────────────────────────
-  const logout = useCallback(async () => {
-    await TokenStorage.clearSession();
-    setState({
-      isAuthenticated: false,
-      isLoading: false,
-      manager: null,
-      accessToken: null,
-    });
+    setState({ isAuthenticated: true, isLoading: false, manager: profile, accessToken });
+    return { success: true };
   }, []);
 
-  // ─── Auth Headers ─────────────────────────────────────────────────────────
-  // FIX: Always include ngrok bypass header so requests aren't intercepted
-  // by the ngrok browser warning page (which returns HTML instead of JSON).
+  // ─── Logout ────────────────────────────────────────────────────────────────
+  const logout = useCallback(async () => {
+    await TokenStorage.clearSession();
+    setState({ isAuthenticated: false, isLoading: false, manager: null, accessToken: null });
+  }, []);
+
+  // ─── Auth Headers ──────────────────────────────────────────────────────────
   const getAuthHeaders = useCallback((): Record<string, string> => {
     if (!state.accessToken) return { ...NGROK_HEADERS };
     return {
@@ -179,13 +131,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [state.accessToken]);
 
-  // ─── Refresh Session ─────────────────────────────────────────────────────
-  const refreshSession = useCallback(async (): Promise<boolean> => {
-    return tryRefreshToken();
-  }, []);
-
-  // ─── FIX: Backend refresh only returns a new accessToken (no new refreshToken).
-  //         We keep the existing refreshToken and re-use stored adminId/role.
+  // ─── Refresh ───────────────────────────────────────────────────────────────
   const tryRefreshToken = async (): Promise<boolean> => {
     try {
       const [storedRefreshToken, storedAdminId, storedRole] = await Promise.all([
@@ -193,18 +139,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         TokenStorage.getAdminId(),
         TokenStorage.getRole(),
       ]);
-
       if (!storedRefreshToken || !storedAdminId || !storedRole) return false;
 
       const result = await refreshAccessToken(storedRefreshToken);
       if (!result.success) return false;
 
       const { accessToken } = result.data;
-
-      // Fetch fresh profile with new token
       const profile = await fetchManagerProfile(accessToken);
 
-      // Persist updated access token while keeping existing refresh token / adminId / role
       await TokenStorage.saveSession({
         accessToken,
         refreshToken: storedRefreshToken,
@@ -213,23 +155,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: profile?.name,
       });
 
-      setState((prev) => ({
-        ...prev,
-        accessToken,
-        manager: profile ?? prev.manager,
-        isAuthenticated: true,
-      }));
-
+      setState((prev) => ({ ...prev, accessToken, manager: profile ?? prev.manager, isAuthenticated: true }));
       return true;
     } catch {
       return false;
     }
   };
 
+  const refreshSession = useCallback(async () => tryRefreshToken(), []);
+  const refreshToken = refreshSession; // alias for apiCall compat
+
   return (
-    <AuthContext.Provider
-      value={{ ...state, login, logout, getAuthHeaders, refreshSession }}
-    >
+    <AuthContext.Provider value={{ ...state, login, logout, getAuthHeaders, refreshSession, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
@@ -240,11 +177,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 // ============================================================================
 
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };
 
 // ============================================================================
@@ -254,11 +189,7 @@ export const useAuth = (): AuthContextType => {
 async function fetchManagerProfile(token: string): Promise<Manager | null> {
   try {
     const response = await fetch(ENDPOINTS.MANAGER_PROFILE, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        ...NGROK_HEADERS,
-      },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...NGROK_HEADERS },
     });
     if (!response.ok) return null;
     const json = await response.json();

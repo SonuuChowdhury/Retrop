@@ -2,20 +2,13 @@
 // MANAGER SECTION LAYOUT
 // ============================================================================
 // Auth guard + WebSocket connection + custom tab bar.
-// ThemeTransitionView wraps all content for smooth theme-switch fade.
-// TabBarButton spring animation kept but scale values tightened for snappier feel.
+// Added kitchen and restaurant-info tabs.
 // ============================================================================
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -33,36 +26,13 @@ import { ThemeTransitionView, useTheme } from "@/context/ThemeContext";
 // ============================================================================
 
 const MANAGER_TABS = [
-  {
-    name: "dashboard",
-    label: "Dashboard",
-    icon: "view-dashboard-outline" as const,
-    iconActive: "view-dashboard" as const,
-  },
-  {
-    name: "waiters",
-    label: "Waiters",
-    icon: "account-multiple-outline" as const,
-    iconActive: "account-multiple" as const,
-  },
-  {
-    name: "tables",
-    label: "Tables",
-    icon: "table-furniture" as const,
-    iconActive: "table-furniture" as const,
-  },
-  {
-    name: "menu",
-    label: "Menu",
-    icon: "food-outline" as const,
-    iconActive: "food" as const,
-  },
-  {
-    name: "analytics",
-    label: "Analytics",
-    icon: "chart-line" as const,
-    iconActive: "chart-line" as const,
-  },
+  { name: "dashboard",       label: "Home",       icon: "view-dashboard-outline" as const, iconActive: "view-dashboard" as const },
+  { name: "waiters",         label: "Waiters",    icon: "account-multiple-outline" as const, iconActive: "account-multiple" as const },
+  { name: "kitchen",         label: "Kitchen",    icon: "chef-hat" as const, iconActive: "chef-hat" as const },
+  { name: "tables",          label: "Tables",     icon: "table-furniture" as const, iconActive: "table-furniture" as const },
+  { name: "menu",            label: "Menu",       icon: "food-outline" as const, iconActive: "food" as const },
+  { name: "analytics",       label: "Analytics",  icon: "chart-line" as const, iconActive: "chart-line" as const },
+  { name: "restaurant-info", label: "Info",       icon: "storefront-outline" as const, iconActive: "storefront" as const },
 ] as const;
 
 type TabName = (typeof MANAGER_TABS)[number]["name"];
@@ -104,10 +74,7 @@ function TabBarButton({ tab, isActive, onPress, colors }: TabBarButtonProps) {
         {isActive && (
           <Animated.View
             entering={FadeIn.duration(180)}
-            style={[
-              styles.activeIndicator,
-              { backgroundColor: colors.primary },
-            ]}
+            style={[styles.activeIndicator, { backgroundColor: colors.primary }]}
           />
         )}
         <MaterialCommunityIcons
@@ -146,9 +113,7 @@ export default function ManagerLayout() {
   const currentTab = (segments[segments.length - 1] as TabName) ?? "dashboard";
 
   const socketRef = useRef<any>(null);
-  const activityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
+  const activityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Auth Guard ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,36 +125,27 @@ export default function ManagerLayout() {
   // ─── WebSocket Connection ────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated || !accessToken) return;
-
     connectSocket(accessToken);
-
-    return () => {
-      disconnectSocket();
-    };
+    return () => { disconnectSocket(); };
   }, [isAuthenticated, accessToken]);
 
   const connectSocket = async (token: string) => {
     try {
-      const { io } = await import("socket.io-client").catch(() => ({
-        io: null,
-      }));
+      const { io } = await import("socket.io-client").catch(() => ({ io: null }));
       if (!io) return;
 
       socketRef.current = io(SOCKET_URL, {
         auth: { token },
-        reconnectionAttempts: SOCKET_CONFIG.RECONNECTION_ATTEMPTS,
-        reconnectionDelay: SOCKET_CONFIG.RECONNECTION_DELAY,
+        ...SOCKET_CONFIG,
         transports: ["websocket"],
       });
 
       socketRef.current.on("connected", (data: any) => {
         console.log("[Socket] Manager connected:", data?.sessionId);
       });
-
       socketRef.current.on("disconnect", () => {
         console.log("[Socket] Manager disconnected");
       });
-
       socketRef.current.on("manager:error", (data: any) => {
         console.warn("[Socket] Manager error:", data?.message);
       });
@@ -198,7 +154,7 @@ export default function ManagerLayout() {
         if (socketRef.current?.connected) {
           socketRef.current.emit("manager:activity");
         }
-      }, SOCKET_CONFIG.ACTIVITY_INTERVAL_MS);
+      }, 60_000);
     } catch (error) {
       console.warn("[Socket] Connection failed:", error);
     }
@@ -243,14 +199,11 @@ export default function ManagerLayout() {
   if (isLoading || !isAuthenticated) return null;
 
   return (
-    // ThemeTransitionView handles the smooth opacity fade on theme toggle
     <ThemeTransitionView style={{ flex: 1, backgroundColor: c.background }}>
-      {/* Screen content */}
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: c.background },
-          // Smooth screen transitions
           animation: "fade_from_bottom",
           animationDuration: 200,
         }}
@@ -272,23 +225,20 @@ export default function ManagerLayout() {
             key={tab.name}
             tab={tab}
             isActive={currentTab === tab.name}
-            onPress={() => navigateToTab(tab.name)}
+            onPress={() => navigateToTab(tab.name as TabName)}
             colors={c}
           />
         ))}
 
-        {/* Logout Button */}
+        {/* Logout button */}
         <Pressable
           onPress={handleLogout}
           style={styles.tabButton}
           accessibilityLabel="Sign out"
-          accessibilityRole="button"
         >
           <View style={styles.tabButtonInner}>
             <MaterialCommunityIcons name="logout" size={22} color={c.error} />
-            <Text
-              style={[styles.tabLabel, { color: c.error, fontWeight: "500" }]}
-            >
+            <Text style={[styles.tabLabel, { color: c.error, fontWeight: "500" }]}>
               Logout
             </Text>
           </View>
@@ -301,18 +251,22 @@ export default function ManagerLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 8,
-    paddingHorizontal: 4,
   },
-  tabButton: { flex: 1, alignItems: "center" },
+  tabButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tabButtonInner: {
     alignItems: "center",
-    paddingVertical: 4,
-    position: "relative",
-    minWidth: 44,
-    minHeight: 44,
     justifyContent: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 2,
+    minWidth: 44,
   },
   activeIndicator: {
     position: "absolute",
@@ -321,5 +275,8 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
   },
-  tabLabel: { fontSize: 10, marginTop: 3, letterSpacing: 0.2 },
+  tabLabel: {
+    fontSize: 10,
+    letterSpacing: 0.1,
+  },
 });

@@ -1,14 +1,40 @@
-import { StyleSheet, Text, View, Pressable, ScrollView, Linking, SafeAreaView } from 'react-native';
+// ============================================================================
+// HOME SCREEN — original design fully restored
+// ============================================================================
+// Added: auto-redirect if a session already exists for any role.
+// Everything else is exactly as originally written.
+// ============================================================================
+
+import { StyleSheet, Text, View, Pressable, ScrollView, Linking, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenAnimationWrapper } from '@/components/ScreenAnimationWrapper';
+import { useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useWaiterAuth } from '@/context/WaiterAuthContext';
+import { useKitchenAuth } from '@/context/KitchenAuthContext';
 
 export default function HomeScreen() {
   const { theme, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const { isAuthenticated: isManagerAuth, isLoading: managerLoading } = useAuth();
+  const { isAuthenticated: isWaiterAuth, isLoading: waiterLoading } = useWaiterAuth();
+  const { isAuthenticated: isKitchenAuth, isLoading: kitchenLoading } = useKitchenAuth();
+
+  const isLoading = managerLoading || waiterLoading || kitchenLoading;
+
+  // Auto-redirect if a session is already active
+  useEffect(() => {
+    if (isLoading) return;
+    if (isManagerAuth) router.replace('/manager/dashboard');
+    else if (isWaiterAuth) router.replace('/waiter/dashboard');
+    else if (isKitchenAuth) router.replace('/kitchen/dashboard');
+  }, [isLoading, isManagerAuth, isWaiterAuth, isKitchenAuth]);
 
   const handleCall = () => {
     Linking.openURL('tel:8420564402');
@@ -17,6 +43,18 @@ export default function HomeScreen() {
   const handleEmail = () => {
     Linking.openURL('mailto:chowdhurysonu047@gmail.com');
   };
+
+  // Show spinner while checking existing sessions
+  if (isLoading) {
+    return (
+      <View style={[styles.safeArea, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  // If already authenticated, return null while redirect fires
+  if (isManagerAuth || isWaiterAuth || isKitchenAuth) return null;
 
   return (
     <ScreenAnimationWrapper>
@@ -373,4 +411,3 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-

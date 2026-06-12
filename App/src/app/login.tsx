@@ -1,57 +1,69 @@
+// ============================================================================
+// LOGIN SCREEN
+// ============================================================================
+// Unified login screen with role switcher.
+// Manager → uses AuthContext
+// Waiter  → uses WaiterAuthContext
+// Kitchen → uses KitchenAuthContext
+// ============================================================================
+
 import {
   StyleSheet,
   Text,
   View,
   Pressable,
-  SafeAreaView,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Keyboard,
+  Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenAnimationWrapper } from '@/components/ScreenAnimationWrapper';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useWaiterAuth } from '@/context/WaiterAuthContext';
+import { useKitchenAuth } from '@/context/KitchenAuthContext';
 
 type Role = 'waiter' | 'manager' | 'kitchen';
 
 const ROLES: { key: Role; label: string; icon: string }[] = [
-  { key: 'waiter', label: 'Waiter', icon: 'room-service-outline' },
-  { key: 'manager', label: 'Manager', icon: 'account-tie-outline' },
-  { key: 'kitchen', label: 'Kitchen', icon: 'chef-hat' },
+  { key: 'waiter',  label: 'Waiter',   icon: 'room-service-outline' },
+  { key: 'manager', label: 'Manager',  icon: 'account-tie-outline' },
+  { key: 'kitchen', label: 'Kitchen',  icon: 'chef-hat' },
 ];
 
 export default function LoginScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login: managerLogin } = useAuth();
+  const { login: waiterLogin } = useWaiterAuth();
+  const { login: kitchenLogin } = useKitchenAuth();
 
-  const [selectedRole, setSelectedRole] = useState<Role>('waiter');
+  const [selectedRole, setSelectedRole] = useState<Role>('manager');
   const [mobile, setMobile] = useState('');
-  const [uuid, setUuid] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mobileError, setMobileError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [touched, setTouched] = useState({ mobile: false, uuid: false, password: false });
+  const [touched, setTouched] = useState({ mobile: false, password: false });
 
   const handleRoleSwitch = (role: Role) => {
     setSelectedRole(role);
     setMobile('');
-    setUuid('');
     setPassword('');
     setMobileError('');
     setLoginError('');
     setShowPassword(false);
-    setTouched({ mobile: false, uuid: false, password: false });
+    setTouched({ mobile: false, password: false });
   };
 
   const validateMobile = (value: string) => {
@@ -64,9 +76,7 @@ export default function LoginScreen() {
     const cleaned = value.replace(/\D/g, '').slice(0, 10);
     setMobile(cleaned);
     setLoginError('');
-    if (touched.mobile) {
-      setMobileError(validateMobile(cleaned));
-    }
+    if (touched.mobile) setMobileError(validateMobile(cleaned));
   };
 
   const handleMobileBlur = () => {
@@ -76,25 +86,11 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     setLoginError('');
-    const newTouched = { mobile: true, uuid: true, password: true };
-    setTouched(newTouched);
+    setTouched({ mobile: true, password: true });
 
-    // Kitchen role — not yet implemented
-    if (selectedRole === 'kitchen') {
-      setLoginError('Kitchen login is not available yet.');
-      return;
-    }
-
-    // Waiter role — not yet implemented via this screen
-    if (selectedRole === 'waiter') {
-      setLoginError('Waiter login is not available via this screen.');
-      return;
-    }
-
-    // Manager login
-    const err = validateMobile(mobile);
-    setMobileError(err);
-    if (err) return;
+    const mErr = validateMobile(mobile);
+    setMobileError(mErr);
+    if (mErr) return;
 
     if (!password) {
       setLoginError('Password is required.');
@@ -103,11 +99,40 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      const result = await login(mobile, password);
-      if (result.success) {
-        router.replace('/manager/dashboard');
+      if (selectedRole === 'manager') {
+        const result = await managerLogin(mobile, password);
+        if (result.success) {
+          router.replace('/manager/dashboard');
+        } else {
+          setLoginError(result.message ?? 'Login failed. Please try again.');
+        }
+      } else if (selectedRole === 'waiter') {
+        const result = await waiterLogin(mobile, password);
+        if (result.success) {
+          router.replace('/waiter/dashboard');
+        } else if (result.disabled) {
+          Alert.alert(
+            'Account Disabled',
+            'Your account has been disabled. Please contact your manager to re-enable it.',
+            [{ text: 'OK' }],
+          );
+        } else {
+          setLoginError(result.message ?? 'Login failed. Please try again.');
+        }
       } else {
-        setLoginError(result.message ?? 'Login failed. Please try again.');
+        // Kitchen
+        const result = await kitchenLogin(mobile, password);
+        if (result.success) {
+          router.replace('/kitchen/dashboard');
+        } else if (result.disabled) {
+          Alert.alert(
+            'Account Disabled',
+            'This kitchen account is disabled. Please contact the manager.',
+            [{ text: 'OK' }],
+          );
+        } else {
+          setLoginError(result.message ?? 'Login failed. Please try again.');
+        }
       }
     } catch {
       setLoginError('An unexpected error occurred. Please try again.');
@@ -117,7 +142,6 @@ export default function LoginScreen() {
   };
 
   const c = theme.colors;
-  const isKitchen = selectedRole === 'kitchen';
 
   return (
     <ScreenAnimationWrapper>
@@ -201,88 +225,53 @@ export default function LoginScreen() {
             </View>
 
             {/* Form Card */}
-            <View
-              style={[
-                styles.formCard,
-                { backgroundColor: c.card, borderColor: c.border },
-              ]}
-            >
-              {/* Mobile / UUID Field */}
-              {!isKitchen ? (
-                <View style={styles.fieldGroup}>
-                  <Text style={[styles.label, { color: c.textSecondary }]}>Mobile Number</Text>
-                  <View
-                    style={[
-                      styles.inputWrapper,
-                      {
-                        backgroundColor: c.inputBackground,
-                        borderColor: mobileError && touched.mobile ? c.error : c.border,
-                      },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name="phone-outline"
-                      size={20}
-                      color={mobile ? c.primary : c.textSecondary}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
-                      style={[styles.input, { color: c.text }]}
-                      placeholder="Enter 10-digit mobile"
-                      placeholderTextColor={c.textSecondary + '80'}
-                      keyboardType="number-pad"
-                      maxLength={10}
-                      value={mobile}
-                      onChangeText={handleMobileChange}
-                      onBlur={handleMobileBlur}
-                      returnKeyType="next"
-                      editable={!isLoading}
-                    />
-                    {mobile.length === 10 && !mobileError && (
-                      <MaterialCommunityIcons name="check-circle" size={18} color={c.success} />
-                    )}
-                  </View>
-                  {mobileError && touched.mobile && (
-                    <View style={styles.errorRow}>
-                      <MaterialCommunityIcons name="alert-circle-outline" size={13} color={c.error} />
-                      <Text style={[styles.errorText, { color: c.error }]}>{mobileError}</Text>
-                    </View>
-                  )}
-                  {!mobileError && mobile.length > 0 && (
-                    <Text style={[styles.charCount, { color: c.textSecondary }]}>
-                      {mobile.length}/10
-                    </Text>
+            <View style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              {/* Mobile Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.label, { color: c.textSecondary }]}>Mobile Number</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: c.inputBackground,
+                      borderColor: mobileError && touched.mobile ? c.error : c.border,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="phone-outline"
+                    size={20}
+                    color={mobile ? c.primary : c.textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[styles.input, { color: c.text }]}
+                    placeholder="Enter 10-digit mobile"
+                    placeholderTextColor={c.textSecondary + '80'}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    value={mobile}
+                    onChangeText={handleMobileChange}
+                    onBlur={handleMobileBlur}
+                    returnKeyType="next"
+                    editable={!isLoading}
+                  />
+                  {mobile.length === 10 && !mobileError && (
+                    <MaterialCommunityIcons name="check-circle" size={18} color={c.success} />
                   )}
                 </View>
-              ) : (
-                <View style={styles.fieldGroup}>
-                  <Text style={[styles.label, { color: c.textSecondary }]}>Kitchen UUID</Text>
-                  <View
-                    style={[
-                      styles.inputWrapper,
-                      { backgroundColor: c.inputBackground, borderColor: c.border },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name="identifier"
-                      size={20}
-                      color={uuid ? c.primary : c.textSecondary}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
-                      style={[styles.input, { color: c.text }]}
-                      placeholder="Enter kitchen UUID"
-                      placeholderTextColor={c.textSecondary + '80'}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      value={uuid}
-                      onChangeText={setUuid}
-                      returnKeyType="next"
-                      editable={!isLoading}
-                    />
+                {mobileError && touched.mobile && (
+                  <View style={styles.errorRow}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={13} color={c.error} />
+                    <Text style={[styles.errorText, { color: c.error }]}>{mobileError}</Text>
                   </View>
-                </View>
-              )}
+                )}
+                {!mobileError && mobile.length > 0 && (
+                  <Text style={[styles.charCount, { color: c.textSecondary }]}>
+                    {mobile.length}/10
+                  </Text>
+                )}
+              </View>
 
               {/* Password Field */}
               <View style={[styles.fieldGroup, { marginTop: 16 }]}>
@@ -361,9 +350,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   backButton: {
     padding: 12,
     marginLeft: 8,
@@ -375,8 +362,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
-
-  // Header
   headerSection: {
     alignItems: 'center',
     marginBottom: 28,
@@ -399,8 +384,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-
-  // Role Switcher
   roleSwitcher: {
     flexDirection: 'row',
     borderRadius: 12,
@@ -416,14 +399,8 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 4,
   },
-  roleTabFirst: {
-    borderTopLeftRadius: 11,
-    borderBottomLeftRadius: 11,
-  },
-  roleTabLast: {
-    borderTopRightRadius: 11,
-    borderBottomRightRadius: 11,
-  },
+  roleTabFirst: { borderTopLeftRadius: 11, borderBottomLeftRadius: 11 },
+  roleTabLast: { borderTopRightRadius: 11, borderBottomRightRadius: 11 },
   roleTabActive: {
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 2 },
@@ -431,15 +408,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  roleTabText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  roleTabTextActive: {
-    fontWeight: '700',
-  },
-
-  // Form Card
+  roleTabText: { fontSize: 13, fontWeight: '500' },
+  roleTabTextActive: { fontWeight: '700' },
   formCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -467,31 +437,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 13 : 10,
   },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    padding: 0,
-    margin: 0,
-  },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    gap: 4,
-  },
-  errorText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  charCount: {
-    fontSize: 11,
-    marginTop: 5,
-    textAlign: 'right',
-  },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 15, fontWeight: '500', padding: 0, margin: 0 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 },
+  errorText: { fontSize: 12, fontWeight: '500' },
+  charCount: { fontSize: 11, marginTop: 5, textAlign: 'right' },
   loginErrorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -501,13 +451,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 8,
   },
-  loginErrorText: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-
-  // Login Button
+  loginErrorText: { fontSize: 13, fontWeight: '600', flex: 1 },
   loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -521,9 +465,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  loginButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
+  loginButtonText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 });
