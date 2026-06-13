@@ -2,7 +2,9 @@
 // MANAGER SECTION LAYOUT
 // ============================================================================
 // Auth guard + WebSocket connection + custom tab bar.
-// Added kitchen and restaurant-info tabs.
+// Fixes:
+//   - #13: Logout redirect loop fixed via loggingOutRef guard
+//   - #16: Tab bar shows icons only (no labels) except Logout
 // ============================================================================
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -17,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SOCKET_CONFIG, SOCKET_URL } from "@/config/api";
+import { SOCKET_CONFIG, getSocketUrl } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeTransitionView, useTheme } from "@/context/ThemeContext";
 
@@ -38,7 +40,7 @@ const MANAGER_TABS = [
 type TabName = (typeof MANAGER_TABS)[number]["name"];
 
 // ============================================================================
-// TAB BAR BUTTON
+// TAB BAR BUTTON — Icons only, no labels (Issue #16)
 // ============================================================================
 
 interface TabBarButtonProps {
@@ -56,7 +58,7 @@ function TabBarButton({ tab, isActive, onPress, colors }: TabBarButtonProps) {
   }));
 
   const handlePress = () => {
-    scale.value = withSpring(0.9, { damping: 25, stiffness: 400 }, () => {
+    scale.value = withSpring(0.88, { damping: 25, stiffness: 400 }, () => {
       scale.value = withSpring(1, { damping: 18, stiffness: 300 });
     });
     onPress();
@@ -79,20 +81,10 @@ function TabBarButton({ tab, isActive, onPress, colors }: TabBarButtonProps) {
         )}
         <MaterialCommunityIcons
           name={isActive ? tab.iconActive : tab.icon}
-          size={22}
+          size={24}  /* slightly larger since no label */
           color={isActive ? colors.primary : colors.textSecondary}
         />
-        <Text
-          style={[
-            styles.tabLabel,
-            {
-              color: isActive ? colors.primary : colors.textSecondary,
-              fontWeight: isActive ? "700" : "500",
-            },
-          ]}
-        >
-          {tab.label}
-        </Text>
+        {/* NO label text — Issue #16: icons only for all tabs except Logout */}
       </Animated.View>
     </Pressable>
   );
@@ -115,9 +107,13 @@ export default function ManagerLayout() {
   const socketRef = useRef<any>(null);
   const activityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // FIX #13: Track logout-in-progress to prevent auth guard from re-firing and
+  // causing a redirect loop back to the login page → home → layout → login...
+  const loggingOutRef = useRef(false);
+
   // ─── Auth Guard ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !loggingOutRef.current) {
       router.replace("/login");
     }
   }, [isAuthenticated, isLoading]);
@@ -125,16 +121,16 @@ export default function ManagerLayout() {
   // ─── WebSocket Connection ────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated || !accessToken) return;
-    connectSocket(accessToken);
+    connectManagerSocket(accessToken);
     return () => { disconnectSocket(); };
   }, [isAuthenticated, accessToken]);
 
-  const connectSocket = async (token: string) => {
+  const connectManagerSocket = async (token: string) => {
     try {
       const { io } = await import("socket.io-client").catch(() => ({ io: null }));
       if (!io) return;
 
-      socketRef.current = io(SOCKET_URL, {
+      socketRef.current = io(getSocketUrl(), {
         auth: { token },
         ...SOCKET_CONFIG,
         transports: ["websocket"],
@@ -171,7 +167,7 @@ export default function ManagerLayout() {
     }
   };
 
-  // ─── Logout ──────────────────────────────────────────────────────────────
+  // ─── Logout — FIX #13 ────────────────────────────────────────────────────
   const handleLogout = useCallback(() => {
     Alert.alert(
       "Sign Out",
@@ -182,9 +178,12 @@ export default function ManagerLayout() {
           text: "Sign Out",
           style: "destructive",
           onPress: async () => {
+            // Set flag BEFORE logout to prevent auth guard from firing on isAuthenticated=false
+            loggingOutRef.current = true;
             disconnectSocket();
             await logout();
-            router.replace("/");
+            // Go directly to login — NOT home — to avoid loop
+            router.replace("/login");
           },
         },
       ],
@@ -209,7 +208,7 @@ export default function ManagerLayout() {
         }}
       />
 
-      {/* Custom Tab Bar */}
+      {/* Custom Tab Bar — icons only (Issue #16) */}
       <View
         style={[
           styles.tabBar,
@@ -230,15 +229,15 @@ export default function ManagerLayout() {
           />
         ))}
 
-        {/* Logout button */}
+        {/* Logout button — keeps label text as per Issue #16 spec */}
         <Pressable
           onPress={handleLogout}
           style={styles.tabButton}
           accessibilityLabel="Sign out"
         >
           <View style={styles.tabButtonInner}>
-            <MaterialCommunityIcons name="logout" size={22} color={c.error} />
-            <Text style={[styles.tabLabel, { color: c.error, fontWeight: "500" }]}>
+            <MaterialCommunityIcons name="logout" size={24} color={c.error} />
+            <Text style={[styles.logoutLabel, { color: c.error }]}>
               Logout
             </Text>
           </View>
@@ -262,11 +261,11 @@ const styles = StyleSheet.create({
   tabButtonInner: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     paddingVertical: 4,
     borderRadius: 8,
     gap: 2,
-    minWidth: 44,
+    minWidth: 36,
   },
   activeIndicator: {
     position: "absolute",
@@ -275,8 +274,10 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
   },
-  tabLabel: {
+  // Only used for Logout button label
+  logoutLabel: {
     fontSize: 10,
     letterSpacing: 0.1,
+    fontWeight: "600",
   },
 });

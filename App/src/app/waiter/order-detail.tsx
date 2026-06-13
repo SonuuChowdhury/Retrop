@@ -24,21 +24,28 @@ import { apiCall } from '@/utils/apiClient';
 // ============================================================================
 
 type OrderStatus = 'ordering' | 'preparing' | 'ready' | 'serving' | 'completed' | 'cancelled';
-type PaymentMethod = 'cash' | 'online' | 'upi';
+type PaymentMethod = 'cash' | 'card' | 'upi';
 
 interface OrderItem { dishId: string; dishName: string; price: number; quantity: number; remarks: string | null }
 interface Order {
   ordersId: string; dailyOrderNo: number; tableNo: number; orderStatus: OrderStatus;
   ordersInfo: OrderItem[]; totalAmount: number; finalAmount: number | null;
-  taxBreakdown: { name: string; percent: number; amount: number }[];
+  taxBreakdown: { name: string; percent: number; amount: number; inclusive?: boolean }[];
   gstAmount: number; paymentMethod: PaymentMethod | null; isPaymentCompleted: boolean;
   createdAt: string; customer?: { name: string; mobile: string };
+  taxType?: string;
+  lockedItems?: OrderItem[];
+  discountAmount?: number;
+  discountBreakdown?: { name: string; percent: number; amount: number }[];
 }
 interface BillPreview {
   subtotal: number;
-  taxBreakdown: { name: string; percent: number; amount: number }[];
+  taxBreakdown: { name: string; percent: number; amount: number; inclusive?: boolean }[];
   gstAmount: number;
   finalAmount: number;
+  taxType?: string;
+  discountAmount?: number;
+  discountBreakdown?: { name: string; percent: number; amount: number }[];
 }
 interface MenuItem { dishId: string; dishName: string; price: number; category: string; isAvailable: boolean }
 
@@ -54,10 +61,15 @@ function PaymentModal({
 }) {
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
-    { key: 'cash',   label: 'Cash',   icon: 'cash' },
-    { key: 'upi',    label: 'UPI',    icon: 'cellphone-nfc' },
-    { key: 'online', label: 'Online', icon: 'credit-card-outline' },
+    { key: 'cash', label: 'Cash', icon: 'cash' },
+    { key: 'upi',  label: 'UPI',  icon: 'cellphone-nfc' },
+    { key: 'card', label: 'Card', icon: 'credit-card-outline' },
   ];
+
+  const isInclusive = bill?.taxType === 'inclusive' || (bill?.taxBreakdown && bill.taxBreakdown.some((t: any) => t.inclusive));
+  const displayedSubtotal = isInclusive && bill
+    ? parseFloat((bill.finalAmount - (bill.taxBreakdown?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0)).toFixed(2))
+    : (bill?.subtotal || 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -73,15 +85,21 @@ function PaymentModal({
             <View style={[styles.billBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <View style={styles.billRow}>
                 <Text style={[styles.billLabel, { color: colors.textSecondary }]}>Subtotal</Text>
-                <Text style={[styles.billValue, { color: colors.text }]}>₹{(Number(bill.subtotal) || 0).toFixed(2)}</Text>
+                <Text style={[styles.billValue, { color: colors.text }]}>₹{displayedSubtotal.toFixed(2)}</Text>
               </View>
+              {(bill.discountBreakdown ?? []).map((d, idx) => (
+                <View key={d.name + idx} style={styles.billRow}>
+                  <Text style={[styles.billLabel, { color: colors.success }]}>🏷️ {d.name} ({d.percent}%)</Text>
+                  <Text style={[styles.billValue, { color: colors.success }]}>-₹{(Number(d.amount) || 0).toFixed(2)}</Text>
+                </View>
+              ))}
               {(bill.taxBreakdown ?? []).map((t) => (
                 <View key={t.name} style={styles.billRow}>
-                  <Text style={[styles.billLabel, { color: colors.textSecondary }]}>{t.name} ({t.percent}%)</Text>
+                  <Text style={[styles.billLabel, { color: colors.textSecondary }]}>{t.name} ({t.percent}%{t.inclusive ? ' Incl.' : ''})</Text>
                   <Text style={[styles.billValue, { color: colors.textSecondary }]}>₹{(Number(t.amount) || 0).toFixed(2)}</Text>
                 </View>
               ))}
-              <View style={[styles.billRow, styles.billTotal]}>
+              <View style={[styles.billRow, styles.billTotalRow]}>
                 <Text style={[styles.billTotalLabel, { color: colors.text }]}>Total</Text>
                 <Text style={[styles.billTotalValue, { color: colors.primary }]}>₹{(Number(bill.finalAmount) || 0).toFixed(2)}</Text>
               </View>
@@ -132,93 +150,7 @@ function PaymentModal({
 // MENU PICKER MODAL
 // ============================================================================
 
-function MenuPickerModal({
-  visible, onClose, menuItems, onAdd, colors,
-}: {
-  visible: boolean; onClose: () => void; menuItems: MenuItem[];
-  onAdd: (item: MenuItem, qty: number, remarks: string) => void; colors: any;
-}) {
-  const [selected, setSelected] = useState<MenuItem | null>(null);
-  const [qty, setQty] = useState('1');
-  const [remarks, setRemarks] = useState('');
 
-  const reset = () => { setSelected(null); setQty('1'); setRemarks(''); };
-
-  const handleAdd = () => {
-    if (!selected) { return; }
-    const q = parseInt(qty, 10);
-    if (!q || q < 1) { return; }
-    onAdd(selected, q, remarks.trim());
-    reset();
-    onClose();
-  };
-
-  const available = menuItems.filter((m) => m.isAvailable);
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '80%' }]} onPress={() => {}}>
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Add Item</Text>
-            <Pressable onPress={onClose}><MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} /></Pressable>
-          </View>
-
-          {!selected ? (
-            <FlatList
-              data={available}
-              keyExtractor={(i) => i.dishId}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => setSelected(item)}
-                  style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.menuItemName, { color: colors.text }]}>{item.dishName}</Text>
-                    <Text style={[styles.menuItemCat, { color: colors.textSecondary }]}>{item.category}</Text>
-                  </View>
-                  <Text style={[styles.menuItemPrice, { color: colors.primary }]}>₹{item.price}</Text>
-                </Pressable>
-              )}
-              style={{ maxHeight: 360 }}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <View>
-              <View style={[styles.selectedItem, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '25' }]}>
-                <Text style={[{ color: colors.text, fontWeight: '700', fontSize: 15 }]}>{selected.dishName}</Text>
-                <Text style={[{ color: colors.primary, fontWeight: '700' }]}>₹{selected.price}</Text>
-              </View>
-              <Text style={[styles.label, { color: colors.textSecondary, marginTop: 12 }]}>Quantity</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                value={qty}
-                onChangeText={setQty}
-                keyboardType="number-pad"
-              />
-              <Text style={[styles.label, { color: colors.textSecondary, marginTop: 12 }]}>Remarks (optional)</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                value={remarks}
-                onChangeText={setRemarks}
-                placeholder="e.g. no onion, extra spicy"
-                placeholderTextColor={colors.textSecondary + '80'}
-              />
-              <View style={styles.modalActions}>
-                <Pressable onPress={() => setSelected(null)} style={[styles.modalBtn, { borderWidth: 1, borderColor: colors.border }]}>
-                  <Text style={[{ color: colors.text, fontWeight: '600' }]}>Back</Text>
-                </Pressable>
-                <Pressable onPress={handleAdd} style={[styles.modalBtn, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: '#fff', fontWeight: '700' }}>Add to Order</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
 
 // ============================================================================
 // MAIN SCREEN
@@ -234,11 +166,9 @@ export default function OrderDetailScreen() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [bill, setBill] = useState<BillPreview | null>(null);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [showMenuPicker, setShowMenuPicker] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const handleDisabled = useCallback(() => {
@@ -278,22 +208,9 @@ export default function OrderDetailScreen() {
     }
   }, [orderId, accessToken, refreshToken, handleDisabled]);
 
-  // ── Fetch menu for adding items ──────────────────────────────────────────
-  const fetchMenu = useCallback(async () => {
-    const result = await apiCall(
-      ENDPOINTS.WAITER_MENU,
-      { method: 'GET' },
-      async () => accessToken,
-      refreshToken,
-      handleDisabled,
-    );
-    if (result.success) setMenuItems(result.data as MenuItem[] ?? []);
-  }, [accessToken, refreshToken, handleDisabled]);
-
   useEffect(() => {
     fetchOrder();
     fetchBill();
-    fetchMenu();
   }, [orderId]);
 
   // ── Start Serving ────────────────────────────────────────────────────────
@@ -315,48 +232,7 @@ export default function OrderDetailScreen() {
     setActionLoading(false);
   };
 
-  // ── Add item ─────────────────────────────────────────────────────────────
-  const handleAddItem = async (item: MenuItem, qty: number, remarks: string) => {
-    if (!orderId) return;
-    setActionLoading(true);
-    const result = await apiCall(
-      ENDPOINTS.WAITER_MODIFY_ORDER(orderId),
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ action: 'add', items: [{ dishId: item.dishId, quantity: qty, remarks: remarks || null }] }),
-      },
-      async () => accessToken,
-      refreshToken,
-      handleDisabled,
-    );
-    if (result.success) { fetchOrder(); fetchBill(); }
-    else { Alert.alert('Error', result.message ?? 'Failed to add item.'); }
-    setActionLoading(false);
-  };
 
-  // ── Remove item ─────────────────────────────────────────────────────────
-  const handleRemoveItem = (item: OrderItem) => {
-    Alert.alert('Remove Item', `Remove ${item.dishName}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive',
-        onPress: async () => {
-          if (!orderId) return;
-          setActionLoading(true);
-          const result = await apiCall(
-            ENDPOINTS.WAITER_MODIFY_ORDER(orderId),
-            { method: 'PATCH', body: JSON.stringify({ action: 'remove', items: [{ dishId: item.dishId, quantity: item.quantity }] }) },
-            async () => accessToken,
-            refreshToken,
-            handleDisabled,
-          );
-          if (result.success) { fetchOrder(); fetchBill(); }
-          else { Alert.alert('Error', result.message ?? 'Failed to remove item.'); }
-          setActionLoading(false);
-        },
-      },
-    ]);
-  };
 
   // ── Conclude order ───────────────────────────────────────────────────────
   const handleConclude = async (paymentMethod: PaymentMethod) => {
@@ -391,6 +267,18 @@ export default function OrderDetailScreen() {
   }
 
   const isEditable = !['completed', 'cancelled'].includes(order.orderStatus);
+
+  const isInclusive = bill?.taxType === 'inclusive' || (bill?.taxBreakdown && bill.taxBreakdown.some((t: any) => t.inclusive)) || (order?.taxBreakdown && order.taxBreakdown.some((t: any) => t.inclusive)) || order?.taxType === 'inclusive';
+  const totalTaxPercent = bill?.taxBreakdown?.reduce((sum: number, t: any) => sum + (t.percent || 0), 0) || order?.taxBreakdown?.reduce((sum: number, t: any) => sum + (t.percent || 0), 0) || 0;
+  const divisor = 1 + totalTaxPercent / 100;
+
+  const getDispPrice = (price: number) => {
+    return isInclusive ? parseFloat((price / divisor).toFixed(2)) : price;
+  };
+
+  const displayedSubtotal = isInclusive && bill
+    ? parseFloat((bill.finalAmount - (bill.taxBreakdown?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0)).toFixed(2))
+    : (bill?.subtotal || order.totalAmount);
 
   return (
     <View style={[{ flex: 1, backgroundColor: c.background }]}>
@@ -430,38 +318,38 @@ export default function OrderDetailScreen() {
         {/* Items */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Items</Text>
-          {isEditable && (
-            <Pressable
-              onPress={() => setShowMenuPicker(true)}
-              style={[styles.addItemBtn, { backgroundColor: c.primary + '15', borderColor: c.primary + '30' }]}
-            >
-              <MaterialCommunityIcons name="plus" size={14} color={c.primary} />
-              <Text style={[styles.addItemText, { color: c.primary }]}>Add Item</Text>
-            </Pressable>
-          )}
         </View>
 
-        {order.ordersInfo.map((item, i) => (
-          <Animated.View
-            key={item.dishId + i}
-            entering={FadeInDown.delay(80 + i * 40).duration(300)}
-            style={[styles.itemRow, { backgroundColor: c.card, borderColor: c.border }]}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.itemName, { color: c.text }]}>{item.dishName}</Text>
-              {item.remarks && (
-                <Text style={[styles.itemRemarks, { color: c.textSecondary }]}>Note: {item.remarks}</Text>
-              )}
-            </View>
-            <Text style={[styles.itemQty, { color: c.textSecondary }]}>×{item.quantity}</Text>
-            <Text style={[styles.itemPrice, { color: c.text }]}>₹{((Number(item.price) || 0) * (item.quantity || 1)).toFixed(0)}</Text>
-            {isEditable && (
-              <Pressable onPress={() => handleRemoveItem(item)} style={styles.removeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialCommunityIcons name="minus-circle-outline" size={20} color={c.error} />
-              </Pressable>
-            )}
-          </Animated.View>
-        ))}
+        {order.ordersInfo.map((item, i) => {
+          const itemPrice = getDispPrice(item.price);
+          const itemTotal = itemPrice * item.quantity;
+          const lockedItem = order.lockedItems?.find(l => l.dishId === item.dishId);
+          const isLocked = !!lockedItem;
+          return (
+            <Animated.View
+              key={item.dishId + i}
+              entering={FadeInDown.delay(80 + i * 40).duration(300)}
+              style={[styles.itemRow, { backgroundColor: c.card, borderColor: c.border }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemName, { color: c.text }]}>{item.dishName}</Text>
+                {item.remarks && (
+                  <Text style={[styles.itemRemarks, { color: c.textSecondary }]}>Note: {item.remarks}</Text>
+                )}
+                {isLocked && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <MaterialCommunityIcons name="lock" size={12} color={c.success} />
+                    <Text style={{ fontSize: 11, color: c.success, fontWeight: '700' }}>
+                      Served ({lockedItem.quantity})
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.itemQty, { color: c.textSecondary }]}>×{item.quantity}</Text>
+              <Text style={[styles.itemPrice, { color: c.text }]}>₹{itemTotal.toFixed(2)}</Text>
+            </Animated.View>
+          );
+        })}
 
         {/* Bill summary */}
         {bill && (
@@ -472,11 +360,17 @@ export default function OrderDetailScreen() {
             <Text style={[styles.sectionTitle, { color: c.text, marginBottom: 10 }]}>Bill</Text>
             <View style={styles.billRow}>
               <Text style={[styles.billLabel, { color: c.textSecondary }]}>Subtotal</Text>
-              <Text style={[styles.billValue, { color: c.text }]}>₹{(Number(bill.subtotal) || 0).toFixed(2)}</Text>
+              <Text style={[styles.billValue, { color: c.text }]}>₹{displayedSubtotal.toFixed(2)}</Text>
             </View>
+            {(bill.discountBreakdown ?? []).map((d, idx) => (
+              <View key={d.name + idx} style={styles.billRow}>
+                <Text style={[styles.billLabel, { color: c.success }]}>🏷️ {d.name} ({d.percent}%)</Text>
+                <Text style={[styles.billValue, { color: c.success }]}>-₹{(Number(d.amount) || 0).toFixed(2)}</Text>
+              </View>
+            ))}
             {(bill.taxBreakdown ?? []).map((t) => (
               <View key={t.name} style={styles.billRow}>
-                <Text style={[styles.billLabel, { color: c.textSecondary }]}>{t.name} ({t.percent}%)</Text>
+                <Text style={[styles.billLabel, { color: c.textSecondary }]}>{t.name} ({t.percent}%{t.inclusive ? ' Incl.' : ''})</Text>
                 <Text style={[styles.billValue, { color: c.textSecondary }]}>₹{(Number(t.amount) || 0).toFixed(2)}</Text>
               </View>
             ))}
@@ -484,6 +378,11 @@ export default function OrderDetailScreen() {
               <Text style={[styles.billTotalLabel, { color: c.text }]}>Total</Text>
               <Text style={[styles.billTotalValue, { color: c.primary }]}>₹{(Number(bill.finalAmount) || 0).toFixed(2)}</Text>
             </View>
+            {isInclusive && (
+              <Text style={{ fontSize: 11, color: c.textSecondary, fontStyle: 'italic', marginTop: 8 }}>
+                * Dishes are inclusive of taxes. Taxes have been extracted for display.
+              </Text>
+            )}
           </Animated.View>
         )}
       </ScrollView>
@@ -523,13 +422,6 @@ export default function OrderDetailScreen() {
         bill={bill}
         onConfirm={handleConclude}
         confirming={confirming}
-        colors={c}
-      />
-      <MenuPickerModal
-        visible={showMenuPicker}
-        onClose={() => setShowMenuPicker(false)}
-        menuItems={menuItems}
-        onAdd={handleAddItem}
         colors={c}
       />
     </View>

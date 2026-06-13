@@ -1298,7 +1298,7 @@ const styles = StyleSheet.create({
   },
   imagePreview: { width: '100%', height: '100%' },
   imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent:  'center',
     alignItems:      'center',

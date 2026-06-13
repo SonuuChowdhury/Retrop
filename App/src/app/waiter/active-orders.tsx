@@ -20,6 +20,8 @@ import { ENDPOINTS } from '@/config/api';
 import { apiCall } from '@/utils/apiClient';
 import { getSocket } from '@/utils/socket';
 
+import { SkeletonLoader, SkeletonRow } from '@/components/SkeletonLoader/SkeletonLoader';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -170,8 +172,21 @@ export default function ActiveOrdersScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.primary} />
+      <View style={{ flex: 1, backgroundColor: c.background, paddingTop: insets.top + 12, paddingHorizontal: 16 }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <SkeletonLoader width={180} height={28} />
+          <SkeletonLoader width={34} height={22} borderRadius={11} />
+        </View>
+
+        {/* Rows */}
+        <View style={{ gap: 10 }}>
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
       </View>
     );
   }

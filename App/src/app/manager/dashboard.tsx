@@ -18,6 +18,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ENDPOINTS } from '@/config/api';
 
+import { SkeletonLoader, SkeletonKPI } from '@/components/SkeletonLoader/SkeletonLoader';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -35,23 +37,6 @@ interface DashboardData {
 
 interface RestaurantSettings {
   isRestaurantOpen: boolean;
-}
-
-// ============================================================================
-// STAT CARD
-// ============================================================================
-
-function StatCard({ label, value, icon, color, delay }: {
-  label: string; value: string | number; icon: string; color: string; delay: number;
-}) {
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(delay).duration(350)}
-      style={[statSt.card]}
-    >
-      {({ colors }: any) => null}
-    </Animated.View>
-  );
 }
 
 // ============================================================================
@@ -145,8 +130,35 @@ export default function ManagerDashboard() {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.primary} />
+      <View style={{ flex: 1, backgroundColor: c.background, paddingTop: insets.top + 16, paddingHorizontal: 20 }}>
+        {/* Header Skeleton */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <View style={{ gap: 6 }}>
+            <SkeletonLoader width={80} height={14} />
+            <SkeletonLoader width={140} height={24} style={{ marginTop: 4 }} />
+          </View>
+          <SkeletonLoader width={80} height={24} borderRadius={12} />
+        </View>
+
+        {/* Toggle Card Skeleton */}
+        <View style={{ width: '100%', height: 74, borderRadius: 16, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.card, padding: 18, marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <SkeletonLoader width={32} height={32} borderRadius={16} />
+            <View style={{ gap: 6 }}>
+              <SkeletonLoader width={120} height={16} />
+              <SkeletonLoader width={160} height={12} />
+            </View>
+          </View>
+          <SkeletonLoader width={48} height={24} borderRadius={12} />
+        </View>
+
+        {/* Stats Grid Skeleton */}
+        <View style={styles.statsGrid}>
+          <SkeletonKPI colors={c} />
+          <SkeletonKPI colors={c} />
+          <SkeletonKPI colors={c} />
+          <SkeletonKPI colors={c} />
+        </View>
       </View>
     );
   }
@@ -351,8 +363,4 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pendingText: { fontSize: 14, fontWeight: '500', flex: 1 },
-});
-
-const statSt = StyleSheet.create({
-  card: {},
 });

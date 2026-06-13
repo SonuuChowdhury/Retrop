@@ -20,6 +20,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  SharedValue,
+  DerivedValue,
 } from "react-native-reanimated";
 
 export type ThemeMode = "light" | "dark";
@@ -86,7 +88,7 @@ interface ThemeContextType {
   toggleTheme: () => void;
   isDark: boolean;
   // Animated value (0 = light, 1 = dark) for consumers that want smooth interpolation
-  themeProgress: Animated.SharedValue<number>;
+  themeProgress: SharedValue<number>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -146,7 +148,7 @@ export const useTheme = (): ThemeContextType => {
 
 export function useThemeColor(
   key: keyof Colors,
-): Animated.DerivedValue<string> {
+): DerivedValue<string> {
   const { themeProgress } = useTheme();
   // eslint-disable-next-line react-hooks/rules-of-hooks
   return require("react-native-reanimated").useDerivedValue(() =>

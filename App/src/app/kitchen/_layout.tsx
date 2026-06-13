@@ -4,13 +4,16 @@
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import { ThemeTransitionView, useTheme } from '@/context/ThemeContext';
 import { connectSocket, disconnectSocket } from '@/utils/socket';
+import { registerForPushNotificationsAsync } from '@/services/notificationService';
+import { ENDPOINTS } from '@/config/api';
+import { apiCall } from '@/utils/apiClient';
 
 export default function KitchenLayout() {
   const { isAuthenticated, isLoading, accessToken, logout } = useKitchenAuth();
@@ -19,9 +22,12 @@ export default function KitchenLayout() {
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
+  // FIX #13: Prevent auth guard from firing after deliberate logout
+  const loggingOutRef = useRef(false);
+
   // ── Auth Guard ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !loggingOutRef.current) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading]);
@@ -33,6 +39,29 @@ export default function KitchenLayout() {
     return () => { disconnectSocket(); };
   }, [isAuthenticated, accessToken]);
 
+  // ── FCM Token Registration ───────────────────────────────────────────────
+  // Registers the FCM device token with the backend so the server can send
+  // push notifications even when the app is in background or killed.
+  // Silently no-ops in Expo Go (SDK 53+) or on simulators.
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) return;
+    (async () => {
+      try {
+        const fcmToken = await registerForPushNotificationsAsync();
+        if (!fcmToken) return; // Expo Go / simulator — skip
+        await apiCall(
+          `${ENDPOINTS.KITCHEN_LOGIN.replace('/login', '/fcm-token')}`,
+          { method: 'POST', body: JSON.stringify({ fcmToken }) },
+          async () => accessToken,
+          async () => ({ success: false }),
+          () => {},
+        );
+      } catch {
+        // Non-critical — fail silently
+      }
+    })();
+  }, [isAuthenticated, accessToken]);
+
   const handleLogout = useCallback(() => {
     Alert.alert(
       'Sign Out',
@@ -42,9 +71,10 @@ export default function KitchenLayout() {
         {
           text: 'Sign Out', style: 'destructive',
           onPress: async () => {
+            loggingOutRef.current = true;
             disconnectSocket();
             await logout();
-            router.replace('/');
+            router.replace('/login');
           },
         },
       ],

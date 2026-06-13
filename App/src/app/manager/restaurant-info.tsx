@@ -28,6 +28,12 @@ interface TaxEntry {
   percent: string; // keep as string for input
 }
 
+interface DiscountEntry {
+  name: string;
+  percent: string; // keep as string for input
+  isActive: boolean;
+}
+
 interface RestaurantInfoForm {
   restaurantName: string;
   address: string;
@@ -35,6 +41,8 @@ interface RestaurantInfoForm {
   isGST: boolean;
   GSTIN: string;
   taxes: TaxEntry[];
+  taxType: 'inclusive' | 'exclusive';
+  discounts: DiscountEntry[];
 }
 
 const EMPTY_FORM: RestaurantInfoForm = {
@@ -44,6 +52,8 @@ const EMPTY_FORM: RestaurantInfoForm = {
   isGST: false,
   GSTIN: '',
   taxes: [],
+  taxType: 'exclusive',
+  discounts: [],
 };
 
 // ============================================================================
@@ -79,6 +89,12 @@ export default function RestaurantInfoScreen() {
             name: t.name ?? '',
             percent: String(t.percent ?? ''),
           })),
+          taxType: d.taxType ?? 'exclusive',
+          discounts: (d.discounts ?? []).map((disc: any) => ({
+            name: disc.name ?? '',
+            percent: String(disc.percent ?? ''),
+            isActive: disc.isActive ?? true,
+          })),
         });
         setError(null);
       } else {
@@ -107,6 +123,31 @@ export default function RestaurantInfoScreen() {
       const taxes = [...prev.taxes];
       taxes[idx] = { ...taxes[idx], [field]: value };
       return { ...prev, taxes };
+    });
+  };
+
+  // ── Discount helpers ─────────────────────────────────────────────
+  const addDiscount = () => {
+    setForm((prev) => ({ ...prev, discounts: [...prev.discounts, { name: '', percent: '', isActive: true }] }));
+  };
+
+  const removeDiscount = (idx: number) => {
+    setForm((prev) => ({ ...prev, discounts: prev.discounts.filter((_, i) => i !== idx) }));
+  };
+
+  const updateDiscount = (idx: number, field: 'name' | 'percent', value: string) => {
+    setForm((prev) => {
+      const discounts = [...prev.discounts];
+      discounts[idx] = { ...discounts[idx], [field]: value };
+      return { ...prev, discounts };
+    });
+  };
+
+  const toggleDiscountActive = (idx: number) => {
+    setForm((prev) => {
+      const discounts = [...prev.discounts];
+      discounts[idx] = { ...discounts[idx], isActive: !discounts[idx].isActive };
+      return { ...prev, discounts };
     });
   };
 
@@ -142,6 +183,12 @@ export default function RestaurantInfoScreen() {
         isGST: form.isGST,
         GSTIN: form.isGST ? form.GSTIN.trim() : null,
         taxes: form.taxes.map((t) => ({ name: t.name.trim(), percent: parseFloat(t.percent) })),
+        taxType: form.taxType,
+        discounts: form.discounts.map((d) => ({
+          name: d.name.trim(),
+          percent: parseFloat(d.percent),
+          isActive: d.isActive,
+        })),
       };
 
       const res = await fetch(ENDPOINTS.MANAGER_RESTAURANT_INFO, {
@@ -281,6 +328,21 @@ export default function RestaurantInfoScreen() {
               />
             </View>
 
+            <View style={[styles.toggleRow, { marginTop: 14, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 14 }]}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.toggleLabel, { color: c.text }]}>Inclusive Taxes</Text>
+                <Text style={[styles.toggleHint, { color: c.textSecondary }]}>
+                  Treat menu prices as tax-inclusive, back-calculating pre-tax base prices on the bill.
+                </Text>
+              </View>
+              <Switch
+                value={form.taxType === 'inclusive'}
+                onValueChange={(v) => setForm((p) => ({ ...p, taxType: v ? 'inclusive' : 'exclusive' }))}
+                trackColor={{ false: c.border, true: c.primary + '60' }}
+                thumbColor={form.taxType === 'inclusive' ? c.primary : c.textSecondary}
+              />
+            </View>
+
             {form.isGST && (
               <View style={[styles.fieldGroup, { marginTop: 14 }]}>
                 <Text style={[styles.label, { color: c.textSecondary }]}>GSTIN *</Text>
@@ -350,6 +412,83 @@ export default function RestaurantInfoScreen() {
                 <Pressable
                   onPress={() => removeTax(idx)}
                   style={[styles.removeTaxBtn, { backgroundColor: c.error + '12' }]}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={c.error} />
+                </Pressable>
+              </Animated.View>
+            ))
+          )}
+        </Animated.View>
+
+        {/* ── Discounts Section (ISSUE 9) ───────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(220).duration(350)}>
+          <View style={styles.taxHeader}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Discounts</Text>
+            <Pressable
+              onPress={addDiscount}
+              style={[styles.addTaxBtn, { backgroundColor: c.success + '15', borderColor: c.success + '30' }]}
+            >
+              <MaterialCommunityIcons name="tag-plus" size={14} color={c.success} />
+              <Text style={[styles.addTaxBtnText, { color: c.success }]}>Add Discount</Text>
+            </Pressable>
+          </View>
+          <Text style={[{ color: c.textSecondary, fontSize: 12, marginBottom: 10 }]}>
+            Active discounts are automatically applied to all orders at checkout.
+          </Text>
+
+          {form.discounts.length === 0 ? (
+            <View style={[styles.emptyTaxes, { backgroundColor: c.card, borderColor: c.border }]}>
+              <MaterialCommunityIcons name="tag-outline" size={28} color={c.textSecondary} />
+              <Text style={[{ color: c.textSecondary, fontSize: 13, marginTop: 6 }]}>
+                No discounts configured. Tap "+ Add Discount" to add one.
+              </Text>
+            </View>
+          ) : (
+            form.discounts.map((disc, idx) => (
+              <Animated.View
+                key={idx}
+                entering={FadeInDown.delay(idx * 50).duration(280)}
+                style={[styles.taxRow, { backgroundColor: c.card, borderColor: disc.isActive ? c.success + '60' : c.border }]}
+              >
+                <View style={{ flex: 2 }}>
+                  <Text style={[styles.label, { color: c.textSecondary }]}>Discount Name</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.inputBackground, borderColor: c.border, color: c.text }]}
+                    value={disc.name}
+                    onChangeText={(v) => updateDiscount(idx, 'name', v)}
+                    placeholder="e.g. Staff Discount"
+                    placeholderTextColor={c.textSecondary + '80'}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.label, { color: c.textSecondary }]}>% Rate</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: c.inputBackground, borderColor: c.border, color: c.text }]}
+                    value={disc.percent}
+                    onChangeText={(v) => updateDiscount(idx, 'percent', v)}
+                    placeholder="10"
+                    placeholderTextColor={c.textSecondary + '80'}
+                    keyboardType="decimal-pad"
+                    maxLength={5}
+                  />
+                </View>
+                {/* Active toggle */}
+                <Pressable
+                  onPress={() => toggleDiscountActive(idx)}
+                  style={[styles.removeTaxBtn, {
+                    backgroundColor: disc.isActive ? c.success + '15' : c.border + '30',
+                    marginLeft: 6,
+                  }]}
+                >
+                  <MaterialCommunityIcons
+                    name={disc.isActive ? 'check-circle' : 'circle-outline'}
+                    size={18}
+                    color={disc.isActive ? c.success : c.textSecondary}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => removeDiscount(idx)}
+                  style={[styles.removeTaxBtn, { backgroundColor: c.error + '12', marginLeft: 6 }]}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={18} color={c.error} />
                 </Pressable>

@@ -39,7 +39,6 @@ import { getSocket } from '@/utils/socket';
 interface OrderStats {
   totalOrders: number;
   completedOrders: number;
-  totalEarnings: number;
   activeOrders: number;
 }
 
@@ -69,6 +68,8 @@ interface PendingSession {
   createdAt: string;
   customerSubmittedAt?: string;
 }
+
+import { SkeletonLoader, SkeletonCard, SkeletonKPI } from '@/components/SkeletonLoader/SkeletonLoader';
 
 // ============================================================================
 // STATUS CONFIG
@@ -312,6 +313,14 @@ export default function WaiterDashboard() {
         if (data?.type === 'order_ready') {
           fetchDashboard();
         }
+        if (data?.type === 'order_modified') {
+          // Customer changed their order — refresh active orders
+          fetchDashboard();
+        }
+        if (data?.type === 'order_preparing') {
+          // Kitchen started preparing — refresh dashboard
+          fetchDashboard();
+        }
       },
       (response) => {
         const data = response.notification.request.content.data as any;
@@ -377,8 +386,33 @@ export default function WaiterDashboard() {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.primary} />
+      <View style={{ backgroundColor: c.background, paddingHorizontal: 16, paddingTop: insets.top + 20, flex: 1 }}>
+        {/* Header Skeleton */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 30, alignItems: 'center' }}>
+          <View style={{ gap: 6 }}>
+            <SkeletonLoader width={120} height={16} />
+            <SkeletonLoader width={160} height={26} style={{ marginTop: 4 }} />
+          </View>
+          <SkeletonLoader width={100} height={28} borderRadius={14} />
+        </View>
+
+        {/* Stats Row Skeleton */}
+        <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginBottom: 30 }}>
+          <SkeletonKPI colors={c} />
+          <SkeletonKPI colors={c} />
+        </View>
+
+        {/* Section Header Skeleton */}
+        <View style={{ width: '100%', marginBottom: 16 }}>
+          <SkeletonLoader width={140} height={20} />
+        </View>
+
+        {/* Order Cards Skeletons */}
+        <View style={{ width: '100%', gap: 10 }}>
+          <SkeletonCard colors={c} />
+          <SkeletonCard colors={c} />
+          <SkeletonCard colors={c} />
+        </View>
       </View>
     );
   }
@@ -466,7 +500,6 @@ export default function WaiterDashboard() {
           {[
             { label: "Today's Orders", value: stats?.totalOrders ?? 0, icon: 'receipt', color: c.primary },
             { label: 'Completed', value: stats?.completedOrders ?? 0, icon: 'check-circle-outline', color: c.success },
-            { label: 'Earnings', value: `₹${stats?.totalEarnings ?? 0}`, icon: 'cash-multiple', color: '#8B5CF6' },
           ].map((s, i) => (
             <Animated.View
               key={s.label}

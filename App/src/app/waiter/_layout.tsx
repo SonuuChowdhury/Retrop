@@ -14,6 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { ThemeTransitionView, useTheme } from '@/context/ThemeContext';
 import { connectSocket, disconnectSocket } from '@/utils/socket';
+import { registerForPushNotificationsAsync } from '@/services/notificationService';
+import { ENDPOINTS } from '@/config/api';
+import { apiCall } from '@/utils/apiClient';
 
 // ============================================================================
 // TABS
@@ -76,9 +79,12 @@ export default function WaiterLayout() {
   const segments = useSegments();
   const currentTab = (segments[segments.length - 1] as TabName) ?? 'dashboard';
 
+  // FIX #13: Prevent auth guard from firing after deliberate logout
+  const loggingOutRef = useRef(false);
+
   // ── Auth Guard ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !loggingOutRef.current) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading]);
@@ -88,6 +94,28 @@ export default function WaiterLayout() {
     if (!isAuthenticated || !accessToken) return;
     connectSocket(accessToken, 'waiter');
     return () => { disconnectSocket(); };
+  }, [isAuthenticated, accessToken]);
+
+  // ── FCM Token Registration ───────────────────────────────────────────────
+  // Registers device push token with backend so server can send FCM notifications.
+  // No-ops in Expo Go (SDK 53+) or on simulators.
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) return;
+    (async () => {
+      try {
+        const fcmToken = await registerForPushNotificationsAsync();
+        if (!fcmToken) return; // Expo Go / simulator — skip
+        await apiCall(
+          `${ENDPOINTS.WAITER_LOGIN.replace('/login', '/fcm-token')}`,
+          { method: 'POST', body: JSON.stringify({ fcmToken }) },
+          async () => accessToken,
+          async () => ({ success: false }),
+          () => {},
+        );
+      } catch {
+        // Non-critical — fail silently
+      }
+    })();
   }, [isAuthenticated, accessToken]);
 
   const handleLogout = useCallback(() => {
@@ -100,9 +128,10 @@ export default function WaiterLayout() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
+            loggingOutRef.current = true;
             disconnectSocket();
             await logout();
-            router.replace('/');
+            router.replace('/login');
           },
         },
       ],
