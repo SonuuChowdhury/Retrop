@@ -73,11 +73,11 @@ export const getSessionStatus = async (req, res) => {
     }
 
     // Return only safe fields to the customer (no internal wait identifiers)
-    const { sessionToken, tableId: tid, tableNo, status, customerName, customerMobile, waiterId, waiterName, orderId, dailyOrderNo, createdAt, expiresAt } = result.data;
+    const { sessionToken, tableId: tid, tableNo, status, customerName, customerMobile, waiterId, waiterName, orderId, dailyOrderNo, createdAt, expiresAt, customerToken, tokenValidUntil } = result.data;
 
     res.status(200).json({
       status: 'success',
-      data: { sessionToken, tableId: tid, tableNo, status, customerName, customerMobile, waiterId: !!waiterId, waiterName, orderId, dailyOrderNo, createdAt, expiresAt },
+      data: { sessionToken, tableId: tid, tableNo, status, customerName, customerMobile, waiterId: !!waiterId, waiterName, orderId, dailyOrderNo, createdAt, expiresAt, customerToken, tokenValidUntil },
     });
   } catch (err) {
     logger.error('Get session status error', err.message);
@@ -163,5 +163,138 @@ export const getOrderBill = async (req, res) => {
   } catch (err) {
     logger.error('Get order bill error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to fetch bill' });
+  }
+};
+
+// ── GET /api/order/:tableId/order-status?token=xxx ────────────────────────────
+// Customer polls active order status
+export const getCustomerOrderStatus = async (req, res) => {
+  try {
+    const { tableId } = req.params;
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ status: 'error', message: 'Token is required' });
+    }
+
+    const { data: table, error: tableError } = await supabase
+      .from('restaurant_table')
+      .select('tableNo')
+      .eq('tableId', tableId)
+      .maybeSingle();
+
+    if (tableError || !table) {
+      return res.status(404).json({ status: 'error', message: 'Table not found' });
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select(`
+        ordersId, dailyOrderNo, tableNo, orderStatus, ordersInfo,
+        ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
+        paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
+        tokenValidUntil,
+        waiter:waiterId(waiterName)
+      `)
+      .eq('customerToken', token)
+      .eq('tableNo', table.tableNo)
+      .maybeSingle();
+
+    if (orderError || !order) {
+      return res.status(404).json({ status: 'error', message: 'Order session not found' });
+    }
+
+    const expiry = new Date(order.tokenValidUntil);
+    if (expiry < new Date()) {
+      return res.status(403).json({ status: 'error', message: 'Session expired' });
+    }
+
+    const { data: restaurantInfo } = await supabase.from('restaurant_info').select('*').eq('infoId', 1).maybeSingle();
+
+    res.status(200).json({
+      status: 'success',
+      data: { order, restaurantInfo },
+    });
+  } catch (err) {
+    logger.error('Get customer order status error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch order status' });
+  }
+};
+
+// ── POST /api/order/:orderId/customer-modify ──────────────────────────────────
+// Customer adds/removes items before kitchen starts
+export const customerModifyOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { token, action, items } = req.body;
+
+    if (!token || !action || !items?.length) {
+      return res.status(400).json({ status: 'error', message: 'token, action, and items are required' });
+    }
+
+    const result = await orderSessionService.customerModifyOrder(orderId, token, action, items);
+    if (!result.success) {
+      return res.status(result.code || 400).json({ status: 'error', message: result.error });
+    }
+
+    res.status(200).json({ status: 'success', data: result.data });
+  } catch (err) {
+    logger.error('Customer modify order controller error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to modify order' });
+  }
+};
+
+// ── GET /api/order/:tableId/token-check?token=xxx ─────────────────────────────
+// Validate token from QR re-scan
+export const checkCustomerToken = async (req, res) => {
+  try {
+    const { tableId } = req.params;
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ status: 'error', message: 'Token is required' });
+    }
+
+    const { data: table, error: tableError } = await supabase
+      .from('restaurant_table')
+      .select('tableNo')
+      .eq('tableId', tableId)
+      .maybeSingle();
+
+    if (tableError || !table) {
+      return res.status(404).json({ status: 'error', message: 'Table not found' });
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('ordersId, orderStatus, isPaymentCompleted, tokenValidUntil')
+      .eq('customerToken', token)
+      .eq('tableNo', table.tableNo)
+      .order('createdAt', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (orderError || !order) {
+      return res.status(200).json({ status: 'success', valid: false });
+    }
+
+    const now = new Date();
+    const expiry = new Date(order.tokenValidUntil);
+    if (expiry < now) {
+      return res.status(200).json({ status: 'success', valid: false, reason: 'expired' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      valid: true,
+      data: {
+        orderId: order.ordersId,
+        orderStatus: order.orderStatus,
+        isPaymentCompleted: order.isPaymentCompleted,
+      }
+    });
+  } catch (err) {
+    logger.error('Check customer token controller error', err.message);
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };

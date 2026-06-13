@@ -3,6 +3,7 @@ import { waiterAuthService } from './waiterAuthService.js';
 import { kitchenAuthService } from './kitchenAuthService.js';
 import { managerService } from './managerService.js';
 import { logger } from '../utils/logger.js';
+import { supabase } from '../config/supabase.js';
 
 // ============================================================================
 // WEBSOCKET SERVICE
@@ -15,6 +16,9 @@ const activeSessions = new Map();
 
 // Store session timeouts for activity-based cleanup
 const sessionTimeouts = new Map();
+
+// Reference to the active Socket.io instance
+let ioInstance = null;
 
 // ─── Helper: Verify token with role-specific secrets ──────────────────────
 const verifyTokenWithRole = (token, role) => {
@@ -54,6 +58,7 @@ const verifyTokenWithRole = (token, role) => {
 export const socketService = {
   // Initialize socket handlers
   initializeSocket: (io) => {
+    ioInstance = io;
     io.on('connection', async (socket) => {
       logger.info(`[Socket] Client attempting connection: ${socket.id}`);
 
@@ -72,7 +77,26 @@ export const socketService = {
         }
 
         // Verify token with multi-secret strategy
-        const verification = verifyTokenWithRole(token, claimedRole);
+        let verification = verifyTokenWithRole(token, claimedRole);
+        if (!verification && claimedRole === 'customer') {
+          try {
+            const { data: order } = await supabase
+              .from('orders')
+              .select('ordersId, tokenValidUntil')
+              .eq('customerToken', token)
+              .maybeSingle();
+
+            if (order) {
+              const expiry = new Date(order.tokenValidUntil);
+              if (expiry >= new Date()) {
+                verification = { decoded: { orderId: order.ordersId }, detectedRole: 'customer' };
+              }
+            }
+          } catch (err) {
+            logger.error(`[Socket] Customer token verification error: ${err.message}`);
+          }
+        }
+
         if (!verification) {
           logger.error(`[Socket] REJECTED - Token verification FAILED for ${socket.id}. Claimed role: ${claimedRole}`);
           socket.emit('error', { message: 'Invalid or expired token' });
@@ -83,7 +107,7 @@ export const socketService = {
         const { decoded, detectedRole } = verification;
 
         // Extract ID based on detected role
-        const userId = decoded.adminId || decoded.waiterId || decoded.kitchenId;
+        const userId = decoded.adminId || decoded.waiterId || decoded.kitchenId || decoded.orderId;
         if (!userId) {
           logger.error(`[Socket] REJECTED - No valid user ID found in token for ${socket.id}`);
           socket.emit('error', { message: 'Invalid token: missing user ID' });
@@ -280,6 +304,16 @@ export const socketService = {
 
     activeSessions.clear();
     sessionTimeouts.clear();
+    ioInstance = null;
     logger.info('[Socket] All sessions closed');
+  },
+
+  // Helper to emit events to all connected clients (e.g. order status updates)
+  emitToAll: (event, data) => {
+    if (ioInstance) {
+      ioInstance.emit(event, data);
+    } else {
+      logger.warn(`[Socket] Attempted to emit event "${event}" but ioInstance is null`);
+    }
   },
 };

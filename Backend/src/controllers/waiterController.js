@@ -4,9 +4,10 @@
 
 import { waiterAuthService } from '../services/waiterAuthService.js';
 import { orderSessionService } from '../services/orderSessionService.js';
+import { socketService } from '../services/socketService.js';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
-import { redis } from '../config/redis.js';                                    // ← NEW import
+import { redis } from '../config/redis.js';
 import { todayStartIST, tomorrowStartIST, todayDateIST, nowIST } from '../utils/time.js';
 
 // ── POST /api/waiter/login ────────────────────────────────────────────────────
@@ -67,6 +68,23 @@ export const waiterLogout = async (req, res) => {
   } catch (err) {
     logger.error('Waiter logout controller error', err.message);
     res.status(500).json({ status: 'error', message: 'Logout failed' });
+  }
+};
+
+// ── POST /api/waiter/fcm-token ───────────────────────────────────────────────
+// App calls this on startup to refresh the FCM push token registration.
+export const updateWaiterFcmToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ status: 'error', message: 'fcmToken required' });
+    }
+    const { notificationService } = await import('../services/notificationService.js');
+    await notificationService.registerWaiterToken(req.waiter.waiterId, fcmToken);
+    res.status(200).json({ status: 'success', message: 'FCM token updated' });
+  } catch (err) {
+    logger.error('Update waiter FCM token error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to update FCM token' });
   }
 };
 
@@ -135,13 +153,14 @@ export const waiterDashboard = async (req, res) => {
         todayStats: {
           totalOrders: stats?.totalOrders || 0,
           completedOrders: stats?.completedOrders || 0,
-          totalEarnings: stats?.totalEarnings || 0,
           activeOrders: activeOrders?.length || 0,
         },
         activeOrders: activeOrders || [],
         completedToday: completedToday || [],
       },
     });
+
+
   } catch (err) {
     logger.error('Waiter dashboard error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to fetch dashboard' });
@@ -243,25 +262,13 @@ export const getOrderDetails = async (req, res) => {
 
 // ── PATCH /api/waiter/orders/:orderId/modify ──────────────────────────────────
 export const modifyOrder = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { action, items, remarks } = req.body;
-    const waiterId = req.waiter.waiterId;
-
-    if (!action || !items) {
-      return res.status(400).json({ status: 'error', message: 'action and items are required' });
-    }
-
-    const result = await orderSessionService.modifyOrder(orderId, waiterId, action, items, remarks);
-    if (!result.success) {
-      return res.status(result.code || 400).json({ status: 'error', message: result.error });
-    }
-    res.status(200).json({ status: 'success', data: result.data });
-  } catch (err) {
-    logger.error('Modify order controller error', err.message);
-    res.status(500).json({ status: 'error', message: 'Failed to modify order' });
-  }
+  return res.status(403).json({
+    status: 'error',
+    message: 'Modify order feature is disabled for waiters.',
+  });
 };
+
+
 
 // ── PATCH /api/waiter/orders/:orderId/status ──────────────────────────────────
 export const updateOrderStatus = async (req, res) => {
@@ -298,6 +305,12 @@ export const updateOrderStatus = async (req, res) => {
         .eq('tableNo', order.tableNo);
     }
 
+    // Broadcast order status change to customer tracking page
+    socketService.emitToAll('order:status_change', {
+      orderId,
+      orderStatus: status,
+    });
+
     res.status(200).json({ status: 'success', message: `Order status updated to ${status}` });
   } catch (err) {
     logger.error('Update order status error', err.message);
@@ -312,8 +325,9 @@ export const concludeOrder = async (req, res) => {
     const { paymentMethod } = req.body;
     const waiterId = req.waiter.waiterId;
 
-    if (!paymentMethod || !['cash', 'online', 'upi'].includes(paymentMethod)) {
-      return res.status(400).json({ status: 'error', message: 'Valid paymentMethod required: cash, online, upi' });
+    // ISSUE 7: Updated valid payment methods — 'card' replaces 'online'
+    if (!paymentMethod || !['cash', 'card', 'upi'].includes(paymentMethod)) {
+      return res.status(400).json({ status: 'error', message: 'Valid paymentMethod required: cash, card, upi' });
     }
 
     const result = await orderSessionService.concludeOrder(orderId, waiterId, paymentMethod);
@@ -383,18 +397,49 @@ export const getBillPreview = async (req, res) => {
       .eq('infoId', 1)
       .maybeSingle();
 
-    let totalBeforeTax = order.totalAmount || 0;
+    const subtotal = parseFloat(order.totalAmount) || 0;
     let taxBreakdown = [];
     let gstAmount = 0;
-    let finalAmount = totalBeforeTax;
+    let discountAmount = 0;
+    let discountBreakdown = [];
+    const taxType = restaurantInfo?.taxType || 'exclusive';
+
+    // ISSUE 9: Apply active discounts to subtotal first
+    const activeDiscounts = (restaurantInfo?.discounts || []).filter(d => d.isActive);
+    if (activeDiscounts.length > 0) {
+      for (const discount of activeDiscounts) {
+        const dAmt = parseFloat(((subtotal * discount.percent) / 100).toFixed(2));
+        discountAmount += dAmt;
+        discountBreakdown.push({ name: discount.name, percent: discount.percent, amount: dAmt });
+      }
+      discountAmount = parseFloat(discountAmount.toFixed(2));
+    }
+    const discountedSubtotal = parseFloat((subtotal - discountAmount).toFixed(2));
+
+    let finalAmount = discountedSubtotal;
 
     if (restaurantInfo?.isGST && restaurantInfo?.taxes?.length) {
-      for (const tax of restaurantInfo.taxes) {
-        const amt = (totalBeforeTax * tax.percent) / 100;
-        gstAmount += amt;
-        taxBreakdown.push({ name: tax.name, percent: tax.percent, amount: parseFloat(amt.toFixed(2)) });
+      const totalTaxPercent = restaurantInfo.taxes.reduce((sum, t) => sum + (t.percent || 0), 0);
+
+      if (taxType === 'inclusive') {
+        const divisor = 1 + totalTaxPercent / 100;
+        const baseAmount = discountedSubtotal / divisor;
+        const totalExtractedTax = discountedSubtotal - baseAmount;
+
+        for (const tax of restaurantInfo.taxes) {
+          const taxAmt = parseFloat(((totalExtractedTax * tax.percent) / totalTaxPercent).toFixed(2));
+          gstAmount += taxAmt;
+          taxBreakdown.push({ name: tax.name, percent: tax.percent, amount: taxAmt, inclusive: true });
+        }
+        finalAmount = parseFloat(discountedSubtotal.toFixed(2));
+      } else {
+        for (const tax of restaurantInfo.taxes) {
+          const amt = parseFloat(((discountedSubtotal * tax.percent) / 100).toFixed(2));
+          gstAmount += amt;
+          taxBreakdown.push({ name: tax.name, percent: tax.percent, amount: amt, inclusive: false });
+        }
+        finalAmount = parseFloat((discountedSubtotal + gstAmount).toFixed(2));
       }
-      finalAmount = parseFloat((totalBeforeTax + gstAmount).toFixed(2));
     }
 
     res.status(200).json({
@@ -403,9 +448,12 @@ export const getBillPreview = async (req, res) => {
         order,
         restaurantInfo,
         billing: {
-          subtotal:     parseFloat(totalBeforeTax.toFixed(2)),
+          subtotal:          parseFloat(subtotal.toFixed(2)),
+          discountAmount,
+          discountBreakdown,
           taxBreakdown,
-          gstAmount:    parseFloat(gstAmount.toFixed(2)),
+          taxType,
+          gstAmount:         parseFloat(gstAmount.toFixed(2)),
           finalAmount,
         },
       },

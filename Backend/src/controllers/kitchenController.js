@@ -4,9 +4,13 @@
 
 import { kitchenAuthService } from '../services/kitchenAuthService.js';
 import { orderSessionService } from '../services/orderSessionService.js';
+import { socketService } from '../services/socketService.js';
+import { notificationService } from '../services/notificationService.js';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
 import { nowIST, todayStartIST, tomorrowStartIST } from '../utils/time.js';
+import bcrypt from 'bcryptjs';
+import { redis, REDIS_KEYS } from '../config/redis.js';
 
 // ── POST /api/kitchen/login ───────────────────────────────────────────────────
 export const kitchenLogin = async (req, res) => {
@@ -61,6 +65,22 @@ export const kitchenLogout = async (req, res) => {
   }
 };
 
+// ── POST /api/kitchen/fcm-token ───────────────────────────────────────────────
+// App calls this on startup to refresh the FCM push token registration.
+export const updateKitchenFcmToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ status: 'error', message: 'fcmToken required' });
+    }
+    await notificationService.registerKitchenToken(req.kitchen.kitchenId, fcmToken);
+    res.status(200).json({ status: 'success', message: 'FCM token updated' });
+  } catch (err) {
+    logger.error('Update kitchen FCM token error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to update FCM token' });
+  }
+};
+
 // ── GET /api/kitchen/dashboard ────────────────────────────────────────────────
 // Returns all active orders that the kitchen needs to prepare
 export const kitchenDashboard = async (req, res) => {
@@ -88,11 +108,23 @@ export const kitchenDashboard = async (req, res) => {
       return res.status(500).json({ status: 'error', message: 'Failed to fetch orders' });
     }
 
+    // Mark orders as modified if a customer-initiated modification happened in the last 5 minutes
+    const MODIFIED_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+    const now = Date.now();
+    const enrichedOrders = (orders || []).map((order) => {
+      const recentCustomerMod = (order.ordersUpdateInfo || []).some((log) => {
+        if (!log.customer) return false;
+        const logTime = new Date(log.timestamp).getTime();
+        return (now - logTime) < MODIFIED_WINDOW_MS;
+      });
+      return { ...order, isModified: recentCustomerMod };
+    });
+
     // Categorize by status
-    const queued = orders?.filter(o => o.orderStatus === 'ordering') || [];
-    const preparing = orders?.filter(o => o.orderStatus === 'preparing') || [];
-    const ready = orders?.filter(o => o.orderStatus === 'ready') || [];
-    const serving = orders?.filter(o => o.orderStatus === 'serving') || [];
+    const queued    = enrichedOrders.filter(o => o.orderStatus === 'ordering');
+    const preparing = enrichedOrders.filter(o => o.orderStatus === 'preparing');
+    const ready     = enrichedOrders.filter(o => o.orderStatus === 'ready');
+    const serving   = enrichedOrders.filter(o => o.orderStatus === 'serving');
 
     res.status(200).json({
       status: 'success',
@@ -102,7 +134,7 @@ export const kitchenDashboard = async (req, res) => {
         preparing,
         ready,
         serving,
-        totalActive: orders?.length || 0,
+        totalActive: enrichedOrders.length,
       },
     });
   } catch (err) {
@@ -118,7 +150,7 @@ export const startPreparation = async (req, res) => {
 
     const { data: order, error } = await supabase
       .from('orders')
-      .select('ordersId, orderStatus')
+      .select('ordersId, orderStatus, dailyOrderNo, tableNo, waiterId, ordersInfo')
       .eq('ordersId', orderId)
       .maybeSingle();
 
@@ -130,6 +162,22 @@ export const startPreparation = async (req, res) => {
     await supabase.from('orders')
       .update({ orderStatus: 'preparing', preparationStartedAt: nowIST(), updatedAt: nowIST() })
       .eq('ordersId', orderId);
+
+    // Notify assigned waiter: kitchen started preparing
+    if (order.waiterId) {
+      await notificationService.notifyWaiter(
+        order.waiterId,
+        `👨‍🍳 Preparing Order #${order.dailyOrderNo}`,
+        `Kitchen started preparing Table ${order.tableNo}`,
+        { type: 'order_preparing', orderId, tableNo: String(order.tableNo), dailyOrderNo: String(order.dailyOrderNo) }
+      ).catch(() => {});
+    }
+
+    // Broadcast order status change to customer tracking page and all dashboards
+    socketService.emitToAll('order:status_change', {
+      orderId,
+      orderStatus: 'preparing',
+    });
 
     res.status(200).json({ status: 'success', message: 'Preparation started' });
   } catch (err) {
@@ -175,13 +223,26 @@ export const getOrderForKitchen = async (req, res) => {
   }
 };
 
+// ── PATCH /api/kitchen/orders/:orderId/addon/:addonId/done ────────────────────
+// ISSUE 2: Kitchen acknowledges (dismisses) a customer addon card.
+export const acknowledgeAddon = async (req, res) => {
+  try {
+    const { orderId, addonId } = req.params;
+    const result = await orderSessionService.acknowledgeAddon(orderId, addonId);
+    if (!result.success) {
+      return res.status(result.code || 400).json({ status: 'error', message: result.error });
+    }
+    res.status(200).json({ status: 'success', message: 'Addon acknowledged' });
+  } catch (err) {
+    logger.error('Acknowledge addon error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to acknowledge addon' });
+  }
+};
+
 // ============================================================================
 // KITCHEN MANAGEMENT (Manager side) — CRUD for kitchen accounts
 // ============================================================================
 
-import bcrypt from 'bcryptjs';
-import { redis, REDIS_KEYS } from '../config/redis.js';
-import { notificationService } from '../services/notificationService.js';
 
 // ── GET all kitchens ─────────────────────────────────────────────────────────
 export const getAllKitchens = async (req, res) => {

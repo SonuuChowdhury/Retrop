@@ -95,42 +95,60 @@ export const managerService = {
     }
   },
 
-  // Get dashboard summary data
-  // FIX: use IST day boundaries so "today" is correct in IST, not UTC
+  // Get dashboard summary data — returns all fields needed by both App dashboard + frontend.
+  // FIX: use IST day boundaries so "today" is correct in IST, not UTC.
+  // FIX: renamed output fields to match App's DashboardData interface exactly.
   getDashboardSummary: async () => {
     try {
       const todayStart = todayStartIST();
       const todayEnd = tomorrowStartIST();
 
-      // Get today's orders count (IST day boundaries)
-      const { data: todayOrders, error: ordersError } = await supabase
-        .from('orders')
-        .select('ordersId')
-        .gte('createdAt', todayStart)
-        .lt('createdAt', todayEnd);
+      const [
+        { data: todayOrderRows },
+        { data: todayRevenueRows },
+        { data: pendingOrderRows },
+        { data: allTables },
+        { data: occupiedTables },
+        { data: waiterSessions },
+        { data: allWaiters },
+      ] = await Promise.all([
+        // Today's total orders
+        supabase.from('orders').select('ordersId').gte('createdAt', todayStart).lt('createdAt', todayEnd),
+        // Today's revenue (completed + paid)
+        supabase.from('orders').select('finalAmount, totalAmount').gte('createdAt', todayStart).lt('createdAt', todayEnd).eq('isPaymentCompleted', true),
+        // Pending orders in 'ordering' status
+        supabase.from('orders').select('ordersId').eq('orderStatus', 'ordering'),
+        // All tables
+        supabase.from('restaurant_table').select('tableNo'),
+        // Occupied tables
+        supabase.from('restaurant_table').select('tableNo').eq('isAvailable', false),
+        // Active waiter sessions
+        supabase.from('waiter_session').select('waiterId').eq('isActive', true),
+        // All waiters
+        supabase.from('waiter').select('waiterId').eq('isActive', true),
+      ]);
 
-      // Get busy tables count
-      const { data: activeTables, error: tablesError } = await supabase
-        .from('restaurant_table')
-        .select('tableNo')
-        .eq('isAvailable', false);
-
-      // Get active waiters count
-      const { data: activeWaiters, error: waitersError } = await supabase
-        .from('waiter_session')
-        .select('waiterId')
-        .eq('isActive', true);
-
-      if (ordersError || tablesError || waitersError) {
-        logger.warn('Dashboard summary fetch had errors');
-      }
+      // Sum revenue (prefer finalAmount which includes tax; fall back to totalAmount)
+      const todayRevenue = (todayRevenueRows ?? []).reduce(
+        (sum, o) => sum + (parseFloat(o.finalAmount) || parseFloat(o.totalAmount) || 0),
+        0
+      );
 
       return {
         success: true,
         data: {
-          todayOrdersCount: todayOrders?.length || 0,
-          busyTablesCount: activeTables?.length || 0,
-          activeWaitersCount: activeWaiters?.length || 0,
+          // Fields used by App's DashboardData interface
+          todayOrders:    todayOrderRows?.length || 0,
+          todayRevenue:   Math.round(todayRevenue * 100), // paise for display formatting
+          pendingOrders:  pendingOrderRows?.length || 0,
+          totalTables:    allTables?.length || 0,
+          occupiedTables: occupiedTables?.length || 0,
+          activeWaiters:  waiterSessions?.length || 0,
+          totalWaiters:   allWaiters?.length || 0,
+          // Legacy fields kept for backwards compat
+          todayOrdersCount: todayOrderRows?.length || 0,
+          busyTablesCount:  occupiedTables?.length || 0,
+          activeWaitersCount: waiterSessions?.length || 0,
         },
       };
     } catch (error) {

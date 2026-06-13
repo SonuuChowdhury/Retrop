@@ -4,13 +4,27 @@
 
 import { restaurantInfoService } from '../services/restaurantInfoService.js';
 import { logger } from '../utils/logger.js';
+import { supabase } from '../config/supabase.js';
 
 // ── GET /api/manager/restaurant-info ─────────────────────────────────────────
 export const getRestaurantInfo = async (req, res) => {
   try {
     const result = await restaurantInfoService.getInfo();
     if (!result.success) return res.status(500).json({ status: 'error', message: result.error });
-    res.status(200).json({ status: 'success', data: result.data });
+
+    // Fetch the restaurant open/closed status
+    const { data: settings } = await supabase
+      .from('restaurant_settings')
+      .select('isRestaurantOpen')
+      .eq('settingsId', 1)
+      .maybeSingle();
+
+    const data = {
+      ...result.data,
+      isRestaurantOpen: settings ? settings.isRestaurantOpen : false,
+    };
+
+    res.status(200).json({ status: 'success', data });
   } catch (err) {
     logger.error('Get restaurant info error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to fetch restaurant info' });
@@ -20,7 +34,7 @@ export const getRestaurantInfo = async (req, res) => {
 // ── PUT /api/manager/restaurant-info ─────────────────────────────────────────
 export const updateRestaurantInfo = async (req, res) => {
   try {
-    const { restaurantName, address, mobile, isGST, GSTIN, taxes } = req.body;
+    const { restaurantName, address, mobile, isGST, GSTIN, taxes, taxType, discounts } = req.body;
 
     // Validate
     if (!restaurantName?.trim()) {
@@ -40,6 +54,21 @@ export const updateRestaurantInfo = async (req, res) => {
         }
       }
     }
+    // Validate taxType
+    if (taxType && !['inclusive', 'exclusive'].includes(taxType)) {
+      return res.status(400).json({ status: 'error', message: 'taxType must be "inclusive" or "exclusive"' });
+    }
+    // Validate discounts format: [{name, percent, isActive}]
+    if (discounts) {
+      if (!Array.isArray(discounts)) {
+        return res.status(400).json({ status: 'error', message: 'discounts must be an array' });
+      }
+      for (const disc of discounts) {
+        if (!disc.name || typeof disc.percent !== 'number' || disc.percent < 0 || disc.percent > 100) {
+          return res.status(400).json({ status: 'error', message: 'Each discount must have name (string) and percent (0-100)' });
+        }
+      }
+    }
 
     const updates = {
       restaurantName: restaurantName.trim(),
@@ -48,6 +77,8 @@ export const updateRestaurantInfo = async (req, res) => {
       isGST: Boolean(isGST),
       GSTIN: isGST ? GSTIN?.trim() : null,
       taxes: taxes || [],
+      taxType: taxType || 'exclusive',
+      discounts: discounts || [],
     };
 
     const result = await restaurantInfoService.updateInfo(updates);

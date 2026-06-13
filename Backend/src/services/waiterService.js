@@ -59,7 +59,7 @@ export const waiterService = {
       const today = todayDateIST();
       const { data: stats } = await supabase
         .from('waiter_daily_stats')
-        .select('totalOrders, completedOrders, totalEarnings')
+        .select('totalOrders, completedOrders')
         .eq('waiterId', waiterId)
         .eq('statsDate', today)
         .maybeSingle();
@@ -80,7 +80,7 @@ export const waiterService = {
           ...waiter,
           isCurrentlyLoggedIn: !!session,
           sessionStartTime: session?.createdAt,
-          todayStats: stats || { totalOrders: 0, completedOrders: 0, totalEarnings: 0 },
+          todayStats: stats || { totalOrders: 0, completedOrders: 0 },
           currentTable: currentTable?.tableNo || null,
         },
       };
@@ -225,7 +225,7 @@ export const waiterService = {
 
       const { data: stats, error } = await supabase
         .from('waiter_daily_stats')
-        .select('*')
+        .select('totalOrders, completedOrders')
         .eq('waiterId', waiterId)
         .eq('statsDate', today)
         .maybeSingle();
@@ -237,7 +237,7 @@ export const waiterService = {
 
       return {
         success: true,
-        data: stats || { totalOrders: 0, completedOrders: 0, totalEarnings: 0 },
+        data: stats || { totalOrders: 0, completedOrders: 0 },
       };
     } catch (error) {
       logger.error('Waiter stats fetch error', error.message);

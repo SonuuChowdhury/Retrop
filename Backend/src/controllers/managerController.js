@@ -3,6 +3,7 @@ import { waiterService } from '../services/waiterService.js';
 import { orderAnalyticsService } from '../services/orderAnalyticsService.js';
 import { tableService } from '../services/tableService.js';
 import { logger } from '../utils/logger.js';
+import { supabase } from '../config/supabase.js';
 
 // ============================================================================
 // MANAGER CONTROLLER
@@ -718,3 +719,86 @@ export const updateTableCapacity = async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to update table capacity' });
   }
 };
+
+// ============================================================================
+// ANALYTICS ORDERS — FULL DETAIL (for manager orders list with infinite scroll)
+// ============================================================================
+// FIX: Moved from inline route handler in routes.js (where supabase was undefined)
+//      to this controller where supabase is properly imported.
+
+export const getAnalyticsOrders = async (req, res) => {
+  try {
+    const {
+      from, to, status, waiterId, tableNo,
+      limit = '20', offset = '0',
+    } = req.query;
+
+    const lim = Math.min(parseInt(limit) || 20, 100); // cap at 100 per request
+    const off = parseInt(offset) || 0;
+
+    let query = supabase
+      .from('orders')
+      .select(`
+        ordersId, dailyOrderNo, tableNo, orderStatus, ordersInfo,
+        ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
+        paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
+        customer:mobile(name, mobile),
+        waiter:waiterId(waiterName, mobile)
+      `, { count: 'exact' })
+      .order('createdAt', { ascending: false })
+      .range(off, off + lim - 1);
+
+    if (from)      query = query.gte('createdAt', from);
+    if (to)        query = query.lte('createdAt', to);
+    if (status)    query = query.eq('orderStatus', status);
+    if (waiterId)  query = query.eq('waiterId', waiterId);
+    if (tableNo)   query = query.eq('tableNo', parseInt(tableNo));
+
+    const { data, error, count } = await query;
+    if (error) {
+      logger.error('Get analytics orders error', error.message);
+      return res.status(500).json({ status: 'error', message: 'Failed to fetch orders' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data,
+      meta: { total: count ?? 0, limit: lim, offset: off, hasMore: (off + lim) < (count ?? 0) },
+    });
+  } catch (error) {
+    logger.error('Get analytics orders error', error.message);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch orders' });
+  }
+};
+
+// ── GET single order with full detail (for order detail modal) ─────────────────
+export const getAnalyticsOrderDetail = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        customer:mobile(name, mobile),
+        waiter:waiterId(waiterName, mobile)
+      `)
+      .eq('ordersId', orderId)
+      .maybeSingle();
+
+    if (error || !order) {
+      return res.status(404).json({ status: 'error', message: 'Order not found' });
+    }
+
+    const { data: restaurantInfo } = await supabase
+      .from('restaurant_info')
+      .select('*')
+      .eq('infoId', 1)
+      .maybeSingle();
+
+    res.status(200).json({ status: 'success', data: { order, restaurantInfo } });
+  } catch (error) {
+    logger.error('Get analytics order detail error', error.message);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch order details' });
+  }
+};

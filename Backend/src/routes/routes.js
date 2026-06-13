@@ -20,6 +20,8 @@ import {
   getWaiterCurrentTables,
   toggleWaiterStatus,
   getComprehensiveAnalytics,
+  getAnalyticsOrders,
+  getAnalyticsOrderDetail,
   getAllTables,
   getTableDetails,
   getTableStatistics,
@@ -63,6 +65,7 @@ import {
   getWaiterActiveOrders,
   getBillPreview,
   getPendingSessions,
+  updateWaiterFcmToken,
 } from '../controllers/waiterController.js';
 import {
   kitchenLogin,
@@ -72,10 +75,12 @@ import {
   startPreparation,
   markOrderReady,
   getOrderForKitchen,
+  acknowledgeAddon,
   getAllKitchens,
   addKitchen,
   deleteKitchen,
   toggleKitchenStatus,
+  updateKitchenFcmToken,
 } from '../controllers/kitchenController.js';
 import {
   createOrderSession,
@@ -84,9 +89,13 @@ import {
   getPublicMenu,
   placeOrder,
   getOrderBill,
+  getCustomerOrderStatus,
+  customerModifyOrder,
+  checkCustomerToken,
 } from '../controllers/customerOrderController.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { waiterAuthMiddleware, kitchenAuthMiddleware } from '../middleware/waiterKitchenAuth.js';
+import { requireRestaurantOpen } from '../middleware/restaurantOpen.js';
 import { RATE_LIMIT_CONFIG } from '../config/constants.js';
 
 const router = express.Router();
@@ -141,55 +150,11 @@ router.patch('/api/manager/kitchen/:kitchenId/status', authMiddleware, requireRo
 // ============================================================================
 router.get('/api/admins/analytics', authMiddleware, requireRole(['manager', 'owner']), getComprehensiveAnalytics);
 
-// ── GET all orders with full details (for manager analytics) ─────────────────
-router.get('/api/manager/analytics/orders', authMiddleware, requireRole(['manager']), async (req, res) => {
-  try {
-    const { from, to, status, waiterId } = req.query;
-    let query = supabase
-      .from('orders')
-      .select(`
-        ordersId, dailyOrderNo, tableNo, orderStatus, ordersInfo,
-        ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
-        paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
-        customer:mobile(name, mobile),
-        waiter:waiterId(waiterName, mobile)
-      `)
-      .order('createdAt', { ascending: false });
+// ── GET all orders with full details (for manager analytics) — uses proper controller
+router.get('/api/manager/analytics/orders', authMiddleware, requireRole(['manager']), getAnalyticsOrders);
 
-    if (from) query = query.gte('createdAt', from);
-    if (to) query = query.lte('createdAt', to);
-    if (status) query = query.eq('orderStatus', status);
-    if (waiterId) query = query.eq('waiterId', waiterId);
-
-    const { data, error } = await query;
-    if (error) throw error;
-    res.status(200).json({ status: 'success', data });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Failed to fetch orders' });
-  }
-});
-
-// ── GET single order full detail (for manager analytics invoice view) ─────────
-router.get('/api/manager/analytics/orders/:orderId', authMiddleware, requireRole(['manager']), async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *, 
-        customer:mobile(name, mobile),
-        waiter:waiterId(waiterName, mobile)
-      `)
-      .eq('ordersId', orderId)
-      .maybeSingle();
-    if (error || !data) return res.status(404).json({ status: 'error', message: 'Order not found' });
-
-    const { data: restaurantInfo } = await supabase.from('restaurant_info').select('*').eq('infoId', 1).maybeSingle();
-    res.status(200).json({ status: 'success', data: { order: data, restaurantInfo } });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Failed to fetch order details' });
-  }
-});
+// ── GET single order full detail (for manager analytics invoice view)
+router.get('/api/manager/analytics/orders/:orderId', authMiddleware, requireRole(['manager']), getAnalyticsOrderDetail);
 
 // ============================================================================
 // TABLE MANAGEMENT ROUTES
@@ -238,8 +203,9 @@ router.get('/api/public/restaurant-info', publicOrderLimiter, getRestaurantInfo)
 router.post('/api/waiter/login', waiterLoginLimiter, waiterLogin);
 router.post('/api/waiter/refresh', waiterRefresh);
 router.post('/api/waiter/logout', waiterAuthMiddleware, waiterLogout);
+router.post('/api/waiter/fcm-token', waiterAuthMiddleware, updateWaiterFcmToken);
 router.get('/api/waiter/dashboard', waiterAuthMiddleware, waiterDashboard);
-router.get('/api/waiter/pending-sessions', waiterAuthMiddleware, getPendingSessions)
+router.get('/api/waiter/pending-sessions', waiterAuthMiddleware, getPendingSessions);
 router.get('/api/waiter/menu', waiterAuthMiddleware, getMenuForWaiter);
 router.get('/api/waiter/active-orders', waiterAuthMiddleware, getWaiterActiveOrders);
 router.post('/api/waiter/orders/:tableId/accept', waiterAuthMiddleware, acceptOrder);
@@ -255,19 +221,25 @@ router.get('/api/waiter/orders/:orderId/bill-preview', waiterAuthMiddleware, get
 router.post('/api/kitchen/login', kitchenLoginLimiter, kitchenLogin);
 router.post('/api/kitchen/refresh', kitchenRefresh);
 router.post('/api/kitchen/logout', kitchenAuthMiddleware, kitchenLogout);
+router.post('/api/kitchen/fcm-token', kitchenAuthMiddleware, updateKitchenFcmToken);
 router.get('/api/kitchen/dashboard', kitchenAuthMiddleware, kitchenDashboard);
 router.patch('/api/kitchen/orders/:orderId/start', kitchenAuthMiddleware, startPreparation);
 router.patch('/api/kitchen/orders/:orderId/ready', kitchenAuthMiddleware, markOrderReady);
+router.patch('/api/kitchen/orders/:orderId/addon/:addonId/done', kitchenAuthMiddleware, acknowledgeAddon);
 router.get('/api/kitchen/orders/:orderId', kitchenAuthMiddleware, getOrderForKitchen);
 
 // ============================================================================
 // PUBLIC CUSTOMER ORDER ROUTES (web QR scan flow)
 // ============================================================================
-router.post('/api/order/session', publicOrderLimiter, createOrderSession);
-router.post('/api/order/session/customer-info', publicOrderLimiter, submitCustomerInfo);
-router.get('/api/order/session/:tableId/status', publicOrderLimiter, getSessionStatus);
+router.post('/api/order/session', publicOrderLimiter, requireRestaurantOpen, createOrderSession);
+router.post('/api/order/session/customer-info', publicOrderLimiter, requireRestaurantOpen, submitCustomerInfo);
+router.get('/api/order/session/:tableId/status', publicOrderLimiter, requireRestaurantOpen, getSessionStatus);
 router.get('/api/order/menu', publicOrderLimiter, getPublicMenu);
-router.post('/api/order/place', publicOrderLimiter, placeOrder);
+router.post('/api/order/place', publicOrderLimiter, requireRestaurantOpen, placeOrder);
 router.get('/api/order/:orderId/bill', publicOrderLimiter, getOrderBill);
+router.get('/api/order/:tableId/order-status', publicOrderLimiter, requireRestaurantOpen, getCustomerOrderStatus);
+router.post('/api/order/:orderId/customer-modify', publicOrderLimiter, requireRestaurantOpen, customerModifyOrder);
+// ISSUE 10 FIX: token-check now also requires restaurant to be open
+router.get('/api/order/:tableId/token-check', publicOrderLimiter, requireRestaurantOpen, checkCustomerToken);
 
 export default router;
