@@ -3,9 +3,12 @@
 // ============================================================================
 // Global state for the customer order flow.
 // Persists to sessionStorage so a page refresh doesn't lose progress.
+// ISSUE 10 FIX: Exposes isRestaurantClosed so all order sub-pages can guard
+// against manual navigation when the restaurant is closed.
 // ============================================================================
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { api } from '../services/api.js';
 
 const OrderContext = createContext(null);
 
@@ -44,16 +47,58 @@ export function OrderProvider({ children }) {
   // ── Restaurant branding (fetched once on mount) ───────────────────────────
   const [restaurantInfo, setRestaurantInfo] = useState(() => loadFromStorage()?.restaurantInfo ?? null);
 
+  // ── ISSUE 10: Restaurant open/closed state ────────────────────────────────
+  const [isRestaurantClosed, setIsRestaurantClosed] = useState(false);
+  const [closedCheckDone, setClosedCheckDone] = useState(false);
+
   // ── Persist to sessionStorage whenever state changes ─────────────────────
   useEffect(() => {
     saveToStorage({ session, sessionToken, customerName, customerMobile, cart, restaurantInfo });
   }, [session, sessionToken, customerName, customerMobile, cart, restaurantInfo]);
 
+  // ── Write customerToken to localStorage so tracking page can always find it ─
+  // This MUST use localStorage (not sessionStorage) so it survives navigation.
+  // Done synchronously here so the token is present before OrderTracking mounts.
+  useEffect(() => {
+    if (session?.customerToken && session?.tableId) {
+      localStorage.setItem(`rms_token_${session.tableId}`, session.customerToken);
+    }
+  }, [session?.customerToken, session?.tableId]);
+
+  // ── ISSUE 10: Check restaurant open status on mount ───────────────────────
+  // Uses the public restaurant-info endpoint which includes isRestaurantOpen.
+  useEffect(() => {
+    api.getRestaurantInfo()
+      .then((res) => {
+        if (res?.status === 'success' && res.data) {
+          if (res.data.isRestaurantOpen === false) {
+            setIsRestaurantClosed(true);
+          }
+          // Also seed restaurantInfo if not already loaded
+          setRestaurantInfo((prev) => prev ?? res.data);
+        }
+      })
+      .catch(() => {
+        // Network error — don't block the UI
+      })
+      .finally(() => {
+        setClosedCheckDone(true);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---------- Setters (wrapped so we can add side effects later) ----------
-  const setSession = useCallback((s) => _setSession(s), []);
+  // setSession supports both a value and a functional updater: setSession(fn) or setSession(obj)
+  const setSession = useCallback((s) => {
+    if (typeof s === 'function') {
+      _setSession(s);
+    } else {
+      _setSession(s);
+    }
+  }, []);
   const setSessionToken = useCallback((t) => _setSessionToken(t), []);
   const setCustomerName = useCallback((n) => _setCustomerName(n), []);
   const setCustomerMobile = useCallback((m) => _setCustomerMobile(m), []);
+  const setCart = useCallback((c) => _setCart(c), []);
 
   // ---------- Cart operations ----------
   const addToCart = useCallback((dish, quantity = 1, remarks = '') => {
@@ -114,11 +159,14 @@ export function OrderProvider({ children }) {
         customerName, setCustomerName,
         customerMobile, setCustomerMobile,
         // Cart
-        cart,
+        cart, setCart,
         addToCart, removeFromCart, updateQuantity, updateRemarks, clearCart,
         cartTotal, cartCount,
         // Restaurant branding
         restaurantInfo, setRestaurantInfo,
+        // ISSUE 10: Restaurant closed state
+        isRestaurantClosed,
+        closedCheckDone,
         // Utils
         clearSession,
       }}

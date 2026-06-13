@@ -2,6 +2,22 @@ import { formatCurrency, formatDate } from '../../utils/formatters.js';
 import './BillView.css';
 
 export default function BillView({ order, restaurantInfo }) {
+  // Determine if tax is inclusive
+  const isInclusive = order.taxBreakdown?.some(tax => tax.inclusive) || order.taxType === 'inclusive';
+  const totalTaxPercent = order.taxBreakdown?.reduce((sum, t) => sum + (t.percent || 0), 0) || 0;
+  const divisor = 1 + totalTaxPercent / 100;
+
+  // Helper to get pre-tax unit price
+  const getDispPrice = (price) => {
+    return isInclusive ? parseFloat((price / divisor).toFixed(2)) : price;
+  };
+
+  // Derive subtotal by subtracting exact stored tax amounts from grand total (finalAmount)
+  // to avoid any rounding mismatches.
+  const displayedSubtotal = isInclusive
+    ? parseFloat((order.finalAmount - (order.taxBreakdown?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0)).toFixed(2))
+    : order.totalAmount;
+
   return (
     <div className="bill" id="bill-content">
       {/* Restaurant header */}
@@ -26,7 +42,7 @@ export default function BillView({ order, restaurantInfo }) {
       {/* Order metadata */}
       <div className="bill__meta">
         <div className="bill__meta-row">
-          <span>Order #</span>
+          <span>Order No</span>
           <span className="bill__meta-val">#{order.dailyOrderNo}</span>
         </div>
         <div className="bill__meta-row">
@@ -59,37 +75,54 @@ export default function BillView({ order, restaurantInfo }) {
           <span className="bill__col-price">Price</span>
           <span className="bill__col-total">Total</span>
         </div>
-        {order.ordersInfo?.map((item, i) => (
-          <div key={i} className="bill__item-row">
-            <span className="bill__col-name">{item.dishName}</span>
-            <span className="bill__col-qty">{item.quantity}</span>
-            <span className="bill__col-price">{formatCurrency(item.price)}</span>
-            <span className="bill__col-total">{formatCurrency(item.price * item.quantity)}</span>
-          </div>
-        ))}
+        {order.ordersInfo?.map((item, i) => {
+          const itemPrice = getDispPrice(item.price);
+          const itemTotal = itemPrice * item.quantity;
+          return (
+            <div key={i} className="bill__item-row">
+              <span className="bill__col-name">{item.dishName}</span>
+              <span className="bill__col-qty">{item.quantity}</span>
+              <span className="bill__col-price">{formatCurrency(itemPrice)}</span>
+              <span className="bill__col-total">{formatCurrency(itemTotal)}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="bill__divider" />
 
       {/* Totals */}
       <div className="bill__totals">
-        <div className="bill__total-row">
+        <div className="bill__total-row bill__total-row--grand">
           <span>Subtotal</span>
-          <span>{formatCurrency(order.totalAmount)}</span>
+          <span>{formatCurrency(displayedSubtotal)}</span>
         </div>
+
+        {(order.discountBreakdown || []).map((disc, i) => (
+          <div key={i} className="bill__total-row bill__total-row--discount">
+            <span>🏷️ {disc.name} ({disc.percent}% off)</span>
+            <span>- {formatCurrency(disc.amount)}</span>
+          </div>
+        ))}
 
         {order.taxBreakdown?.map((tax, i) => (
           <div key={i} className="bill__total-row bill__total-row--tax">
-            <span>{tax.name} ({tax.percent}%)</span>
+            <span>{tax.name} ({tax.percent}%{tax.inclusive ? ' Incl.' : ''})</span>
             <span>{formatCurrency(tax.amount)}</span>
           </div>
         ))}
 
-        <div className="bill__total-row bill__total-row--grand">
+        <div className="bill__total-row bill__total-row--grand bill__total-row--final">
           <span>TOTAL</span>
           <span>{formatCurrency(order.finalAmount ?? order.totalAmount)}</span>
         </div>
       </div>
+
+      {isInclusive && (
+        <div className="bill__inclusive-disclaimer">
+          * Note: Dish menu prices are inclusive of taxes. Taxes have been extracted for itemized summary.
+        </div>
+      )}
 
       <div className="bill__divider" />
 

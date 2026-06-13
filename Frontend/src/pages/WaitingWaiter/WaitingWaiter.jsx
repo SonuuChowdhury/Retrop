@@ -17,7 +17,7 @@ import './WaitingWaiter.css';
 export default function WaitingWaiter() {
   const { tableId } = useParams();
   const navigate = useNavigate();
-  const { customerName, restaurantInfo, clearSession } = useOrder();
+  const { customerName, restaurantInfo, clearSession, setSession } = useOrder();
   const { session, error } = useSessionPolling(tableId, 3000, true);
 
   // ---------- Route on status change ----------
@@ -27,6 +27,11 @@ export default function WaitingWaiter() {
   // primitive value is considered identical (e.g. null → undefined edge cases).
   useEffect(() => {
     if (!session) return;
+
+    setSession(session);
+    if (session.customerToken) {
+      localStorage.setItem(`rms_token_${tableId}`, session.customerToken);
+    }
 
     const status = session.status;
 

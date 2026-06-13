@@ -19,7 +19,8 @@ export default function Cart() {
   const {
     cart, cartTotal, cartCount,
     updateQuantity, removeFromCart,
-    sessionToken, restaurantInfo, clearSession,
+    session, setSession, sessionToken, restaurantInfo, clearSession,
+    clearCart,
   } = useOrder();
 
   const [submitting, setSubmitting] = useState(false);
@@ -39,10 +40,34 @@ export default function Cart() {
     }));
 
     try {
-      const res = await api.placeOrder({ tableId, sessionToken, items });
-      // Backend returns { data: { order, session } } — ordersId is inside order
-      const orderId = res.data?.order?.ordersId ?? res.data?.ordersId;
-      navigate(`/order/${tableId}/placed/${orderId}`, { replace: true });
+      if (session?.orderId) {
+        // Modifying existing order (replacing with edited items)
+        const token = localStorage.getItem(`rms_token_${tableId}`);
+        const res = await api.customerModifyOrder(session.orderId, token, 'replace', items);
+        if (res.status === 'success' && res.data) {
+          // Sync updated order session details
+          setSession({
+            ...session,
+            status: 'ordered',
+            orderId: res.data.ordersId,
+          });
+        }
+        clearCart();
+        navigate(`/order/${tableId}/tracking/${session.orderId}`, { replace: true });
+      } else {
+        // Placing new order
+        const res = await api.placeOrder({ tableId, sessionToken, items });
+        // Backend returns { data: { order, session } } — ordersId is inside order
+        const orderId = res.data?.order?.ordersId ?? res.data?.ordersId;
+        if (res.status === 'success' && res.data?.session) {
+          setSession(res.data.session);
+          if (res.data.session.customerToken) {
+            localStorage.setItem(`rms_token_${tableId}`, res.data.session.customerToken);
+          }
+        }
+        clearCart();
+        navigate(`/order/${tableId}/tracking/${orderId}`, { replace: true });
+      }
     } catch (err) {
       // Session expired
       if (err.status === 410) {

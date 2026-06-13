@@ -6,7 +6,7 @@
 // the cache expires (5 min to match backend Redis cache).
 // ============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api.js';
 
 // Module-level cache (survives re-renders, cleared on page refresh)
@@ -52,15 +52,19 @@ export function useMenu() {
    * Returns menu items grouped by category.
    * { "Starters": [...], "Mains": [...], ... }
    */
-  const menuByCategory = menu
-    ? menu.reduce((acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
-        return acc;
-      }, {})
-    : {};
+  const menuByCategory = useMemo(() => {
+    return menu
+      ? menu.reduce((acc, item) => {
+          if (!acc[item.category]) acc[item.category] = [];
+          acc[item.category].push(item);
+          return acc;
+        }, {})
+      : {};
+  }, [menu]);
 
-  const categories = Object.keys(menuByCategory).sort();
+  const categories = useMemo(() => {
+    return Object.keys(menuByCategory).sort();
+  }, [menuByCategory]);
 
   return { menu, menuByCategory, categories, loading, error };
 }

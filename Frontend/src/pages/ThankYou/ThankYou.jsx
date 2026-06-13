@@ -11,7 +11,24 @@ import { useParams } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import BillView from '../../components/BillView/BillView.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner.jsx';
+import Skeleton from '../../components/Skeleton/Skeleton.jsx';
 import './ThankYou.css';
+
+const handleDownloadPDF = () => {
+  // Use window.print() — universally supported on all browsers/devices.
+  // The @media print CSS in BillView.css hides UI chrome and applies clean white bg.
+  window.print();
+};
+
+const handleShareBill = async (order, restaurantInfo) => {
+  if (!navigator.share) return;
+  try {
+    await navigator.share({
+      title: `Bill — Order #${order.dailyOrderNo}`,
+      text: `${restaurantInfo?.restaurantName || 'Restaurant'} — Order No #${order.dailyOrderNo} | Table ${order.tableNo} | Total: ₹${(order.finalAmount ?? order.totalAmount)?.toFixed(2)}`,
+    });
+  } catch (_) { /* user dismissed share sheet */ }
+};
 
 export default function ThankYou() {
   const { orderId } = useParams();
@@ -35,7 +52,28 @@ export default function ThankYou() {
   }, [orderId]);
 
   if (loading) {
-    return <LoadingSpinner message="Loading your bill…" fullScreen />;
+    return (
+      <div className="app-shell" style={{ padding: 'var(--space-6) var(--space-5)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+            <div style={{ marginBottom: '8px' }}><Skeleton type="circle" width={60} height={60} /></div>
+            <Skeleton type="title" />
+            <Skeleton type="line" width="60%" />
+          </div>
+          <div style={{ border: '1.5px solid var(--color-border)', borderRadius: '12px', padding: '16px', background: 'var(--color-surface-1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ marginBottom: '8px' }}><Skeleton type="line" width="30%" height={16} /></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><Skeleton type="line" width="40%" /><Skeleton type="line" width="10%" /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><Skeleton type="line" width="50%" /><Skeleton type="line" width="10%" /></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px dashed var(--color-border-strong)', paddingTop: '16px' }}>
+              <Skeleton type="line" width="30%" height={18} />
+              <Skeleton type="line" width="20%" height={18} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Payment not done yet
@@ -82,11 +120,21 @@ export default function ThankYou() {
         {/* Save / Print */}
         <div className="thankyou__actions">
           <button
-            className="btn btn--ghost"
-            onClick={() => window.print()}
+            className="btn btn--primary"
+            onClick={handleDownloadPDF}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', width: '100%', maxWidth: '360px', marginInline: 'auto' }}
           >
-            📄 Save / Print Bill
+            🖨️ Save / Print Bill
           </button>
+          {typeof navigator !== 'undefined' && navigator.share && (
+            <button
+              className="btn btn--ghost"
+              onClick={() => handleShareBill(order, restaurantInfo)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', width: '100%', maxWidth: '360px', marginInline: 'auto', marginTop: '10px' }}
+            >
+              📤 Share Bill
+            </button>
+          )}
         </div>
       </main>
     </div>

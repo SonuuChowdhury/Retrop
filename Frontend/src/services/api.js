@@ -149,4 +149,25 @@ export const api = {
    */
   getRestaurantInfo: () =>
     get('/api/public/restaurant-info'),
+
+  /**
+   * Get active order status for tracking page (customer-side)
+   * GET /api/order/:tableId/order-status?token=xxx
+   */
+  getOrderStatus: (tableId, token) =>
+    get(`/api/order/${tableId}/order-status?token=${encodeURIComponent(token)}`),
+
+  /**
+   * Customer modifies their order (adds/removes items before kitchen prep starts)
+   * POST /api/order/:orderId/customer-modify
+   */
+  customerModifyOrder: (orderId, token, action, items) =>
+    post(`/api/order/${orderId}/customer-modify`, { token, action, items }),
+
+  /**
+   * Validate token on re-scan (customer-side)
+   * GET /api/order/:tableId/token-check?token=xxx
+   */
+  checkCustomerToken: (tableId, token) =>
+    get(`/api/order/${tableId}/token-check?token=${encodeURIComponent(token)}`),
 };

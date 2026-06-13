@@ -6,28 +6,59 @@
 // ============================================================================
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMenu } from '../../hooks/useMenu.js';
 import { useSessionPolling } from '../../hooks/useSessionPolling.js';
 import { useOrder } from '../../context/OrderContext.jsx';
+import { api } from '../../services/api.js';
 import StatusBar from '../../components/StatusBar/StatusBar.jsx';
 import MenuCard from '../../components/MenuCard/MenuCard.jsx';
 import CartDrawer from '../../components/CartDrawer/CartDrawer.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner.jsx';
 import ErrorScreen from '../../components/ErrorScreen/ErrorScreen.jsx';
+import Skeleton from '../../components/Skeleton/Skeleton.jsx';
 import './Menu.css';
 
 export default function Menu() {
   const { tableId } = useParams();
   const navigate = useNavigate();
-  const { restaurantInfo, clearSession, cartCount } = useOrder();
+  const [searchParams] = useSearchParams();
+  const isEditing = searchParams.get('edit') === 'true';
+
+  const { restaurantInfo, clearSession, cart, cartCount, setCart, setSession } = useOrder();
   const { menuByCategory, categories, loading: menuLoading, error: menuError } = useMenu();
 
-  // Session polling — 10 s interval on menu page
-  const { session, error: sessionError } = useSessionPolling(tableId, 10_000, true);
+  // Session polling — 10 s interval on menu page, disabled if editing an active order
+  const { session, error: sessionError } = useSessionPolling(tableId, 10_000, !isEditing);
 
   const [activeCategory, setActiveCategory] = useState(null);
   const categoryRefs = useRef({});
+
+  // Pre-populate cart if editing an existing order
+  useEffect(() => {
+    if (isEditing && cart.length === 0) {
+      const token = localStorage.getItem(`rms_token_${tableId}`);
+      if (token) {
+        api.getOrderStatus(tableId, token)
+          .then((res) => {
+            if (res.status === 'success' && res.data?.order) {
+              const orderItems = res.data.order.ordersInfo || [];
+              const cartItems = orderItems.map(item => ({
+                dishId: item.dishId,
+                dishName: item.dishName,
+                price: item.price,
+                quantity: item.quantity,
+                remarks: item.remarks || ''
+              }));
+              setCart(cartItems);
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to pre-populate cart for editing:', err);
+          });
+      }
+    }
+  }, [isEditing, tableId, setCart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set default active category
   useEffect(() => {
@@ -39,8 +70,9 @@ export default function Menu() {
   // Session state changes
   useEffect(() => {
     if (!session) return;
-    if (session.status === 'ordered' && session.orderId) {
-      navigate(`/order/${tableId}/placed/${session.orderId}`, { replace: true });
+    setSession(session);
+    if (!isEditing && session.status === 'ordered' && session.orderId) {
+      navigate(`/order/${tableId}/tracking/${session.orderId}`, { replace: true });
     }
     if (session.status === 'waiting_customer_info') {
       navigate(`/order/${tableId}/info`, { replace: true });
@@ -48,7 +80,7 @@ export default function Menu() {
     if (session.status === 'waiting_waiter') {
       navigate(`/order/${tableId}/waiting`, { replace: true });
     }
-  }, [session?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrollToCategory = (cat) => {
     setActiveCategory(cat);
@@ -62,6 +94,18 @@ export default function Menu() {
         title="Session Expired"
         message="Your session has expired. Please scan the QR code again."
         emoji="⏱️"
+        actionLabel="OK"
+        onAction={clearSession}
+      />
+    );
+  }
+
+  if (sessionError?.status === 403) {
+    return (
+      <ErrorScreen
+        title="Restaurant Closed"
+        message="The restaurant is currently closed. Please try again later."
+        emoji="🔒"
         actionLabel="OK"
         onAction={clearSession}
       />
@@ -84,7 +128,26 @@ export default function Menu() {
     return (
       <div className="app-shell">
         <StatusBar currentStep="menu" restaurantName={restaurantInfo?.restaurantName} />
-        <LoadingSpinner message="Loading menu…" fullScreen />
+        <div className="menu-tabs" style={{ borderBottom: 'none' }}>
+          <div className="menu-tabs__scroll" style={{ overflow: 'hidden' }}>
+            <Skeleton type="line" width={80} height={36} className="menu-tabs__tab" count={4} />
+          </div>
+        </div>
+        <main className="menu-content g-container">
+          <Skeleton type="title" />
+          <div className="menu-category__items">
+            {[1, 2, 3].map((key) => (
+              <div className="skeleton-card-wrapper" style={{ display: 'flex', gap: '16px', marginBottom: '24px' }} key={key}>
+                <Skeleton type="circle" width={72} height={72} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <Skeleton type="line" width="60%" height={18} />
+                  <Skeleton type="line" width="90%" height={12} />
+                  <Skeleton type="line" width="40%" height={12} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
