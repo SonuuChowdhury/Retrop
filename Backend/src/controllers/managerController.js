@@ -729,7 +729,7 @@ export const updateTableCapacity = async (req, res) => {
 export const getAnalyticsOrders = async (req, res) => {
   try {
     const {
-      from, to, status, waiterId, tableNo,
+      from, to, status, waiterId, tableNo, search,
       limit = '20', offset = '0',
     } = req.query;
 
@@ -739,7 +739,7 @@ export const getAnalyticsOrders = async (req, res) => {
     let query = supabase
       .from('orders')
       .select(`
-        ordersId, dailyOrderNo, tableNo, orderStatus, ordersInfo,
+        ordersId, dailyOrderNo, invoiceNo, tableNo, orderStatus, ordersInfo,
         ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
         paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
         customer:mobile(name, mobile),
@@ -753,6 +753,9 @@ export const getAnalyticsOrders = async (req, res) => {
     if (status)    query = query.eq('orderStatus', status);
     if (waiterId)  query = query.eq('waiterId', waiterId);
     if (tableNo)   query = query.eq('tableNo', parseInt(tableNo));
+    if (search && search.trim()) {
+      query = query.ilike('invoiceNo', `%${search.trim()}%`);
+    }
 
     const { data, error, count } = await query;
     if (error) {

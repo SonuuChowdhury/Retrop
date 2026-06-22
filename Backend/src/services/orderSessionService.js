@@ -33,6 +33,16 @@ export const generateDailyOrderNumber = async () => {
   return num;
 };
 
+// ── Generate invoice number ───────────────────────────────────────────────────
+// Format: INV + YYYYMMDD (IST date of order creation) + 4-digit daily order no.
+// Example: INV202606200001
+export const generateInvoiceNo = (dailyOrderNo) => {
+  const today = todayDateIST(); // 'YYYY-MM-DD'
+  const datePart = today.replace(/-/g, ''); // 'YYYYMMDD'
+  const seqPart = String(dailyOrderNo).padStart(4, '0');
+  return `INV${datePart}${seqPart}`;
+};
+
 export const orderSessionService = {
 
   // ── Step 1: Create order session from QR scan ─────────────────────────
@@ -271,8 +281,9 @@ export const orderSessionService = {
         });
       }
 
-      // Generate daily order number
+      // Generate daily order number and invoice number
       const dailyOrderNo = await generateDailyOrderNumber();
+      const invoiceNo = generateInvoiceNo(dailyOrderNo);
 
       // Create order in Supabase
       const { data: order, error: orderError } = await supabase
@@ -290,6 +301,7 @@ export const orderSessionService = {
           discountBreakdown: [],
           isPaymentCompleted: false,
           dailyOrderNo,
+          invoiceNo,
           createdAt: nowIST(),
           updatedAt: nowIST(),
           customerToken: session.customerToken || null,

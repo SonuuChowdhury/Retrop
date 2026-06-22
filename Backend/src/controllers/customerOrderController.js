@@ -143,9 +143,10 @@ export const getOrderBill = async (req, res) => {
     const { data: order, error } = await supabase
       .from('orders')
       .select(`
-        ordersId, dailyOrderNo, tableNo, orderStatus,
+        ordersId, dailyOrderNo, invoiceNo, tableNo, orderStatus,
         ordersInfo, totalAmount, finalAmount, taxBreakdown,
-        gstAmount, paymentMethod, isPaymentCompleted, createdAt, completedAt,
+        gstAmount, discountAmount, discountBreakdown, paymentMethod,
+        isPaymentCompleted, createdAt, completedAt,
         customer:mobile(name, mobile)
       `)
       .eq('ordersId', orderId)
@@ -190,10 +191,10 @@ export const getCustomerOrderStatus = async (req, res) => {
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`
-        ordersId, dailyOrderNo, tableNo, orderStatus, ordersInfo,
+        ordersId, dailyOrderNo, invoiceNo, tableNo, orderStatus, ordersInfo,
         ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
-        paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
-        tokenValidUntil,
+        discountAmount, discountBreakdown, paymentMethod, isPaymentCompleted,
+        createdAt, completedAt, servedAt, tokenValidUntil,
         waiter:waiterId(waiterName)
       `)
       .eq('customerToken', token)

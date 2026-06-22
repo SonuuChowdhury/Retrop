@@ -7,7 +7,7 @@ import { orderSessionService } from '../services/orderSessionService.js';
 import { socketService } from '../services/socketService.js';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
-import { redis } from '../config/redis.js';
+import { redis, REDIS_KEYS } from '../config/redis.js';
 import { todayStartIST, tomorrowStartIST, todayDateIST, nowIST } from '../utils/time.js';
 
 // ── POST /api/waiter/login ────────────────────────────────────────────────────
@@ -297,12 +297,35 @@ export const updateOrderStatus = async (req, res) => {
     const updates = { orderStatus: status, updatedAt: nowIST() };
     if (status === 'serving') updates.servedAt = nowIST();
 
+    if (status === 'cancelled') {
+      const { cancellationReason } = req.body;
+      if (!cancellationReason || !cancellationReason.trim()) {
+        return res.status(400).json({ status: 'error', message: 'Cancellation reason is required' });
+      }
+      updates.cancellationReason = cancellationReason.trim();
+    }
+
     await supabase.from('orders').update(updates).eq('ordersId', orderId);
 
     if (status === 'cancelled') {
       await supabase.from('restaurant_table')
         .update({ isAvailable: true, currentOrder: null, updatedAt: nowIST() })
         .eq('tableNo', order.tableNo);
+
+      // Clean up Redis session
+      try {
+        const { data: tableData } = await supabase
+          .from('restaurant_table')
+          .select('tableId')
+          .eq('tableNo', order.tableNo)
+          .maybeSingle();
+
+        if (tableData?.tableId) {
+          await redis.del(REDIS_KEYS.orderSession(tableData.tableId));
+        }
+      } catch (redisErr) {
+        logger.error('Failed to clean up Redis session on cancel:', redisErr.message);
+      }
     }
 
     // Broadcast order status change to customer tracking page
