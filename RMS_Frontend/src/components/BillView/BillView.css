@@ -1,0 +1,205 @@
+.bill {
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  font-family: 'DM Sans', monospace, sans-serif;
+  font-size: 0.82rem;
+  max-width: 360px;
+  margin-inline: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.bill__header {
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+
+.bill__logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-inline: auto;
+  margin-bottom: var(--space-3);
+}
+
+.bill__restaurant {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.bill__address {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.bill__gstin {
+  font-size: 0.75rem;
+  color: #444;
+  margin-top: var(--space-2);
+}
+
+.bill__divider {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin-block: var(--space-4);
+}
+
+.bill__divider--dashed {
+  border-top-style: dashed;
+}
+
+.bill__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill__meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #555;
+}
+
+.bill__meta-val {
+  font-weight: 600;
+  color: #222;
+}
+
+.bill__meta-val--badge {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.bill__meta-row--invoice {
+  background: #f5f0ff;
+  border: 1px solid #d0bbff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+}
+
+.bill__meta-val--invoice {
+  font-weight: 800;
+  color: #5b21b6;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+}
+
+.bill__items-header {
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: var(--space-2);
+}
+
+.bill__item-row {
+  display: flex;
+  padding-block: 3px;
+  color: #222;
+}
+
+.bill__col-name  { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bill__col-qty   { width: 30px; text-align: center; }
+.bill__col-price { width: 56px; text-align: right; }
+.bill__col-total { width: 60px; text-align: right; font-weight: 600; }
+
+.bill__totals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill__total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #333;
+}
+
+.bill__total-row--tax {
+  color: #888;
+}
+
+.bill__total-row--discount {
+  color: #2a9d5c;
+  font-weight: 600;
+}
+
+.bill__total-row--grand {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111;
+  padding-top: var(--space-2);
+  border-top: 2px solid #eee;
+  margin-top: var(--space-2);
+}
+
+.bill__total-row--final {
+  border-top-color: #111;
+  border-top-width: 2px;
+}
+
+.bill__footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #999;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bill__inclusive-disclaimer {
+  font-size: 0.7rem;
+  color: #777;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: #fbfbfb;
+  border-radius: 6px;
+  border: 1px dashed #eee;
+}
+
+/* ── Professional Print Styles ── */
+@media print {
+  /* Hide main dark web wrappers and non-printable elements */
+  #root,
+  .app-shell,
+  .thankyou,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .thankyou__header,
+  .thankyou__actions,
+  nav,
+  button {
+    display: none !important;
+  }
+
+  .bill {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border: none !important;
+  }
+
+  .bill__logo {
+    display: block !important;
+  }
+}

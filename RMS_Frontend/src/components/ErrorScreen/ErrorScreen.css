@@ -1,0 +1,37 @@
+.error-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.error-screen--fullscreen {
+  min-height: 100dvh;
+}
+
+.error-screen__card {
+  text-align: center;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.error-screen__emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.error-screen__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.error-screen__msg {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}

@@ -1,0 +1,98 @@
+.waiting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-block: var(--space-12);
+  gap: var(--space-8);
+}
+
+/* Pulsing rings animation */
+.waiting__animation {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.waiting__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  animation: waiting-pulse 2.4s var(--ease-out) infinite;
+}
+
+.waiting__ring--1 { width: 120px; height: 120px; animation-delay: 0s;    opacity: 0.2; }
+.waiting__ring--2 { width: 88px;  height: 88px;  animation-delay: 0.4s;  opacity: 0.35; }
+.waiting__ring--3 { width: 60px;  height: 60px;  animation-delay: 0.8s;  opacity: 0.5; }
+
+@keyframes waiting-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.2; }
+  50%       { transform: scale(1.06); opacity: 0.6; }
+}
+
+.waiting__emoji {
+  font-size: 2rem;
+  animation: waiting-bob 2s ease-in-out infinite;
+}
+
+@keyframes waiting-bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+.waiting__content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.waiting__title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.waiting__subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  max-width: 300px;
+}
+
+.waiting__table-badge {
+  background: var(--color-accent-light);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-5);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.waiting__hint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.waiting__waiter-tag {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.waiting__waiter-tag strong {
+  color: var(--color-text-primary);
+}

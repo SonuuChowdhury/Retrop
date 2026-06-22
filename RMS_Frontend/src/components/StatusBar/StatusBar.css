@@ -1,0 +1,166 @@
+/* ============================================================================
+   StatusBar — Production-grade responsive nav progress bar
+   ============================================================================
+   Fixes: overflow on small screens, labels wrapping, connector lines collapsing.
+   Uses flex: 1 on connectors, min-width: 0 to prevent overflow, and media
+   queries to gracefully hide labels on very small screens.
+============================================================================ */
+
+.status-bar {
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* Prevent any child from causing horizontal overflow */
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.status-bar__brand {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: center;
+  letter-spacing: 0.04em;
+  /* Prevent brand name from overflowing */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding-inline: var(--space-2);
+}
+
+/* The nav row: full width, no wrapping, center-aligned */
+.status-bar__steps {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  /* prevent children from expanding beyond parent */
+  overflow: hidden;
+}
+
+/* Each step: icon + label group — do NOT allow growing */
+.status-bar__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  /* Fixed width so all 4 steps + connectors can fit on any screen */
+  flex: 0 0 auto;
+  min-width: 0;
+  position: relative;
+}
+
+/* Step inner wrapper holds dot + label in a row on small screens */
+@media (min-width: 400px) {
+  .status-bar__step {
+    flex-direction: column;
+  }
+}
+
+.status-bar__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  /* GPU acceleration to reduce jank */
+  will-change: background, border-color;
+}
+
+.status-bar__step--active .status-bar__dot {
+  background: var(--color-accent);
+  color: #0d0d0d;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.status-bar__step--done .status-bar__dot {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.status-bar__label {
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  transition: color var(--transition-base);
+  white-space: nowrap;
+  /* Don't expand the step width */
+  max-width: 54px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-bar__step--active .status-bar__label {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.status-bar__step--done .status-bar__label {
+  color: var(--color-accent);
+}
+
+/* Connector line: fills available space between steps */
+.status-bar__connector {
+  /* Take all remaining space between steps */
+  flex: 1 1 0;
+  min-width: 8px;
+  max-width: 56px;
+  height: 1.5px;
+  background: var(--color-border);
+  /* Self-align to center vertically within the step row */
+  align-self: flex-start;
+  margin-top: 14px; /* align with dot center (28px dot / 2 = 14px) */
+  transition: background var(--transition-base);
+}
+
+.status-bar__connector--done {
+  background: var(--color-accent);
+}
+
+/* On very small screens (< 340px): hide labels entirely */
+@media (max-width: 339px) {
+  .status-bar__label {
+    display: none;
+  }
+  .status-bar__dot {
+    width: 24px;
+    height: 24px;
+    font-size: 0.65rem;
+  }
+  .status-bar__connector {
+    margin-top: 12px;
+  }
+}
+
+/* On tiny screens, reduce padding */
+@media (max-width: 360px) {
+  .status-bar {
+    padding: var(--space-2) var(--space-3);
+  }
+}

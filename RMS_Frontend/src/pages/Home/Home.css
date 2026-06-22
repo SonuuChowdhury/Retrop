@@ -1,0 +1,26 @@
+.home-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-page main {
+  flex: 1;
+}
+
+/* ── Performance: GPU-accelerate sections to reduce scroll jank ── */
+.home-page main > section,
+.home-page main > div {
+  /* Promote each section to its own compositing layer */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* Limit repaint area to this section */
+  contain: layout paint;
+  /* Tell browser this section will scroll */
+  will-change: transform;
+}
+
+/* ── Lazy image performance ── */
+.home-page img {
+  loading: lazy;
+}

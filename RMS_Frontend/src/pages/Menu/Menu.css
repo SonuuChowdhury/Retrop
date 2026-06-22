@@ -1,0 +1,117 @@
+/* ── Category tab bar ── */
+.menu-tabs {
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 80px; /* below StatusBar — adjust if StatusBar height changes */
+  z-index: 90;
+  /* Prevent tab bar itself from overflowing */
+  overflow: hidden;
+  width: 100%;
+}
+
+.menu-tabs__scroll {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* Horizontal scroll container — NO wrapping */
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Snap tabs as user scrolls */
+  scroll-snap-type: x proximity;
+  /* Hide the scrollbar visually but keep scroll functionality */
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+  /* Padding: left = start indent, right = breathing room after last tab */
+  padding: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+  /* Prevent flex children from shrinking below their content */
+  flex-wrap: nowrap;
+}
+
+.menu-tabs__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.menu-tabs__tab {
+  /* Never shrink — always show full pill text */
+  flex: 0 0 auto;
+  white-space: nowrap;
+  scroll-snap-align: start;
+
+  /* Pill styling */
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  /* Smooth state transitions */
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  min-height: 36px;
+  /* GPU compositing for smoother transitions */
+  will-change: background, color;
+}
+
+.menu-tabs__tab:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.menu-tabs__tab:active {
+  transform: scale(0.97);
+}
+
+.menu-tabs__tab--active {
+  background: var(--color-accent-light);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-accent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+/* ── Menu content ── */
+.menu-content {
+  flex: 1;
+  padding-top: var(--space-2);
+  /* Performance: use GPU layer for scroll container */
+  will-change: transform;
+}
+
+.menu-category {
+  margin-bottom: var(--space-8);
+  /* Performance: limit paint area */
+  contain: layout paint;
+}
+
+.menu-category__title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  padding-block: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-2);
+  position: sticky;
+  top: 128px; /* below StatusBar + tabs */
+  background: var(--color-bg);
+  z-index: 80;
+  /* GPU acceleration to reduce repaint while sticky */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+
+
+.menu-empty {
+  text-align: center;
+  padding: var(--space-16) var(--space-6);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
