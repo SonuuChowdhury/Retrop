@@ -7,7 +7,7 @@
 
 ## Project Overview
 
-This is a **Restaurant Automation System** — a multi-surface platform that digitises the full dine-in experience for a single restaurant. Customers scan a QR code at their table and are guided through a self-service ordering flow on a React web app. Restaurant staff (manager, waiters, kitchen) use a cross-platform React Native / Expo mobile app to manage everything from menu configuration to real-time order processing. A single Node.js / Express backend with Socket.io powers all three surfaces and is backed by Supabase (PostgreSQL) for persistence and Redis for ephemeral session state, push-token tracking, and daily order counters.
+This is a **Multi-Tenant Restaurant Automation System ("Retrop")** — a multi-surface SaaS platform that digitises the dine-in experience for multiple restaurants concurrently. Customers scan a QR code at their table (on their restaurant's custom domain, e.g., `husna.in/order/tableId`) and order via a React web app. Restaurant staff (managers, waiters, kitchens) use a cross-platform React Native / Expo mobile app configured dynamically with their server URL and Retrop Product Key via a secure Settings Modal. A single Node.js / Express backend with Socket.io powers all surfaces, automatically scoping database queries and cache keys by `restaurantId` using a Supabase Proxy client wrapper and custom Redis key namespacing. The ecosystem includes a Retrop SuperAdmin panel for client onboarding, subscription management, and product key generation.
 
 ---
 
