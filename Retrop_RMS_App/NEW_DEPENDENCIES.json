@@ -1,0 +1,11 @@
+{
+  "_comment": "ADD THESE NEW DEPENDENCIES to your existing package.json",
+  "dependencies_to_add": {
+    "socket.io-client": "^4.8.1",
+    "expo-notifications": "~0.29.0",
+    "expo-device": "~7.0.0",
+    "expo-constants": "~17.0.4"
+  },
+  "install_command": "npx expo install socket.io-client expo-notifications expo-device expo-constants",
+  "note": "expo-secure-store is likely already installed. If not: npx expo install expo-secure-store"
+}
