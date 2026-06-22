@@ -171,6 +171,11 @@ export default function OrderDetailScreen() {
   const [showPayment, setShowPayment] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  // Cancellation states
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
   const handleDisabled = useCallback(() => {
     Alert.alert('Account Disabled', 'Your account has been disabled by the manager.', [
       { text: 'OK', onPress: () => logout() },
@@ -255,6 +260,34 @@ export default function OrderDetailScreen() {
       Alert.alert('Already Paid', 'This order has already been paid.');
     } else {
       Alert.alert('Error', result.message ?? 'Failed to conclude order.');
+    }
+  };
+
+  // ── Cancel order ─────────────────────────────────────────────────────────
+  const handleConfirmCancel = async () => {
+    if (!orderId || !cancelReason.trim()) return;
+    setCancelling(true);
+    const result = await apiCall(
+      ENDPOINTS.WAITER_ORDER_STATUS(orderId),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'cancelled',
+          cancellationReason: cancelReason.trim(),
+        }),
+      },
+      async () => accessToken,
+      refreshToken,
+      handleDisabled,
+    );
+    setCancelling(false);
+    if (result.success) {
+      setShowCancelModal(false);
+      Alert.alert('Order Cancelled', 'The order has been cancelled and the table is now free.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } else {
+      Alert.alert('Error', result.message ?? 'Failed to cancel order.');
     }
   };
 
@@ -393,23 +426,53 @@ export default function OrderDetailScreen() {
           <ActivityIndicator size="small" color={c.primary} />
         ) : (
           <>
-            {order.orderStatus === 'ready' && (
-              <Pressable
-                onPress={handleStartServing}
-                style={[styles.actionBtn, { backgroundColor: c.success }]}
-              >
-                <MaterialCommunityIcons name="room-service-outline" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>Start Serving</Text>
-              </Pressable>
-            )}
-            {order.orderStatus === 'serving' && (
-              <Pressable
-                onPress={() => { fetchBill(); setShowPayment(true); }}
-                style={[styles.actionBtn, { backgroundColor: c.primary }]}
-              >
-                <MaterialCommunityIcons name="cash-register" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>Conclude Order</Text>
-              </Pressable>
+            {isEditable && (
+              <View style={{ gap: 10, width: '100%' }}>
+                {order.orderStatus === 'serving' ? (
+                  <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                    <Pressable
+                      onPress={() => setShowCancelModal(true)}
+                      style={[styles.cancelBtn, { borderColor: c.error }]}
+                    >
+                      <MaterialCommunityIcons name="close-circle-outline" size={18} color={c.error} />
+                      <Text style={[styles.cancelBtnText, { color: c.error }]}>Cancel Order</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => { fetchBill(); setShowPayment(true); }}
+                      style={[styles.actionBtn, { backgroundColor: c.primary }]}
+                    >
+                      <MaterialCommunityIcons name="cash-register" size={18} color="#fff" />
+                      <Text style={styles.actionBtnText}>Conclude Order</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={{ gap: 10, width: '100%' }}>
+                    <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                      <Pressable
+                        onPress={() => setShowCancelModal(true)}
+                        style={[styles.cancelBtn, { borderColor: c.error }]}
+                      >
+                        <MaterialCommunityIcons name="close-circle-outline" size={18} color={c.error} />
+                        <Text style={[styles.cancelBtnText, { color: c.error }]}>Cancel Order</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleStartServing}
+                        style={[styles.actionBtn, { backgroundColor: c.success }]}
+                      >
+                        <MaterialCommunityIcons name="room-service-outline" size={18} color="#fff" />
+                        <Text style={styles.actionBtnText}>Start Serving</Text>
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      onPress={() => { fetchBill(); setShowPayment(true); }}
+                      style={[styles.actionBtn, { backgroundColor: c.primary, width: '100%' }]}
+                    >
+                      <MaterialCommunityIcons name="cash-register" size={18} color="#fff" />
+                      <Text style={styles.actionBtnText}>Conclude Order</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
             )}
           </>
         )}
@@ -424,6 +487,61 @@ export default function OrderDetailScreen() {
         confirming={confirming}
         colors={c}
       />
+
+      {/* Cancel Order Modal */}
+      <Modal visible={showCancelModal} transparent animationType="slide" onRequestClose={() => setShowCancelModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowCancelModal(false)}>
+          <Pressable style={[styles.modalCard, { backgroundColor: c.card, borderColor: c.border }]} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: c.text }]}>Cancel Order</Text>
+              <Pressable onPress={() => setShowCancelModal(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={c.textSecondary} />
+              </Pressable>
+            </View>
+            
+            <Text style={{ fontSize: 14, color: c.textSecondary, marginBottom: 12 }}>
+              Please specify the reason for cancelling this order.
+            </Text>
+
+            <TextInput
+              style={[
+                styles.cancelInput,
+                {
+                  backgroundColor: c.background,
+                  borderColor: c.border,
+                  color: c.text,
+                }
+              ]}
+              multiline
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              placeholder="e.g. Customer walked out / Duplicate order..."
+              placeholderTextColor={c.textSecondary + '70'}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                style={[styles.modalBtn, { borderWidth: 1.5, borderColor: c.border }]}
+              >
+                <Text style={{ color: c.textSecondary, fontWeight: '700', fontSize: 15 }}>Back</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmCancel}
+                disabled={cancelling || !cancelReason.trim()}
+                style={[styles.modalBtn, { backgroundColor: c.error, opacity: (cancelling || !cancelReason.trim()) ? 0.6 : 1 }]}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Cancel Order</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -527,4 +645,12 @@ const styles = StyleSheet.create({
   },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   modalBtn: { flex: 1, alignItems: 'center', borderRadius: 12, paddingVertical: 13, justifyContent: 'center' },
+  cancelBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5,
+  },
+  cancelBtnText: { fontSize: 15, fontWeight: '700' },
+  cancelInput: {
+    borderRadius: 10, borderWidth: 1.5, padding: 12, fontSize: 15, minHeight: 90, textAlignVertical: 'top',
+  },
 });

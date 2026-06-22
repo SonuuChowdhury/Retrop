@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,7 +41,7 @@ interface SalesData {
 }
 interface DishEntry { dishId: string; dishName: string; category: string; price: number; quantity: number }
 interface OrderEntry {
-  ordersId: string; dailyOrderNo: number; tableNo: number; orderStatus: string; totalAmount: number;
+  ordersId: string; dailyOrderNo: number; invoiceNo?: string; tableNo: number; orderStatus: string; totalAmount: number;
   finalAmount: number | null; taxBreakdown?: { name: string; percent: number; amount: number; inclusive?: boolean }[];
   discountBreakdown?: { name: string; percent: number; amount: number }[];
   discountAmount?: number;
@@ -141,32 +142,45 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
     if (!detail) return null;
     const { order, restaurantInfo } = detail;
     const isInclusive = restaurantInfo?.taxType === 'inclusive' || order?.taxBreakdown?.some((t: any) => t.inclusive);
-    const totalTaxPercent = order?.taxBreakdown?.reduce((sum: number, t: any) => sum + (t.percent || 0), 0) || 0;
+    const totalTaxPercent = order?.taxBreakdown?.reduce((sum: number, t: any) => sum + (Number(t.percent) || 0), 0) || 0;
     const divisor = 1 + totalTaxPercent / 100;
 
     const items = (order.ordersInfo || []).map((item: any) => {
-      const price = isInclusive ? parseFloat((item.price / divisor).toFixed(2)) : item.price;
+      const originalPrice = Number(item.price) || 0;
+      const price = isInclusive ? parseFloat((originalPrice / divisor).toFixed(2)) : originalPrice;
+      const quantity = Number(item.quantity) || 0;
       return {
         ...item,
         price,
-        total: price * item.quantity,
+        total: price * quantity,
       };
     });
 
     const subTotalForInclusive = order.finalAmount
-      ? (order.finalAmount - (order.taxBreakdown?.reduce((sum: number, t: any) => sum + (t.amount || 0), 0) || 0))
-      : order.totalAmount;
-    const subtotal = isInclusive ? parseFloat(subTotalForInclusive.toFixed(2)) : order.totalAmount;
+      ? (Number(order.finalAmount) - (order.taxBreakdown?.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0) || 0))
+      : Number(order.totalAmount);
+    const subtotal = isInclusive ? parseFloat(subTotalForInclusive.toFixed(2)) : (Number(order.totalAmount) || 0);
 
     return {
-      order,
+      order: {
+        ...order,
+        taxBreakdown: (order.taxBreakdown || []).map((t: any) => ({
+          ...t,
+          percent: Number(t.percent) || 0,
+          amount: Number(t.amount) || 0,
+        })),
+      },
       restaurantInfo,
       items,
       subtotal,
       isInclusive,
-      grandTotal: order.finalAmount ?? order.totalAmount,
-      discountBreakdown: order.discountBreakdown ?? [],
-      discountAmount: order.discountAmount ?? 0,
+      grandTotal: Number(order.finalAmount ?? order.totalAmount) || 0,
+      discountBreakdown: (order.discountBreakdown ?? []).map((d: any) => ({
+        ...d,
+        percent: Number(d.percent) || 0,
+        amount: Number(d.amount) || 0,
+      })),
+      discountAmount: Number(order.discountAmount) || 0,
     };
   }, [detail]);
 
@@ -179,6 +193,7 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
       if (restaurantInfo?.address) text += `${restaurantInfo.address}\n`;
       if (restaurantInfo?.mobile) text += `Tel: ${restaurantInfo.mobile}\n`;
       text += `=================================\n`;
+      if (order.invoiceNo) text += `Invoice No: ${order.invoiceNo}\n`;
       text += `Order No: #${order.dailyOrderNo} | Table: ${order.tableNo}\n`;
       text += `Date: ${new Date(order.createdAt).toLocaleString()}\n`;
       text += `Payment: ${order.paymentMethod?.toUpperCase() || 'Pending'}\n`;
@@ -201,7 +216,7 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
 
       await Share.share({
         message: text,
-        title: `Receipt - Order #${order.dailyOrderNo}`,
+        title: order.invoiceNo ? `Receipt - ${order.invoiceNo}` : `Receipt - Order #${order.dailyOrderNo}`,
       });
     } catch (err: any) {
       console.warn('Share error:', err);
@@ -246,6 +261,7 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
             
             <div class="divider"></div>
             
+            ${order.invoiceNo ? `<div style="text-align:center; font-size: 13px; color: #888; margin-bottom: 6px;">Invoice No: <strong>${order.invoiceNo}</strong></div>` : ''}
             <div class="meta-row">
               <div><span class="meta-label">Order No:</span> <span class="meta-val">#${order.dailyOrderNo}</span></div>
               <div><span class="meta-label">Table:</span> <span class="meta-val">Table ${order.tableNo}</span></div>
@@ -321,16 +337,36 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
         </html>
       `;
 
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      
+      // Step 1: Generate the PDF as base64 to bypass reading permission restrictions in temp/cache dirs
+      console.log('[PDF] Generating PDF...');
+      const { base64 } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: true,
+      });
+
+      if (!base64) {
+        throw new Error('PDF generation failed to output base64 data.');
+      }
+
+      // Step 2: Write base64 to the app's documentDirectory (which is always readable & writable by the app)
+      const fileName = `invoice_${order.invoiceNo ?? order.dailyOrderNo}_${Date.now()}.pdf`;
+      const shareUri = (FileSystem.documentDirectory ?? '') + fileName;
+      console.log('[PDF] Writing to document directory:', shareUri);
+      await FileSystem.writeAsStringAsync(shareUri, base64, { encoding: 'base64' });
+      console.log('[PDF] File written successfully.');
+
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `Invoice - Order #${order.dailyOrderNo}` });
+        await Sharing.shareAsync(shareUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: order.invoiceNo ? `Invoice - ${order.invoiceNo}` : `Invoice - Order #${order.dailyOrderNo}`,
+          UTI: 'com.adobe.pdf',
+        });
       } else {
         Alert.alert('Sharing Unavailable', 'Sharing is not supported on this platform.');
       }
     } catch (err: any) {
-      console.warn('PDF generation/sharing error:', err);
-      Alert.alert('Error', 'Failed to generate PDF invoice.');
+      console.warn('[PDF] generation/sharing error:', err);
+      Alert.alert('Error', `Failed to generate PDF invoice.\n\n${(err as any)?.message ?? String(err)}`);
     }
   };
 
@@ -338,8 +374,9 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={modalSt.overlay} onPress={onClose}>
-        <Pressable style={[modalSt.card, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
+      <View style={modalSt.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[modalSt.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[modalSt.header, { borderBottomColor: colors.border }]}>
             <Text style={[modalSt.title, { color: colors.text }]}>Invoice Receipt</Text>
@@ -359,7 +396,7 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
               <SkeletonLoader width="100%" height={50} />
             </View>
           ) : invoice ? (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={modalSt.scroll}>
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={modalSt.scroll}>
               {/* Restaurant Meta */}
               <View style={modalSt.restaurantSection}>
                 <Text style={[modalSt.restaurantName, { color: colors.text }]}>{invoice.restaurantInfo?.restaurantName}</Text>
@@ -391,6 +428,13 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
                   <Text style={[modalSt.metaValue, { color: colors.primary, textTransform: 'capitalize' }]}>{invoice.order.orderStatus}</Text>
                 </View>
               </View>
+
+              {invoice.order.invoiceNo && (
+                <View style={[modalSt.invoiceNoRow, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '30' }]}>
+                  <Text style={[modalSt.invoiceNoLabel, { color: colors.textSecondary }]}>INVOICE NO</Text>
+                  <Text style={[modalSt.invoiceNoValue, { color: colors.primary }]}>{invoice.order.invoiceNo}</Text>
+                </View>
+              )}
 
               <View style={modalSt.metaGrid}>
                 <View style={modalSt.metaCol}>
@@ -442,6 +486,13 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
                   </View>
                 ))}
 
+                {invoice.discountAmount > 0 && (invoice.discountBreakdown ?? []).length === 0 && (
+                  <View style={modalSt.totalsRow}>
+                    <Text style={{ color: '#2a9d5c', fontWeight: '700' }}>🏷️ Discount</Text>
+                    <Text style={{ color: '#2a9d5c', fontWeight: '700' }}>-₹{invoice.discountAmount.toFixed(2)}</Text>
+                  </View>
+                )}
+
                 {/* ISSUE 5: Tax rows */}
                 {(invoice.order.taxBreakdown ?? []).map((tax: any, i: number) => (
                   <View key={i} style={modalSt.totalsRow}>
@@ -487,14 +538,6 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
           {invoice && (
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, marginBottom: 8 }}>
               <Pressable
-                onPress={handleShareBill}
-                style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5 }, { borderColor: colors.primary, backgroundColor: colors.primary + '10' }]}
-              >
-                <MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />
-                <Text style={{ fontWeight: '700', fontSize: 13, color: colors.primary }}>Share Receipt</Text>
-              </Pressable>
-
-              <Pressable
                 onPress={handleDownloadPDF}
                 style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5 }, { borderColor: colors.success, backgroundColor: colors.success + '10' }]}
               >
@@ -507,18 +550,18 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
           <Pressable onPress={onClose} style={[modalSt.closeBtn, { backgroundColor: colors.primary }]}>
             <Text style={modalSt.closeBtnText}>Done</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const modalSt = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  card: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%', borderWidth: 1 },
+  card: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, height: '92%', borderWidth: 1, flexDirection: 'column' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1 },
   title: { fontSize: 18, fontWeight: '800' },
-  scroll: { paddingVertical: 14 },
+  scroll: { paddingVertical: 14, paddingBottom: 65 },
   restaurantSection: { alignItems: 'center', gap: 4 },
   restaurantName: { fontSize: 20, fontWeight: '900' },
   restaurantSub: { fontSize: 12 },
@@ -538,6 +581,13 @@ const modalSt = StyleSheet.create({
   inclusiveNote: { fontSize: 10.5, fontStyle: 'italic', marginTop: 8 },
   closeBtn: { padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   closeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  invoiceNoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1,
+    marginBottom: 12,
+  },
+  invoiceNoLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  invoiceNoValue: { fontSize: 14, fontWeight: '800', letterSpacing: 1 },
 });
 
 // ============================================================================
@@ -960,6 +1010,9 @@ export default function AnalyticsScreen() {
   const [tempEnd, setTempEnd] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Search filter
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Invoice Detail Modal
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -1000,6 +1053,7 @@ export default function AnalyticsScreen() {
       let url = `${ENDPOINTS.MANAGER_ANALYTICS_ORDERS}?limit=20&offset=${nextOffset}`;
       if (from) url += `&from=${encodeURIComponent(from)}`;
       if (to) url += `&to=${encodeURIComponent(to)}`;
+      if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
 
       const res = await fetch(url, { headers: getAuthHeaders() });
       const json = await res.json();
@@ -1021,19 +1075,23 @@ export default function AnalyticsScreen() {
       setOrdersLoading(false);
       setOrdersRefreshing(false);
     }
-  }, [dateFilter, customStart, customEnd, ordersOffset, ordersLoading, getAuthHeaders]);
+  }, [dateFilter, customStart, customEnd, ordersOffset, ordersLoading, searchQuery, getAuthHeaders]);
 
   // Initial loads
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
-  // Fetch orders when dates change or tab switches to orders
+  // Fetch orders when dates change, search query changes, or tab switches to orders
   useEffect(() => {
     if (activeTab === 'orders') {
-      fetchOrders(true);
+      const delayDebounceFn = setTimeout(() => {
+        fetchOrders(true);
+      }, searchQuery ? 400 : 0);
+
+      return () => clearTimeout(delayDebounceFn);
     }
-  }, [activeTab, dateFilter, customStart, customEnd]);
+  }, [activeTab, dateFilter, customStart, customEnd, searchQuery]);
 
   // Stale banner timer check
   useEffect(() => {
@@ -1160,6 +1218,26 @@ export default function AnalyticsScreen() {
       {/* CONDITIONAL CONTENT VIEW: ORDERS vs REST OF TABS */}
       {activeTab === 'orders' ? (
         <View style={{ flex: 1 }}>
+          {/* Search Bar */}
+          <View style={[styles.searchBarContainer, { backgroundColor: c.card, borderColor: c.border }]}>
+            <MaterialCommunityIcons name="magnify" size={20} color={c.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: c.text }]}
+              placeholder="Search by Invoice No..."
+              placeholderTextColor={c.textSecondary + '75'}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} style={{ padding: 4 }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialCommunityIcons name="close-circle" size={16} color={c.textSecondary} />
+              </Pressable>
+            )}
+          </View>
+
           {/* Preset Date Range Buttons */}
           <View style={{ height: 40, marginVertical: 6 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetContainer}>
@@ -1324,6 +1402,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingBottom: 10,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    height: 44,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: 0,
   },
   title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
   refreshBtn: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
