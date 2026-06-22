@@ -78,6 +78,21 @@
   border-radius: 4px;
 }
 
+.bill__meta-row--invoice {
+  background: #f5f0ff;
+  border: 1px solid #d0bbff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+}
+
+.bill__meta-val--invoice {
+  font-weight: 800;
+  color: #5b21b6;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+}
+
 .bill__items-header {
   display: flex;
   font-size: 0.72rem;

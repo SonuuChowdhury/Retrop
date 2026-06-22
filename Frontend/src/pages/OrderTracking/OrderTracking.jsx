@@ -58,14 +58,26 @@ export default function OrderTracking() {
     try {
       const res = await api.getOrderStatus(tableId, token);
       if (res.status === 'success' && res.data?.order) {
-        setOrder(res.data.order);
+        const orderData = res.data.order;
+        if (orderData.orderStatus === 'cancelled') {
+          setError({
+            title: 'Order Cancelled',
+            message: 'This order has been cancelled by the staff. If not intended, please contact the staff around you.',
+            emoji: '🚫',
+            retryable: false,
+          });
+          clearSession();
+          setLoading(false);
+          return;
+        }
+        setOrder(orderData);
         // Sync context so future operations have the token and orderId
         setSession((prev) => ({
           ...prev,
           status: 'ordered',
-          orderId: res.data.order.ordersId,
+          orderId: orderData.ordersId,
           tableId,
-          tableNo: res.data.order.tableNo,
+          tableNo: orderData.tableNo,
           customerToken: token,
         }));
       } else {
@@ -114,15 +126,25 @@ export default function OrderTracking() {
 
     socket.on('order:status_change', (data) => {
       if (data.orderId === orderId) {
-        setOrder((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            orderStatus: data.orderStatus,
-            ...(data.ordersInfo && { ordersInfo: data.ordersInfo }),
-            ...(data.totalAmount !== undefined && { totalAmount: data.totalAmount }),
-          };
-        });
+        if (data.orderStatus === 'cancelled') {
+          setError({
+            title: 'Order Cancelled',
+            message: 'This order has been cancelled by the staff. If not intended, please contact the staff around you.',
+            emoji: '🚫',
+            retryable: false,
+          });
+          clearSession();
+        } else {
+          setOrder((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              orderStatus: data.orderStatus,
+              ...(data.ordersInfo && { ordersInfo: data.ordersInfo }),
+              ...(data.totalAmount !== undefined && { totalAmount: data.totalAmount }),
+            };
+          });
+        }
       }
     });
 
@@ -160,6 +182,16 @@ export default function OrderTracking() {
         const orderData = res.data.order;
         if (orderData.isPaymentCompleted || orderData.orderStatus === 'completed') {
           navigate(`/bill/${orderId}`, { replace: true });
+          return;
+        }
+        if (orderData.orderStatus === 'cancelled') {
+          setError({
+            title: 'Order Cancelled',
+            message: 'This order has been cancelled by the staff. If not intended, please contact the staff around you.',
+            emoji: '🚫',
+            retryable: false,
+          });
+          clearSession();
           return;
         }
         setOrder(orderData);
@@ -273,6 +305,9 @@ export default function OrderTracking() {
             <div>
               <span className="order-no-label">Order Reference</span>
               <h1 className="order-no-val">#{order?.dailyOrderNo || '---'}</h1>
+              {order?.invoiceNo && (
+                <span className="order-invoice-badge">{order.invoiceNo}</span>
+              )}
             </div>
             <span className="tracking-live-dot">Live</span>
           </div>
@@ -347,9 +382,30 @@ export default function OrderTracking() {
             })}
           </div>
 
-          <div className="tracking-total-row">
-            <span>Total Amount</span>
-            <span className="total-val">{formatCurrency(order?.totalAmount || 0)}</span>
+          <div className="tracking-totals">
+            <div className="tracking-totals-row">
+              <span>Subtotal</span>
+              <span>{formatCurrency(order?.totalAmount || 0)}</span>
+            </div>
+
+            {(order?.discountBreakdown || []).map((disc, i) => (
+              <div key={i} className="tracking-totals-row discount">
+                <span>🏷️ {disc.name} ({disc.percent}% off)</span>
+                <span>-{formatCurrency(disc.amount)}</span>
+              </div>
+            ))}
+
+            {(order?.taxBreakdown || []).map((tax, i) => (
+              <div key={i} className="tracking-totals-row">
+                <span>{tax.name} ({tax.percent}%{tax.inclusive ? ' Incl.' : ''})</span>
+                <span>{formatCurrency(tax.amount)}</span>
+              </div>
+            ))}
+
+            <div className="tracking-totals-row grand">
+              <span>Total Amount</span>
+              <span className="total-val">{formatCurrency(order?.finalAmount ?? order?.totalAmount ?? 0)}</span>
+            </div>
           </div>
 
           {isCancellable && (

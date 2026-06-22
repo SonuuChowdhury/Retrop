@@ -141,13 +141,16 @@ export function OrderProvider({ children }) {
 
   // ---------- Clear all state (session expired / restart) ----------
   const clearSession = useCallback(() => {
+    if (session?.tableId) {
+      try { localStorage.removeItem(`rms_token_${session.tableId}`); } catch { /* ignore */ }
+    }
     _setSession(null);
     _setSessionToken(null);
     _setCustomerName('');
     _setCustomerMobile('');
     _setCart([]);
     try { sessionStorage.removeItem(SS_KEY); } catch { /* ignore */ }
-  }, []);
+  }, [session?.tableId]);
 
   return (
     <OrderContext.Provider

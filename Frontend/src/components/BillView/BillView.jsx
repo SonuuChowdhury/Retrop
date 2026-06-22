@@ -41,6 +41,12 @@ export default function BillView({ order, restaurantInfo }) {
 
       {/* Order metadata */}
       <div className="bill__meta">
+        {order.invoiceNo && (
+          <div className="bill__meta-row bill__meta-row--invoice">
+            <span>Invoice No</span>
+            <span className="bill__meta-val bill__meta-val--invoice">{order.invoiceNo}</span>
+          </div>
+        )}
         <div className="bill__meta-row">
           <span>Order No</span>
           <span className="bill__meta-val">#{order.dailyOrderNo}</span>
