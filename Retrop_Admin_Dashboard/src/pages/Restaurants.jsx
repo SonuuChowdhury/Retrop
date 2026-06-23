@@ -218,12 +218,11 @@ export default function Restaurants() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>
-                <th style={styles.th}>Business Name</th>
+                <th style={styles.th}>Restaurant Name</th>
                 <th style={styles.th}>Owner Name</th>
-                <th style={styles.th}>Contact Info</th>
-                <th style={styles.th}>Key Status</th>
-                <th style={styles.th}>Business Status</th>
-                <th style={styles.th} style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
+                <th style={styles.th}>Mobile</th>
+                <th style={styles.th}>Status</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -233,20 +232,18 @@ export default function Restaurants() {
                     <td style={styles.td}><SkeletonLoader width="140px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="110px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="120px" height="18px" /></td>
-                    <td style={styles.td}><SkeletonLoader width="130px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="70px" height="18px" /></td>
-                    <td style={styles.td} style={{ ...styles.td, textAlign: 'right' }}><SkeletonLoader width="80px" height="18px" style={{ marginLeft: 'auto' }} /></td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}><SkeletonLoader width="80px" height="18px" style={{ marginLeft: 'auto' }} /></td>
                   </tr>
                 ))
               ) : restaurants.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={styles.emptyTd}>
+                  <td colSpan="5" style={styles.emptyTd}>
                     No restaurants registered yet. Click "Add Restaurant" to onboard your first client.
                   </td>
                 </tr>
               ) : (
                 restaurants.map((res) => {
-                  const activeKey = res.keys?.find(k => k.isActive);
                   return (
                     <tr key={res.restaurantId} style={styles.tr}>
                       <td style={styles.td}>
@@ -261,32 +258,6 @@ export default function Restaurants() {
                         <div style={styles.contactCell}>
                           <span style={styles.mobile}>{res.ownerMobile}</span>
                         </div>
-                      </td>
-                      <td style={styles.td}>
-                        {res.keys && res.keys.length > 0 ? (
-                          <div style={styles.keyBadgeContainer}>
-                            <span style={styles.keyText}>{res.keys[0].keyValue}</span>
-                            {res.keys[0].isActive ? (
-                              <span style={styles.activeKeyBadge}>Active</span>
-                            ) : (
-                              <span style={styles.inactiveKeyBadge}>Inactive</span>
-                            )}
-                            <button
-                              onClick={() => handleDeleteKey(res.keys[0].keyId)}
-                              title="Delete License Key"
-                              style={styles.deleteKeyInlineBtn}
-                              disabled={deletingKeyId === res.keys[0].keyId}
-                            >
-                              {deletingKeyId === res.keys[0].keyId ? (
-                                <span className="spinner" style={{ color: 'var(--color-error)' }}></span>
-                              ) : (
-                                <Trash2 size={14} />
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={styles.inactiveKeyBadge}>No Key</span>
-                        )}
                       </td>
                       <td style={styles.td}>
                         <button
@@ -312,7 +283,7 @@ export default function Restaurants() {
                           )}
                         </button>
                       </td>
-                      <td style={styles.td} style={{ ...styles.td, textAlign: 'right' }}>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>
                         <div style={styles.actions}>
                           {res.keyCount === 0 && (
                             <button
