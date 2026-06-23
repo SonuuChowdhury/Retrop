@@ -347,6 +347,66 @@ export const retropController = {
     try {
       const { restaurantId } = req.params;
 
+      // 1. Clean up menu images from Supabase Storage
+      try {
+        const { data: menuItems } = await supabase
+          .from('menu')
+          .select('dishId')
+          .eq('restaurantId', restaurantId);
+
+        if (menuItems && menuItems.length > 0) {
+          for (const item of menuItems) {
+            const { data: files } = await supabase.storage
+              .from('menu-images')
+              .list(item.dishId);
+
+            if (files && files.length > 0) {
+              const paths = files.map((f) => `${item.dishId}/${f.name}`);
+              await supabase.storage.from('menu-images').remove(paths);
+              logger.info(`Storage cleanup: deleted images for dish ${item.dishId}`);
+            }
+          }
+        }
+      } catch (storageErr) {
+        logger.warn('Failed to delete storage images during restaurant delete', storageErr.message);
+      }
+
+      // 2. Explicit DB cleanup to ensure no orphaned/set-null data remains in tenant tables
+      const tablesToDelete = [
+        'login_attempt',
+        'admin_session',
+        'manager_session',
+        'waiter_session',
+        'kitchen_session',
+        'waiter_daily_stats',
+        'restaurant_settings',
+        'restaurant_info',
+        'product_key',
+        'restaurant_table',
+        'menu',
+        'orders',
+        'customer',
+        'admin',
+        'waiter',
+        'kitchen'
+      ];
+
+      for (const table of tablesToDelete) {
+        try {
+          const { error: delErr } = await supabase
+            .from(table)
+            .delete()
+            .eq('restaurantId', restaurantId);
+          
+          if (delErr) {
+            logger.warn(`Manual delete from table ${table} failed or partial`, delErr.message);
+          }
+        } catch (tableErr) {
+          logger.warn(`Error deleting from table ${table}`, tableErr.message);
+        }
+      }
+
+      // 3. Delete the restaurant registry itself
       const { data, error } = await supabase
         .from('retrop_restaurant')
         .delete()
@@ -356,7 +416,7 @@ export const retropController = {
 
       if (error) {
         logger.error('Delete restaurant DB error', error.message);
-        return res.status(500).json({ success: false, message: 'Failed to delete restaurant' });
+        return res.status(500).json({ success: false, message: 'Failed to delete restaurant registry' });
       }
 
       if (!data) {
