@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import logo from '../assets/retrop-logo.png';
-import { LayoutDashboard, Store, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Store, LogOut, User, Settings, CreditCard, Receipt, Menu, X } from 'lucide-react';
 
 export default function Layout({ children }) {
   const [admin, setAdmin] = useState(null);
@@ -10,6 +10,20 @@ export default function Layout({ children }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -62,12 +76,34 @@ export default function Layout({ children }) {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { label: 'Restaurants', path: '/restaurants', icon: <Store size={20} /> },
+    { label: 'Transactions', path: '/transactions', icon: <Receipt size={20} /> },
+    { label: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];
 
   return (
     <div style={styles.container}>
+      {/* Mobile Top Header */}
+      {isMobile && (
+        <header style={styles.mobileHeader}>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={styles.menuToggle}>
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          <img src={logo} alt="Retrop logo" style={styles.mobileLogo} />
+          <div style={{ width: 24 }} />
+        </header>
+      )}
+
+      {/* Backdrop for Mobile Sidebar */}
+      {isMobile && isMobileMenuOpen && (
+        <div onClick={() => setIsMobileMenuOpen(false)} style={styles.backdrop} />
+      )}
+
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
+      <aside style={{
+        ...styles.sidebar,
+        transform: isMobile ? (isMobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}>
         <div style={styles.brand}>
           <img src={logo} alt="Retrop logo" style={styles.logo} />
           <span style={styles.badge}>Control Panel</span>
@@ -80,6 +116,7 @@ export default function Layout({ children }) {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => isMobile && setIsMobileMenuOpen(false)}
                 style={{
                   ...styles.navLink,
                   backgroundColor: isActive ? 'var(--color-primary-light)' : 'transparent',
@@ -118,8 +155,15 @@ export default function Layout({ children }) {
       </aside>
 
       {/* Main Content Area */}
-      <div style={styles.main}>
-        <main style={styles.content}>
+      <div style={{
+        ...styles.main,
+        paddingLeft: isMobile ? 0 : '260px',
+        paddingTop: isMobile ? '60px' : 0,
+      }}>
+        <main style={{
+          ...styles.content,
+          padding: isMobile ? '20px 16px' : '40px',
+        }}>
           {children}
         </main>
       </div>
@@ -262,5 +306,39 @@ const styles = {
     maxWidth: '1200px',
     margin: '0 auto',
     width: '100%',
+  },
+  mobileHeader: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '60px',
+    backgroundColor: 'var(--color-card)',
+    borderBottom: '1px solid var(--color-border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 16px',
+    zIndex: 20,
+  },
+  menuToggle: {
+    color: 'var(--color-text)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileLogo: {
+    height: '24px',
+    width: 'auto',
+    objectFit: 'contain',
+  },
+  backdrop: {
+    position: 'fixed',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 9,
   },
 };

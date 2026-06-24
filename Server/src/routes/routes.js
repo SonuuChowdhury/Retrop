@@ -109,6 +109,13 @@ const waiterLoginLimiter  = rateLimit(RATE_LIMIT_CONFIG.waiterLogin);
 const kitchenLoginLimiter = rateLimit(RATE_LIMIT_CONFIG.kitchenLogin);
 const publicOrderLimiter  = rateLimit(RATE_LIMIT_CONFIG.publicOrder);
 const retropLoginLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true });
+const retropOperationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // Limit each IP to 30 requests per window
+  message: { success: false, message: 'Too many administrative operations from this IP, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ============================================================================
 // HEALTH CHECK (no auth, no product key)
@@ -131,18 +138,19 @@ router.get('/api/retrop/auth/me',       retropAuth, retropController.me);
 router.get('/api/retrop/dashboard', retropAuth, retropController.getDashboard);
 
 // Restaurant CRUD
-router.post('/api/retrop/restaurants',                          retropAuth, retropController.createRestaurant);
+router.post('/api/retrop/restaurants',                          retropAuth, retropOperationLimiter, retropController.createRestaurant);
 router.get('/api/retrop/restaurants',                           retropAuth, retropController.listRestaurants);
 router.get('/api/retrop/restaurants/:restaurantId',             retropAuth, retropController.getRestaurant);
-router.patch('/api/retrop/restaurants/:restaurantId',           retropAuth, retropController.updateRestaurant);
+router.patch('/api/retrop/restaurants/:restaurantId',           retropAuth, retropOperationLimiter, retropController.updateRestaurant);
 router.patch('/api/retrop/restaurants/:restaurantId/status',    retropAuth, retropController.toggleRestaurantStatus);
-router.delete('/api/retrop/restaurants/:restaurantId',           retropAuth, retropController.deleteRestaurant);
+router.delete('/api/retrop/restaurants/:restaurantId',           retropAuth, retropOperationLimiter, retropController.deleteRestaurant);
 
 // Restaurant admin management
 router.get('/api/retrop/restaurants/:restaurantId/admins',           retropAuth, retropController.getRestaurantAdmins);
 router.post('/api/retrop/restaurants/:restaurantId/admins',          retropAuth, retropController.addRestaurantAdmin);
 router.patch('/api/retrop/restaurants/:restaurantId/admins/:adminId', retropAuth, retropController.updateRestaurantAdmin);
 router.delete('/api/retrop/restaurants/:restaurantId/admins/:adminId', retropAuth, retropController.deleteRestaurantAdmin);
+router.post('/api/retrop/restaurants/:restaurantId/mail-credentials', retropAuth, retropOperationLimiter, retropController.mailCredentials);
 
 // Product key management
 router.post('/api/retrop/keys/generate/:restaurantId', retropAuth, retropController.generateKey);
@@ -150,6 +158,26 @@ router.patch('/api/retrop/keys/:keyId/toggle',         retropAuth, retropControl
 router.delete('/api/retrop/keys/:keyId',              retropAuth, retropController.deleteKey);
 router.get('/api/retrop/keys',                         retropAuth, retropController.listAllKeys);
 router.get('/api/retrop/keys/:restaurantId',           retropAuth, retropController.getRestaurantKeys);
+
+// Retrop Business Config CRUD
+router.get('/api/retrop/config', retropAuth, retropController.getBusinessConfig);
+router.put('/api/retrop/config', retropAuth, retropController.updateBusinessConfig);
+
+// Pricing Plans CRUD
+router.get('/api/retrop/plans',            retropAuth, retropController.listPlans);
+router.post('/api/retrop/plans',           retropAuth, retropController.createPlan);
+router.put('/api/retrop/plans/:planId',    retropAuth, retropController.updatePlan);
+router.delete('/api/retrop/plans/:planId', retropAuth, retropController.deletePlan);
+
+// Transactions & Subscriptions Ledger
+router.get('/api/retrop/transactions',          retropAuth, retropController.listTransactions);
+router.get('/api/retrop/transactions/:transactionId/invoice', retropAuth, retropController.getTransactionInvoice);
+router.get('/api/retrop/subscriptions',         retropAuth, retropController.listSubscriptions);
+router.put('/api/retrop/subscriptions/:subscriptionId', retropAuth, retropController.updateSubscription);
+router.post('/api/retrop/transactions/confirm', retropAuth, retropOperationLimiter, retropController.confirmPayment);
+
+// Support tickets
+router.post('/api/retrop/support-tickets', retropAuth, retropOperationLimiter, retropController.createSupportTicket);
 
 // ============================================================================
 // ALL RESTAURANT ROUTES — require X-Product-Key header (productKeyAuth)

@@ -12,6 +12,7 @@ import { testSupabaseConnection } from './config/supabase.js';
 import { notFound } from './controllers/healthController.js';
 import { socketService } from './services/socketService.js';
 import { getRedisClient } from './config/redis.js';
+import { initBillingScheduler } from './utils/billingCron.js';
 
 const app = express();
 
@@ -106,6 +107,9 @@ const server = httpServer.listen(SERVER_CONFIG.PORT, async () => {
   } else {
     logger.warn('⚠ Database connection failed - check credentials');
   }
+
+  // Initialize Daily Billing & Subscription Scheduler
+  initBillingScheduler();
 
   // Test Redis connection on startup
   try {

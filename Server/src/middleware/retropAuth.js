@@ -10,17 +10,22 @@ import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
 
 export const retropAuth = async (req, res, next) => {
+  let token = null;
   const authHeader = req.headers['authorization'];
+ 
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query.token) {
+    token = req.query.token;
+  }
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     return res.status(401).json({
       success: false,
       code: 'token_missing',
-      message: 'Authorization header required',
+      message: 'Authorization token is required (header or query parameter)',
     });
   }
-
-  const token = authHeader.split(' ')[1];
   const decoded = await retropAuthService.verifySession(token);
 
   if (!decoded) {

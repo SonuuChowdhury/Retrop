@@ -181,4 +181,50 @@ export const api = {
   deleteRestaurantAdmin: (restaurantId, adminId) => request(`/api/retrop/restaurants/${restaurantId}/admins/${adminId}`, {
     method: 'DELETE',
   }),
+  mailRestaurantCredentials: (restaurantId) => request(`/api/retrop/restaurants/${restaurantId}/mail-credentials`, {
+    method: 'POST',
+  }),
+
+  // Retrop Own Business Config
+  getBusinessConfig: () => request('/api/retrop/config'),
+  updateBusinessConfig: (data) => request('/api/retrop/config', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Pricing Plans
+  listPlans: () => request('/api/retrop/plans'),
+  createPlan: (data) => request('/api/retrop/plans', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updatePlan: (planId, data) => request(`/api/retrop/plans/${planId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deletePlan: (planId) => request(`/api/retrop/plans/${planId}`, {
+    method: 'DELETE',
+  }),
+
+  // Transactions & Subscriptions Ledger
+  listTransactions: () => request('/api/retrop/transactions'),
+  listSubscriptions: () => request('/api/retrop/subscriptions'),
+  getInvoiceUrl: (transactionId) => {
+    const token = localStorage.getItem('retrop_admin_token');
+    return `${BASE_URL}/api/retrop/transactions/${transactionId}/invoice?token=${token}`;
+  },
+  updateSubscription: (subscriptionId, data) => request(`/api/retrop/subscriptions/${subscriptionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  confirmPayment: (data) => request('/api/retrop/transactions/confirm', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  // Support Tickets
+  createSupportTicket: (data) => request('/api/retrop/support-tickets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };

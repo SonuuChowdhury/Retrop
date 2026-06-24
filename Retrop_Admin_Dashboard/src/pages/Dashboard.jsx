@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
-import { Store, Key, ShieldAlert, ArrowRight, UserCheck } from 'lucide-react';
+import { Store, Key, ShieldAlert, ArrowRight, UserCheck, DollarSign, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -43,7 +43,7 @@ export default function Dashboard() {
     <Layout>
       <div style={styles.header}>
         <h1 style={styles.title}>Overview</h1>
-        <p style={styles.subtitle}>Ecosystem health and registration summary</p>
+        <p style={styles.subtitle}>Ecosystem health, multi-business screening and sales tracking</p>
       </div>
 
       {error && (
@@ -53,11 +53,28 @@ export default function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <div style={styles.grid}>
-        {/* Total Restaurants Card */}
+      <div style={{ ...styles.grid, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+        {/* Total Sales Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardTitle}>Total Restaurants</span>
+            <span style={styles.cardTitle}>Total Revenue (Sales)</span>
+            <div style={{ ...styles.iconWrapper, backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)' }}>
+              <DollarSign size={20} />
+            </div>
+          </div>
+          <div style={styles.cardBody}>
+            {loading ? (
+              <SkeletonLoader width="110px" height="36px" />
+            ) : (
+              <span style={styles.cardValue}>₹{(stats?.totalSales ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Total Businesses Card */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardTitle}>Total Businesses</span>
             <div style={{ ...styles.iconWrapper, backgroundColor: 'rgba(255, 107, 53, 0.1)', color: 'var(--color-primary)' }}>
               <Store size={20} />
             </div>
@@ -66,16 +83,16 @@ export default function Dashboard() {
             {loading ? (
               <SkeletonLoader width="80px" height="36px" />
             ) : (
-              <span style={styles.cardValue}>{stats?.totalRestaurants ?? 0}</span>
+              <span style={styles.cardValue}>{stats?.totalBusinesses ?? 0}</span>
             )}
           </div>
         </div>
 
-        {/* Active Keys Card */}
+        {/* Active Subscriptions Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardTitle}>Active Subscriptions</span>
-            <div style={{ ...styles.iconWrapper, backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)' }}>
+            <span style={styles.cardTitle}>Active Licenses</span>
+            <div style={{ ...styles.iconWrapper, backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>
               <Key size={20} />
             </div>
           </div>
@@ -88,10 +105,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Inactive Keys / Blocked Restaurants */}
+        {/* Inactive Status Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardTitle}>Inactive Status</span>
+            <span style={styles.cardTitle}>Suspended Accounts</span>
             <div style={{ ...styles.iconWrapper, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-error)' }}>
               <ShieldAlert size={20} />
             </div>
@@ -100,18 +117,18 @@ export default function Dashboard() {
             {loading ? (
               <SkeletonLoader width="80px" height="36px" />
             ) : (
-              <span style={styles.cardValue}>
-                {((stats?.totalRestaurants ?? 0) - (stats?.activeKeys ?? 0)) < 0 ? 0 : ((stats?.totalRestaurants ?? 0) - (stats?.activeKeys ?? 0))}
-              </span>
+              <span style={styles.cardValue}>{stats?.inactiveBusinesses ?? 0}</span>
             )}
           </div>
         </div>
       </div>
 
+
+
       {/* Main Section */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Recently Onboarded Restaurants</h2>
+          <h2 style={styles.sectionTitle}>Recently Onboarded Businesses</h2>
           <Link to="/restaurants" style={styles.sectionLink}>
             <span>View All</span>
             <ArrowRight size={16} />
@@ -123,6 +140,7 @@ export default function Dashboard() {
             <thead>
               <tr style={styles.thRow}>
                 <th style={styles.th}>Business Name</th>
+                <th style={styles.th}>Vertical</th>
                 <th style={styles.th}>Owner</th>
                 <th style={styles.th}>Mobile</th>
                 <th style={styles.th}>Status</th>
@@ -135,6 +153,7 @@ export default function Dashboard() {
                 [1, 2, 3].map((i) => (
                   <tr key={i} style={styles.tr}>
                     <td style={styles.td}><SkeletonLoader width="140px" height="18px" /></td>
+                    <td style={styles.td}><SkeletonLoader width="90px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="100px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="90px" height="18px" /></td>
                     <td style={styles.td}><SkeletonLoader width="70px" height="18px" /></td>
@@ -143,8 +162,8 @@ export default function Dashboard() {
                 ))
               ) : recentRestaurants.length === 0 ? (
                 <tr>
-                  <td colSpan="5" style={styles.emptyTd}>
-                    No restaurants onboarded yet. Get started by adding a restaurant.
+                  <td colSpan="6" style={styles.emptyTd}>
+                    No businesses onboarded yet. Get started by adding a business client.
                   </td>
                 </tr>
               ) : (
@@ -154,6 +173,19 @@ export default function Dashboard() {
                       <Link to={`/restaurants/${res.restaurantId}`} style={styles.businessNameLink}>
                         {res.businessName}
                       </Link>
+                    </td>
+                    <td style={styles.td}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        backgroundColor: res.businessTypeId === 'restaurant' ? 'var(--color-primary-light)' : res.businessTypeId === 'gym' ? 'var(--color-success-light)' : 'rgba(14, 165, 233, 0.1)',
+                        color: res.businessTypeId === 'restaurant' ? 'var(--color-primary)' : res.businessTypeId === 'gym' ? 'var(--color-success)' : '#0ea5e9',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase'
+                      }}>
+                        {res.businessTypeId || 'restaurant'}
+                      </span>
                     </td>
                     <td style={styles.td}>{res.ownerName}</td>
                     <td style={styles.td}>{res.ownerMobile}</td>
