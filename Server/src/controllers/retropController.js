@@ -815,6 +815,23 @@ export const retropController = {
           return res.status(400).json({ success: false, message: 'Role must be either owner or manager' });
         }
 
+        // Fetch current admin to verify role demotion
+        const { data: currentAdmin, error: currentAdminErr } = await supabase
+          .from('admin')
+          .select('role')
+          .eq('restaurantId', restaurantId)
+          .eq('adminId', adminId)
+          .maybeSingle();
+
+        if (currentAdminErr) {
+          logger.error('Fetch current admin error', currentAdminErr.message);
+          return res.status(500).json({ success: false, message: 'Failed to verify current admin role' });
+        }
+
+        if (currentAdmin && currentAdmin.role === 'owner' && role !== 'owner') {
+          return res.status(400).json({ success: false, message: 'The owner role cannot be changed to manager as every restaurant must have an owner.' });
+        }
+
         // Verify role uniqueness (ignore current adminId)
         const { data: existingAdmins, error: fetchError } = await supabase
           .from('admin')
@@ -867,6 +884,27 @@ export const retropController = {
   deleteRestaurantAdmin: async (req, res) => {
     try {
       const { restaurantId, adminId } = req.params;
+
+      // Check current admin role first
+      const { data: adminToDelete, error: fetchErr } = await supabase
+        .from('admin')
+        .select('role, name')
+        .eq('restaurantId', restaurantId)
+        .eq('adminId', adminId)
+        .maybeSingle();
+
+      if (fetchErr) {
+        logger.error('Fetch admin for delete error', fetchErr.message);
+        return res.status(500).json({ success: false, message: 'Failed to verify admin role' });
+      }
+
+      if (!adminToDelete) {
+        return res.status(404).json({ success: false, message: 'Admin not found' });
+      }
+
+      if (adminToDelete.role === 'owner') {
+        return res.status(400).json({ success: false, message: 'The owner admin account cannot be deleted because the system requires an active owner for billing and administration.' });
+      }
 
       const { data, error } = await supabase
         .from('admin')
@@ -1559,24 +1597,13 @@ export const retropController = {
         return res.status(400).json({ success: false, message: 'Both admin accounts (owner and manager) must be added before mailing credentials' });
       }
 
-      // Get target emails (owner and manager if they have emails)
+      // Get target email (owner only)
       const ownerAdmin = admins.find(a => a.role === 'owner');
-      const managerAdmin = admins.find(a => a.role === 'manager');
-      
-      const emailRecipients = [];
-      if (ownerAdmin && ownerAdmin.email) {
-        emailRecipients.push(ownerAdmin.email.trim());
-      }
-      if (managerAdmin && managerAdmin.email) {
-        emailRecipients.push(managerAdmin.email.trim());
+      if (!ownerAdmin || !ownerAdmin.email) {
+        return res.status(400).json({ success: false, message: 'Owner account must have a registered email address to receive credentials' });
       }
 
-      if (emailRecipients.length === 0) {
-        return res.status(400).json({ success: false, message: 'No registered admin email addresses found to send credentials to' });
-      }
-
-      // Send the email to combined recipient list
-      const toEmail = emailRecipients.join(', ');
+      const toEmail = ownerAdmin.email.trim();
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
       const serverUrl = `${protocol}://${req.get('host')}`.replace(/\/+$/, '');
       const mailResult = await sendCredentialsEmail(toEmail, restaurant.businessName, activeKey, admins, serverUrl);

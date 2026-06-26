@@ -983,18 +983,20 @@ export default function RestaurantDetails() {
                               >
                                 <Edit size={16} />
                               </button>
-                              <button
-                                onClick={() => handleDeleteAdmin(admin.adminId, admin.name)}
-                                title="Delete Admin"
-                                style={{ ...styles.actionBtn, color: 'var(--color-error)' }}
-                                disabled={deletingAdminId === admin.adminId}
-                              >
-                                {deletingAdminId === admin.adminId ? (
-                                  <span className="spinner" style={{ color: 'var(--color-error)' }}></span>
-                                ) : (
-                                  <Trash2 size={16} />
-                                )}
-                              </button>
+                              {admin.role !== 'owner' && (
+                                <button
+                                  onClick={() => handleDeleteAdmin(admin.adminId, admin.name)}
+                                  title="Delete Admin"
+                                  style={{ ...styles.actionBtn, color: 'var(--color-error)' }}
+                                  disabled={deletingAdminId === admin.adminId}
+                                >
+                                  {deletingAdminId === admin.adminId ? (
+                                    <span className="spinner" style={{ color: 'var(--color-error)' }}></span>
+                                  ) : (
+                                    <Trash2 size={16} />
+                                  )}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1440,10 +1442,20 @@ export default function RestaurantDetails() {
                   value={adminForm.role}
                   onChange={(e) => setAdminForm(prev => ({ ...prev, role: e.target.value }))}
                   style={styles.select}
-                  disabled={adminFormLoading || (editingAdmin && editingAdmin.role === 'owner' && admins.filter(a => a.role === 'owner').length === 1)}
+                  disabled={adminFormLoading || (editingAdmin && editingAdmin.role === 'owner')}
                 >
-                  <option value="owner">Owner</option>
-                  <option value="manager">Manager</option>
+                  <option 
+                    value="owner" 
+                    disabled={admins.some(a => a.role === 'owner') && (!editingAdmin || editingAdmin.role !== 'owner')}
+                  >
+                    Owner
+                  </option>
+                  <option 
+                    value="manager" 
+                    disabled={admins.some(a => a.role === 'manager') && (!editingAdmin || editingAdmin.role !== 'manager')}
+                  >
+                    Manager
+                  </option>
                 </select>
               </div>
 

@@ -51,12 +51,14 @@ export async function getDecryptionPrivateKey(): Promise<string> {
 // Internal mutable state — set by initializeApi()
 let _baseUrl: string = process.env.EXPO_PUBLIC_API_URL ?? '';
 let _productKey: string = '';
+let _restaurantName: string = '';
 let _initialized     = false;
 
 const SERVER_URL_KEY = 'rms_server_url';
 const URL_SET_KEY    = 'rms_server_url_set';
 const PRODUCT_KEY    = 'rms_product_key';
 const SETUP_VIA_SCAN_KEY = 'rms_setup_via_scan';
+const RESTAURANT_NAME_KEY = 'rms_restaurant_name';
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -68,6 +70,17 @@ export function getBaseUrl(): string {
 /** Returns the current product key */
 export function getProductKey(): string {
   return _productKey;
+}
+
+/** Returns the currently cached restaurant name */
+export function getRestaurantName(): string {
+  return _restaurantName;
+}
+
+/** Updates the cached restaurant name locally */
+export async function updateRestaurantName(name: string): Promise<void> {
+  _restaurantName = name.trim();
+  await AsyncStorage.setItem(RESTAURANT_NAME_KEY, _restaurantName);
 }
 
 /** Returns whether the app has been successfully set up via QR scanning */
@@ -95,8 +108,14 @@ export async function initializeApi(): Promise<'setup' | 'ready'> {
     const savedKey = await AsyncStorage.getItem(PRODUCT_KEY);
     const isViaScan = await AsyncStorage.getItem(SETUP_VIA_SCAN_KEY);
 
+    const savedName = await AsyncStorage.getItem(RESTAURANT_NAME_KEY);
+
     // Initialize private key in SecureStore in the background
     getDecryptionPrivateKey().catch(() => {});
+
+    if (savedName) {
+      _restaurantName = savedName;
+    }
 
     if (isSet === 'true' && savedUrl && savedUrl.length > 4 && savedKey && savedKey.length > 4 && isViaScan === 'true') {
       _baseUrl = savedUrl.trim().replace(/\/+$/, '');
@@ -155,9 +174,10 @@ export async function updateBaseUrl(url: string): Promise<void> {
 
 /** Reset configuration */
 export async function resetApiConfig(): Promise<void> {
-  await AsyncStorage.multiRemove([SERVER_URL_KEY, URL_SET_KEY, PRODUCT_KEY, SETUP_VIA_SCAN_KEY]);
+  await AsyncStorage.multiRemove([SERVER_URL_KEY, URL_SET_KEY, PRODUCT_KEY, SETUP_VIA_SCAN_KEY, RESTAURANT_NAME_KEY]);
   _baseUrl = process.env.EXPO_PUBLIC_API_URL ?? '';
   _productKey = '';
+  _restaurantName = '';
   _initialized = false;
 }
 

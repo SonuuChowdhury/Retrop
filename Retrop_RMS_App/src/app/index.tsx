@@ -17,10 +17,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
-import { isSetupViaScan } from '@/config/api';
+import { isSetupViaScan, getRestaurantName } from '@/config/api';
 
 export default function HomeScreen() {
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [showSettings, setShowSettings] = useState(false);
@@ -74,33 +74,18 @@ export default function HomeScreen() {
       <SafeAreaView
         style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
       >
-      {/* Header with Settings and Theme Toggle */}
+      {/* Header with Settings */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable
           onPress={() => setShowSettings(true)}
           style={[
-            styles.themeToggle,
+            styles.settingsButton,
             { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
           ]}
           android_ripple={{ color: theme.colors.primary }}
         >
           <MaterialCommunityIcons
             name="cog"
-            size={24}
-            color={theme.colors.primary}
-          />
-        </Pressable>
-
-        <Pressable
-          onPress={toggleTheme}
-          style={[
-            styles.themeToggle,
-            { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-          ]}
-          android_ripple={{ color: theme.colors.primary }}
-        >
-          <MaterialCommunityIcons
-            name={isDark ? 'weather-sunny' : 'moon-waning-crescent'}
             size={24}
             color={theme.colors.primary}
           />
@@ -128,12 +113,12 @@ export default function HomeScreen() {
 
         {/* Title */}
         <Text style={[styles.mainTitle, { color: theme.colors.text }]}>
-          Restaurant Management System
+          {isConfiguredByScan && getRestaurantName() ? getRestaurantName() : 'Restaurant Management System'}
         </Text>
 
         {/* Subtitle */}
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          RMS Client for Waiters and Managers
+          {isConfiguredByScan && getRestaurantName() ? 'RMS Client for Waiters & Managers' : 'RMS Client for Waiters and Managers'}
         </Text>
 
         {/* Description */}
@@ -330,13 +315,13 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 12,
     paddingVertical: 8,
   },
-  themeToggle: {
+  settingsButton: {
     width: 48,
     height: 48,
     borderRadius: 24,

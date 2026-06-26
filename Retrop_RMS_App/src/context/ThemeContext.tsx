@@ -14,6 +14,7 @@ import React, {
   useState
 } from "react";
 import { useColorScheme } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
   Easing,
   interpolateColor,
@@ -85,6 +86,8 @@ export const ThemeTransitionOverlay = Animated.View;
 
 interface ThemeContextType {
   theme: Theme;
+  themePreference: 'light' | 'dark' | 'system';
+  setThemePreference: (pref: 'light' | 'dark' | 'system') => void;
   toggleTheme: () => void;
   isDark: boolean;
   // Animated value (0 = light, 1 = dark) for consumers that want smooth interpolation
@@ -97,30 +100,70 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const systemColorScheme = useColorScheme();
+  const [themePreference, setThemePreferenceState] = useState<'light' | 'dark' | 'system'>('system');
   const [isDark, setIsDark] = useState(systemColorScheme === "dark");
 
   // Shared value: 0 = fully light, 1 = fully dark
   const themeProgress = useSharedValue(systemColorScheme === "dark" ? 1 : 0);
+
+  // Load persisted theme preference
+  React.useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('rms_theme_mode');
+        if (saved === 'light' || saved === 'dark' || saved === 'system') {
+          setThemePreferenceState(saved);
+          const activeDark = saved === 'system' ? systemColorScheme === 'dark' : saved === 'dark';
+          setIsDark(activeDark);
+          themeProgress.value = activeDark ? 1 : 0;
+        }
+      } catch (e) {
+        console.error('Failed to load theme preference', e);
+      }
+    };
+    loadTheme();
+  }, [systemColorScheme]);
+
+  // Monitor system color scheme changes when on system mode
+  React.useEffect(() => {
+    if (themePreference === 'system') {
+      const activeDark = systemColorScheme === 'dark';
+      setIsDark(activeDark);
+      themeProgress.value = withTiming(activeDark ? 1 : 0, {
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+      });
+    }
+  }, [systemColorScheme, themePreference]);
+
+  const setThemePreference = useCallback(async (pref: 'light' | 'dark' | 'system') => {
+    try {
+      setThemePreferenceState(pref);
+      await AsyncStorage.setItem('rms_theme_mode', pref);
+      const activeDark = pref === 'system' ? systemColorScheme === 'dark' : pref === 'dark';
+      setIsDark(activeDark);
+      themeProgress.value = withTiming(activeDark ? 1 : 0, {
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+      });
+    } catch (e) {
+      console.error('Failed to save theme preference', e);
+    }
+  }, [systemColorScheme, themeProgress]);
+
+  const toggleTheme = useCallback(() => {
+    const nextPref = isDark ? 'light' : 'dark';
+    setThemePreference(nextPref);
+  }, [isDark, setThemePreference]);
 
   const theme: Theme = {
     mode: isDark ? "dark" : "light",
     colors: isDark ? darkColors : lightColors,
   };
 
-  const toggleTheme = useCallback(() => {
-    setIsDark((prev) => {
-      const next = !prev;
-      themeProgress.value = withTiming(next ? 1 : 0, {
-        duration: 220,
-        easing: Easing.out(Easing.quad),
-      });
-      return next;
-    });
-  }, [themeProgress]);
-
   return (
     <ThemeContext.Provider
-      value={{ theme, toggleTheme, isDark, themeProgress }}
+      value={{ theme, themePreference, setThemePreference, toggleTheme, isDark, themeProgress }}
     >
       {children}
     </ThemeContext.Provider>

@@ -31,7 +31,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
-import { isSetupViaScan } from '@/config/api';
+import { isSetupViaScan, getRestaurantName } from '@/config/api';
 
 type Role = 'waiter' | 'manager' | 'kitchen';
 
@@ -211,7 +211,7 @@ export default function LoginScreen() {
               </View>
               <Text style={[styles.greeting, { color: c.text }]}>Welcome Back</Text>
               <Text style={[styles.subGreeting, { color: c.textSecondary }]}>
-                Sign in to continue
+                {isConfiguredByScan && getRestaurantName() ? `Sign in to ${getRestaurantName()}` : 'Sign in to continue'}
               </Text>
             </View>
 
