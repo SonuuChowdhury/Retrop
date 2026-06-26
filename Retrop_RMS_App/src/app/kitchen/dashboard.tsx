@@ -9,7 +9,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 import { apiCall } from '@/utils/apiClient';
 import { setupNotificationListeners } from '@/services/notificationService';
@@ -354,6 +355,7 @@ function KanbanColumn({
 export default function KitchenDashboard() {
   const { kitchen, accessToken, refreshToken, logout } = useKitchenAuth();
   const { theme } = useTheme();
+  const { showError } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -531,7 +533,7 @@ export default function KitchenDashboard() {
     if (result.success) {
       fetchDashboard();
     } else {
-      Alert.alert('Error', result.message ?? 'Action failed.');
+      showError('Error', result.message ?? 'Action failed.');
     }
     setActionLoadingId(null);
   };

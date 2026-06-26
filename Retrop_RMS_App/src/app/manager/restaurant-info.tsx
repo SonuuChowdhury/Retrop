@@ -9,7 +9,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, TextInput, Platform, Switch,
+  ActivityIndicator, TextInput, Platform, Switch,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -63,6 +64,7 @@ const EMPTY_FORM: RestaurantInfoForm = {
 export default function RestaurantInfoScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
+  const { showSuccess } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -198,7 +200,7 @@ export default function RestaurantInfoScreen() {
       });
       const json = await res.json();
       if (json?.status === 'success') {
-        Alert.alert('Saved', 'Restaurant info updated successfully.');
+        showSuccess('Saved', 'Restaurant info updated successfully.');
       } else {
         setSaveError(json?.message ?? 'Failed to save.');
       }

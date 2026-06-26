@@ -38,6 +38,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -91,6 +92,8 @@ function DishFormModal({
   onSuccess: () => void;
   colors: any;
   getAuthHeaders: () => Record<string, string>;
+  showWarning: (title: string, message?: string) => void;
+  showError: (title: string, message?: string) => void;
 }) {
   const isEdit = !!dish;
 
@@ -149,7 +152,7 @@ function DishFormModal({
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', 'Allow photo library access to add a dish photo.');
+        showWarning('Permission needed', 'Allow photo library access to add a dish photo.');
         return;
       }
 
@@ -166,7 +169,7 @@ function DishFormModal({
         const uri = asset.uri;
 
         if (!asset.base64) {
-          Alert.alert('Error', 'Could not read image data. Please try a different photo.');
+          showError('Error', 'Could not read image data. Please try a different photo.');
           return;
         }
 
@@ -178,7 +181,7 @@ function DishFormModal({
       }
     } catch (err) {
       console.error('[pickImage] error:', err);
-      Alert.alert('Error', 'Failed to open image picker.');
+      showError('Error', 'Failed to open image picker.');
     }
   };
 
@@ -222,7 +225,7 @@ function DishFormModal({
       if (json?.status !== 'success') {
         console.error('[uploadImage] server rejected upload:', json);
         // Non-fatal: dish was saved, image failed — inform user but don't block
-        Alert.alert(
+        showError(
           'Image Upload Failed',
           json?.message ?? 'Dish was saved but the photo could not be uploaded. You can try again from Edit.',
         );
@@ -232,7 +235,7 @@ function DishFormModal({
       return true;
     } catch (err: any) {
       console.error('[uploadImage] error:', err);
-      Alert.alert(
+      showError(
         'Image Upload Failed',
         'Dish was saved but the photo could not be uploaded. You can try again from Edit.',
       );
@@ -904,6 +907,7 @@ function FilterDropdown({
 export default function MenuScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme }          = useTheme();
+  const { showError, showWarning, showConfirm } = useDialog();
   const insets             = useSafeAreaInsets();
   const c                  = theme.colors;
 
@@ -973,41 +977,37 @@ export default function MenuScreen() {
           ),
         );
       } else {
-        Alert.alert('Error', json?.message ?? 'Failed to update.');
+        showError('Error', json?.message ?? 'Failed to update.');
       }
     } catch {
-      Alert.alert('Error', 'Network error.');
+      showError('Error', 'Network error.');
     }
   };
 
   const handleDelete = (item: MenuItem) => {
-    Alert.alert(
-      'Delete Dish',
-      `Delete "${item.dishName}"? This also removes the photo and cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text:    'Delete',
-          style:   'destructive',
-          onPress: async () => {
-            try {
-              const res = await fetch(ENDPOINTS.MENU_ITEM(item.dishId), {
-                method:  'DELETE',
-                headers: getAuthHeaders(),
-              });
-              const json = await res.json();
-              if (json?.status === 'success') {
-                setItems((prev) => prev.filter((d) => d.dishId !== item.dishId));
-              } else {
-                Alert.alert('Error', json?.message ?? 'Failed to delete.');
-              }
-            } catch {
-              Alert.alert('Error', 'Network error.');
-            }
-          },
-        },
-      ],
-    );
+    showConfirm({
+      title: 'Delete Dish',
+      message: `Delete "${item.dishName}"? This also removes the photo and cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(ENDPOINTS.MENU_ITEM(item.dishId), {
+            method:  'DELETE',
+            headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json?.status === 'success') {
+            setItems((prev) => prev.filter((d) => d.dishId !== item.dishId));
+          } else {
+            showError('Error', json?.message ?? 'Failed to delete.');
+          }
+        } catch {
+          showError('Error', 'Network error.');
+        }
+      },
+    });
   };
 
   const isAllActive = filterAvail === null && filterCat === null;
@@ -1137,6 +1137,8 @@ export default function MenuScreen() {
         onSuccess={() => { setShowForm(false); setEditingDish(null); fetchMenu(); }}
         colors={c}
         getAuthHeaders={getAuthHeaders}
+        showWarning={showWarning}
+        showError={showError}
       />
     </View>
   );

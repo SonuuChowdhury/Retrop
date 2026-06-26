@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Alert, Modal, TextInput, Platform,
+  Pressable, ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -247,10 +248,11 @@ function AddWaiterModal({
 // ============================================================================
 
 function ResetPasswordModal({
-  waiter, visible, onClose, colors, getAuthHeaders,
+  waiter, visible, onClose, colors, getAuthHeaders, showSuccess,
 }: {
   waiter: Waiter | null; visible: boolean; onClose: () => void;
   colors: any; getAuthHeaders: () => Record<string, string>;
+  showSuccess: (t: string, m?: string) => void;
 }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -267,7 +269,7 @@ function ResetPasswordModal({
       });
       const json = await res.json();
       if (json?.status === 'success') {
-        Alert.alert('Success', 'Password reset successfully.');
+        showSuccess('Success', 'Password reset successfully.');
         setPassword(''); onClose();
       } else {
         setError(json?.message ?? 'Failed to reset password.');
@@ -318,6 +320,7 @@ function ResetPasswordModal({
 export default function WaitersScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
+  const { showError, showSuccess, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -364,46 +367,42 @@ export default function WaitersScreen() {
           w.waiterId === waiter.waiterId ? { ...w, isActive: !w.isActive } : w,
         ));
       } else {
-        Alert.alert('Error', json?.message ?? 'Failed to update status.');
+        showError('Error', json?.message ?? 'Failed to update status.');
       }
     } catch {
-      Alert.alert('Error', 'Network error.');
+      showError('Error', 'Network error.');
     } finally {
       setTogglingId(null);
     }
   };
 
   const handleDelete = (waiter: Waiter) => {
-    Alert.alert(
-      'Delete Waiter',
-      `Delete ${waiter.waiterName}? This will remove all their data. If they have active orders, deletion will be blocked.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(waiter.waiterId);
-            try {
-              const res = await fetch(ENDPOINTS.WAITER_BY_ID(waiter.waiterId), {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
-              });
-              const json = await res.json();
-              if (json?.status === 'success') {
-                setWaiters((prev) => prev.filter((w) => w.waiterId !== waiter.waiterId));
-              } else {
-                Alert.alert('Cannot Delete', json?.message ?? 'Deletion failed.');
-              }
-            } catch {
-              Alert.alert('Error', 'Network error.');
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-    );
+    showConfirm({
+      title: 'Delete Waiter',
+      message: `Delete ${waiter.waiterName}? This will remove all their data. If they have active orders, deletion will be blocked.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        setDeletingId(waiter.waiterId);
+        try {
+          const res = await fetch(ENDPOINTS.WAITER_BY_ID(waiter.waiterId), {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json?.status === 'success') {
+            setWaiters((prev) => prev.filter((w) => w.waiterId !== waiter.waiterId));
+          } else {
+            showError('Cannot Delete', json?.message ?? 'Deletion failed.');
+          }
+        } catch {
+          showError('Error', 'Network error.');
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -475,6 +474,7 @@ export default function WaitersScreen() {
         onClose={() => setResetTarget(null)}
         colors={c}
         getAuthHeaders={getAuthHeaders}
+        showSuccess={showSuccess}
       />
     </View>
   );

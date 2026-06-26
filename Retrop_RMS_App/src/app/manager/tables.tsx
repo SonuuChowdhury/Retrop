@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Alert,
+  Pressable, ActivityIndicator,
   Modal, TextInput, Platform, Share,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -82,9 +83,14 @@ function TableCard({
 
 function TableDetailModal({
   tableNo, onClose, onDeleted, colors, getAuthHeaders,
+  showError, showSuccess, showConfirm, showWarning,
 }: {
   tableNo: number | null; onClose: () => void; onDeleted: () => void;
   colors: any; getAuthHeaders: () => Record<string, string>;
+  showError: (t: string, m?: string) => void;
+  showSuccess: (t: string, m?: string) => void;
+  showConfirm: (o: any) => void;
+  showWarning: (t: string, m?: string) => void;
 }) {
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -104,7 +110,7 @@ function TableDetailModal({
 
   const handleUpdateCapacity = async () => {
     const cap = parseInt(newCap, 10);
-    if (!cap || cap < 1) { Alert.alert('Error', 'Enter a valid capacity.'); return; }
+    if (!cap || cap < 1) { showWarning('Error', 'Enter a valid capacity.'); return; }
     setActionLoading(true);
     try {
       const res = await fetch(ENDPOINTS.TABLE_CAPACITY(tableNo!), {
@@ -115,34 +121,36 @@ function TableDetailModal({
       if (json?.status === 'success') {
         setDetail((d: any) => ({ ...d, capacity: cap }));
         setNewCap(''); setShowCapEdit(false);
-        Alert.alert('Success', 'Capacity updated.');
-      } else Alert.alert('Error', json?.message ?? 'Failed.');
-    } catch { Alert.alert('Error', 'Network error.'); }
+        showSuccess('Success', 'Capacity updated.');
+      } else showError('Error', json?.message ?? 'Failed.');
+    } catch { showError('Error', 'Network error.'); }
     finally { setActionLoading(false); }
   };
 
   const handleDelete = () => {
     if (!detail) return;
     if (!detail.isAvailable) {
-      Alert.alert('Cannot Delete', 'Table has an active order.'); return;
+      showWarning('Cannot Delete', 'Table has an active order.'); return;
     }
-    Alert.alert('Delete Table', `Delete Table ${detail.tableNo}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          setActionLoading(true);
-          try {
-            const res = await fetch(ENDPOINTS.TABLE_BY_NO(detail.tableNo), {
-              method: 'DELETE', headers: getAuthHeaders(),
-            });
-            const json = await res.json();
-            if (json?.status === 'success') { onDeleted(); onClose(); }
-            else Alert.alert('Error', json?.message ?? 'Failed.');
-          } catch { Alert.alert('Error', 'Network error.'); }
-          finally { setActionLoading(false); }
-        },
+    showConfirm({
+      title: `Delete Table ${detail.tableNo}?`,
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const res = await fetch(ENDPOINTS.TABLE_BY_NO(detail.tableNo), {
+            method: 'DELETE', headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json?.status === 'success') { onDeleted(); onClose(); }
+          else showError('Error', json?.message ?? 'Failed.');
+        } catch { showError('Error', 'Network error.'); }
+        finally { setActionLoading(false); }
       },
-    ]);
+    });
   };
 
   if (tableNo == null) return null;
@@ -249,6 +257,7 @@ function TableDetailModal({
 export default function TablesScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
+  const { showError, showSuccess, showConfirm, showWarning } = useDialog();
   // FIX #1: Use insets manually — no SafeAreaView wrapper
   const insets = useSafeAreaInsets();
   const c = theme.colors;
@@ -330,7 +339,7 @@ export default function TablesScreen() {
 
   const handleExportQRDetails = () => {
     if (tables.length === 0) {
-      Alert.alert('No Tables', 'There are no tables to export.');
+      showWarning('No Tables', 'There are no tables to export.');
       return;
     }
 
@@ -344,7 +353,7 @@ export default function TablesScreen() {
       message: text,
     }).catch((err) => {
       console.error(err);
-      Alert.alert('Error', 'Failed to export table QR details.');
+      showError('Error', 'Failed to export table QR details.');
     });
   };
 
@@ -461,6 +470,10 @@ export default function TablesScreen() {
         onDeleted={fetchAll}
         colors={c}
         getAuthHeaders={getAuthHeaders}
+        showError={showError}
+        showSuccess={showSuccess}
+        showConfirm={showConfirm}
+        showWarning={showWarning}
       />
     </View>
   );

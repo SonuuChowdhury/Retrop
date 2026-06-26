@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Alert, Modal, TextInput, Platform, Switch,
+  Pressable, ActivityIndicator, Modal, TextInput, Platform, Switch,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -196,6 +197,7 @@ function AddKitchenModal({
 export default function KitchenManagementScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
+  const { showError, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -241,38 +243,35 @@ export default function KitchenManagementScreen() {
           a.kitchenId === account.kitchenId ? { ...a, isActive: !a.isActive } : a,
         ));
       } else {
-        Alert.alert('Error', json?.message ?? 'Failed to update status.');
+        showError('Error', json?.message ?? 'Failed to update status.');
       }
-    } catch { Alert.alert('Error', 'Network error.'); }
-    finally { setTogglingId(null); }
+    } catch { showError('Error', 'Network error.'); }
+    finally { setTogglingId(null); };
   };
 
   const handleDelete = (account: KitchenAccount) => {
-    Alert.alert(
-      'Delete Kitchen Account',
-      `Delete "${account.kitchenName}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive',
-          onPress: async () => {
-            setDeletingId(account.kitchenId);
-            try {
-              const res = await fetch(ENDPOINTS.MANAGER_KITCHEN_DELETE(account.kitchenId), {
-                method: 'DELETE', headers: getAuthHeaders(),
-              });
-              const json = await res.json();
-              if (json?.status === 'success') {
-                setAccounts((prev) => prev.filter((a) => a.kitchenId !== account.kitchenId));
-              } else {
-                Alert.alert('Error', json?.message ?? 'Deletion failed.');
-              }
-            } catch { Alert.alert('Error', 'Network error.'); }
-            finally { setDeletingId(null); }
-          },
-        },
-      ],
-    );
+    showConfirm({
+      title: 'Delete Kitchen Account',
+      message: `Delete "${account.kitchenName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        setDeletingId(account.kitchenId);
+        try {
+          const res = await fetch(ENDPOINTS.MANAGER_KITCHEN_DELETE(account.kitchenId), {
+            method: 'DELETE', headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json?.status === 'success') {
+            setAccounts((prev) => prev.filter((a) => a.kitchenId !== account.kitchenId));
+          } else {
+            showError('Error', json?.message ?? 'Deletion failed.');
+          }
+        } catch { showError('Error', 'Network error.'); }
+        finally { setDeletingId(null); }
+      },
+    });
   };
 
   if (loading) {

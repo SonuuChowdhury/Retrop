@@ -7,12 +7,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { ThemeTransitionView, useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { connectSocket, disconnectSocket } from '@/utils/socket';
 import { registerForPushNotificationsAsync } from '@/services/notificationService';
 import { ENDPOINTS } from '@/config/api';
@@ -72,6 +73,7 @@ function TabBarButton({ tab, isActive, onPress, colors }: {
 export default function WaiterLayout() {
   const { isAuthenticated, isLoading, accessToken, logout } = useWaiterAuth();
   const { theme } = useTheme();
+  const { showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
@@ -119,24 +121,20 @@ export default function WaiterLayout() {
   }, [isAuthenticated, accessToken]);
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            loggingOutRef.current = true;
-            disconnectSocket();
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ],
-    );
-  }, [logout]);
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        loggingOutRef.current = true;
+        disconnectSocket();
+        await logout();
+        router.replace('/login');
+      },
+    });
+  }, [logout, showConfirm]);
 
   if (isLoading || !isAuthenticated) return null;
 

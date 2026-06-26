@@ -8,7 +8,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Alert, Switch,
+  Pressable, ActivityIndicator, Switch,
 } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 
 import { SkeletonLoader, SkeletonKPI } from '@/components/SkeletonLoader/SkeletonLoader';
@@ -46,6 +47,7 @@ interface RestaurantSettings {
 export default function ManagerDashboard() {
   const { getAuthHeaders, manager } = useAuth();
   const { theme } = useTheme();
+  const { showConfirm, showError } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -91,20 +93,16 @@ export default function ManagerDashboard() {
     if (!settings) return;
     const willOpen = !settings.isRestaurantOpen;
 
-    Alert.alert(
-      willOpen ? 'Open Restaurant' : 'Close Restaurant',
-      willOpen
+    showConfirm({
+      title: willOpen ? 'Open Restaurant' : 'Close Restaurant',
+      message: willOpen
         ? 'Are you sure you want to open the restaurant?'
         : 'Are you sure you want to close the restaurant? All active waiters will be notified.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: willOpen ? 'Open' : 'Close',
-          style: willOpen ? 'default' : 'destructive',
-          onPress: () => doToggle(willOpen),
-        },
-      ],
-    );
+      confirmText: willOpen ? 'Open' : 'Close',
+      cancelText: 'Cancel',
+      destructive: !willOpen,
+      onConfirm: () => doToggle(willOpen),
+    });
   };
 
   const doToggle = async (isOpen: boolean) => {
@@ -119,10 +117,10 @@ export default function ManagerDashboard() {
       if (json?.status === 'success') {
         setSettings({ isRestaurantOpen: isOpen });
       } else {
-        Alert.alert('Error', json?.message ?? 'Failed to update status.');
+        showError('Error', json?.message ?? 'Failed to update status.');
       }
     } catch {
-      Alert.alert('Error', 'Network error. Please try again.');
+      showError('Error', 'Network error. Please try again.');
     } finally {
       setToggleLoading(false);
     }

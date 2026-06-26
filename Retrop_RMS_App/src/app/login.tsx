@@ -19,7 +19,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Keyboard,
-  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,6 +29,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
+import { useDialog } from '@/context/DialogContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
 import { isSetupViaScan, getRestaurantName } from '@/config/api';
 
@@ -45,6 +45,7 @@ export default function LoginScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showWarning } = useDialog();
   const { login: managerLogin } = useAuth();
   const { login: waiterLogin } = useWaiterAuth();
   const { login: kitchenLogin } = useKitchenAuth();
@@ -124,10 +125,9 @@ export default function LoginScreen() {
         if (result.success) {
           router.replace('/waiter/dashboard');
         } else if (result.disabled) {
-          Alert.alert(
+          showWarning(
             'Account Disabled',
             'Your account has been disabled. Please contact your manager to re-enable it.',
-            [{ text: 'OK' }],
           );
         } else {
           setLoginError(result.message ?? 'Login failed. Please try again.');
@@ -138,10 +138,9 @@ export default function LoginScreen() {
         if (result.success) {
           router.replace('/kitchen/dashboard');
         } else if (result.disabled) {
-          Alert.alert(
+          showWarning(
             'Account Disabled',
             'This kitchen account is disabled. Please contact the manager.',
-            [{ text: 'OK' }],
           );
         } else {
           setLoginError(result.message ?? 'Login failed. Please try again.');
@@ -161,9 +160,14 @@ export default function LoginScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
         {/* Header Bar */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 8 }}>
-          {/* Back Button */}
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
             style={({ pressed }) => [
               styles.backButton,
               { marginTop: insets.top + 4, opacity: pressed ? 0.6 : 1 },

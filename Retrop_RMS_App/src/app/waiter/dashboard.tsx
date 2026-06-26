@@ -16,7 +16,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, RefreshControl, Modal,
+  ActivityIndicator, RefreshControl, Modal,
 } from 'react-native';
 import Animated, {
   FadeInDown, FadeInUp, FadeIn, FadeOut, SlideInUp, SlideOutUp,
@@ -27,6 +27,7 @@ import { useRouter } from 'expo-router';
 
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 import { apiCall } from '@/utils/apiClient';
 import { setupNotificationListeners } from '@/services/notificationService';
@@ -216,6 +217,7 @@ function PendingSessionCard({
 export default function WaiterDashboard() {
   const { waiter, accessToken, getAuthHeaders, refreshToken, logout } = useWaiterAuth();
   const { theme } = useTheme();
+  const { showDialog, showError } = useDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const c = theme.colors;
@@ -232,13 +234,18 @@ export default function WaiterDashboard() {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Forced logout on account disabled ──────────────────────────────────────
-  const handleDisabled = useCallback(() => {
-    Alert.alert(
-      'Account Disabled',
-      'Your account has been disabled by the manager.',
-      [{ text: 'OK', onPress: () => logout() }],
-    );
-  }, [logout]);
+  // Use a ref so this never causes fetchDashboard/fetchPendingSessions to
+  // be recreated (which would trigger effects and cause infinite loops).
+  const handleDisabledRef = useRef<() => void>(() => {});
+  handleDisabledRef.current = () => {
+    showDialog({
+      type: 'warning',
+      title: 'Account Disabled',
+      message: 'Your account has been disabled by the manager.',
+      buttons: [{ text: 'OK', style: 'default', onPress: () => logout() }],
+    });
+  };
+  const handleDisabled = useCallback(() => handleDisabledRef.current(), []);
 
   // ── Fetch dashboard ─────────────────────────────────────────────────────────
   const fetchDashboard = useCallback(async () => {
@@ -373,11 +380,11 @@ export default function WaiterDashboard() {
         // Refresh dashboard to show new active order
         fetchDashboard();
       } else if (result.message?.includes('already') || result.message?.includes('409')) {
-        Alert.alert('Already Taken', 'This table was just accepted by another waiter.');
+        showError('Already Taken', 'This table was just accepted by another waiter.');
         setPendingSessions((prev) => prev.filter((s) => s.tableId !== session.tableId));
         fetchDashboard();
       } else {
-        Alert.alert('Error', result.message ?? 'Failed to accept order.');
+        showError('Error', result.message ?? 'Failed to accept order.');
       }
     } finally {
       setAcceptingId(null);

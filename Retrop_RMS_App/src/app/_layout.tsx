@@ -15,6 +15,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { WaiterAuthProvider } from '@/context/WaiterAuthContext';
 import { KitchenAuthProvider } from '@/context/KitchenAuthContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+import { DialogProvider } from '@/context/DialogContext';
 import { initializeApi } from '@/config/api';
 
 SplashScreen.preventAutoHideAsync();
@@ -64,13 +65,15 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <WaiterAuthProvider>
-          <KitchenAuthProvider>
-            <RootLayoutNav apiReady={apiReady} />
-          </KitchenAuthProvider>
-        </WaiterAuthProvider>
-      </AuthProvider>
+      <DialogProvider>
+        <AuthProvider>
+          <WaiterAuthProvider>
+            <KitchenAuthProvider>
+              <RootLayoutNav apiReady={apiReady} />
+            </KitchenAuthProvider>
+          </WaiterAuthProvider>
+        </AuthProvider>
+      </DialogProvider>
     </ThemeProvider>
   );
 }

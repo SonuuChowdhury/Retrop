@@ -88,11 +88,11 @@ export async function loginManager(credentials: LoginCredentials): Promise<Login
 
     const { adminId, role, name, mobile, email } = admin;
 
-    // Validate manager/owner role only
-    if (role !== 'manager' && role !== 'owner') {
+    // Only 'manager' role accounts may log into the manager dashboard
+    if (role !== 'manager') {
       return {
         success: false,
-        message: 'Access denied. Manager or owner credentials required.',
+        message: 'Access denied. Only manager accounts can log in here.',
         code: 403,
       };
     }

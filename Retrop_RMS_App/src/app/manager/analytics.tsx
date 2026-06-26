@@ -14,7 +14,7 @@ import React, {
 } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Modal, TextInput, SectionList, Platform, Share, Alert
+  Pressable, ActivityIndicator, Modal, TextInput, SectionList, Platform, Share
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 import { SkeletonLoader, SkeletonCard, SkeletonKPI, SkeletonRow } from '@/components/SkeletonLoader/SkeletonLoader';
 
@@ -131,6 +132,7 @@ interface OrderDetailModalProps {
 function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }: OrderDetailModalProps) {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<any | null>(null);
+  const { showAlert, showError } = useDialog();
 
   useEffect(() => {
     if (!visible || !orderId) return;
@@ -373,11 +375,11 @@ function OrderDetailModal({ visible, orderId, onClose, getAuthHeaders, colors }:
           UTI: 'com.adobe.pdf',
         });
       } else {
-        Alert.alert('Sharing Unavailable', 'Sharing is not supported on this platform.');
+        showAlert('Sharing Unavailable', 'Sharing is not supported on this platform.');
       }
     } catch (err: any) {
       console.warn('[PDF] generation/sharing error:', err);
-      Alert.alert('Error', `Failed to generate PDF invoice.\n\n${(err as any)?.message ?? String(err)}`);
+      showError('Error', `Failed to generate PDF invoice.\n\n${(err as any)?.message ?? String(err)}`);
     }
   };
 

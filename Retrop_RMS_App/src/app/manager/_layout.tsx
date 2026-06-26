@@ -10,7 +10,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SOCKET_CONFIG, getSocketUrl } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeTransitionView, useTheme } from "@/context/ThemeContext";
+import { useDialog } from "@/context/DialogContext";
 
 // ============================================================================
 // TAB DEFINITION
@@ -97,6 +98,7 @@ function TabBarButton({ tab, isActive, onPress, colors }: TabBarButtonProps) {
 export default function ManagerLayout() {
   const { isAuthenticated, isLoading, accessToken, logout } = useAuth();
   const { theme } = useTheme();
+  const { showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
@@ -169,27 +171,22 @@ export default function ManagerLayout() {
 
   // ─── Logout — FIX #13 ────────────────────────────────────────────────────
   const handleLogout = useCallback(() => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out from the manager portal?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            // Set flag BEFORE logout to prevent auth guard from firing on isAuthenticated=false
-            loggingOutRef.current = true;
-            disconnectSocket();
-            await logout();
-            // Go directly to login — NOT home — to avoid loop
-            router.replace("/login");
-          },
-        },
-      ],
-      { cancelable: true },
-    );
-  }, [logout]);
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out from the manager portal?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        // Set flag BEFORE logout to prevent auth guard from firing on isAuthenticated=false
+        loggingOutRef.current = true;
+        disconnectSocket();
+        await logout();
+        // Go directly to login — NOT home — to avoid loop
+        router.replace("/login");
+      },
+    });
+  }, [logout, showConfirm]);
 
   const navigateToTab = (tabName: TabName) => {
     router.push(`/manager/${tabName}` as any);

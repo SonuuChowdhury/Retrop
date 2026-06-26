@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, Modal, FlatList, TextInput, Platform,
+  ActivityIndicator, Modal, FlatList, TextInput, Platform,
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
 import { apiCall } from '@/utils/apiClient';
 
@@ -157,6 +158,7 @@ export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { accessToken, refreshToken, logout } = useWaiterAuth();
   const { theme } = useTheme();
+  const { showDialog, showError } = useDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const c = theme.colors;
@@ -174,10 +176,13 @@ export default function OrderDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
 
   const handleDisabled = useCallback(() => {
-    Alert.alert('Account Disabled', 'Your account has been disabled by the manager.', [
-      { text: 'OK', onPress: () => logout() },
-    ]);
-  }, [logout]);
+    showDialog({
+      type: 'warning',
+      title: 'Account Disabled',
+      message: 'Your account has been disabled by the manager.',
+      buttons: [{ text: 'OK', style: 'default', onPress: () => logout() }],
+    });
+  }, [logout, showDialog]);
 
   // ── Fetch order ─────────────────────────────────────────────────────────
   const fetchOrder = useCallback(async () => {
@@ -245,7 +250,7 @@ export default function OrderDetailScreen() {
     if (result.success) {
       setOrder((prev) => prev ? { ...prev, orderStatus: 'serving' } : prev);
     } else {
-      Alert.alert('Error', result.message ?? 'Failed to update status.');
+      showError('Error', result.message ?? 'Failed to update status.');
     }
     setActionLoading(false);
   };
@@ -266,13 +271,16 @@ export default function OrderDetailScreen() {
     setConfirming(false);
     if (result.success) {
       setShowPayment(false);
-      Alert.alert('Payment Confirmed', 'Order concluded successfully!', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      showDialog({
+        type: 'success',
+        title: 'Payment Confirmed',
+        message: 'Order concluded successfully!',
+        buttons: [{ text: 'OK', style: 'default', onPress: () => router.back() }],
+      });
     } else if (result.message?.includes('Already paid') || result.message?.includes('already')) {
-      Alert.alert('Already Paid', 'This order has already been paid.');
+      showError('Already Paid', 'This order has already been paid.');
     } else {
-      Alert.alert('Error', result.message ?? 'Failed to conclude order.');
+      showError('Error', result.message ?? 'Failed to conclude order.');
     }
   };
 
@@ -296,11 +304,14 @@ export default function OrderDetailScreen() {
     setCancelling(false);
     if (result.success) {
       setShowCancelModal(false);
-      Alert.alert('Order Cancelled', 'The order has been cancelled and the table is now free.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      showDialog({
+        type: 'success',
+        title: 'Order Cancelled',
+        message: 'The order has been cancelled and the table is now free.',
+        buttons: [{ text: 'OK', style: 'default', onPress: () => router.back() }],
+      });
     } else {
-      Alert.alert('Error', result.message ?? 'Failed to cancel order.');
+      showError('Error', result.message ?? 'Failed to cancel order.');
     }
   };
 

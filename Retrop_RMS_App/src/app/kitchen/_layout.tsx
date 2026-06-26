@@ -5,11 +5,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import { ThemeTransitionView, useTheme } from '@/context/ThemeContext';
+import { useDialog } from '@/context/DialogContext';
 import { connectSocket, disconnectSocket } from '@/utils/socket';
 import { registerForPushNotificationsAsync } from '@/services/notificationService';
 import { ENDPOINTS } from '@/config/api';
@@ -18,6 +19,7 @@ import { apiCall } from '@/utils/apiClient';
 export default function KitchenLayout() {
   const { isAuthenticated, isLoading, accessToken, logout } = useKitchenAuth();
   const { theme } = useTheme();
+  const { showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
@@ -63,23 +65,20 @@ export default function KitchenLayout() {
   }, [isAuthenticated, accessToken]);
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Sign out from kitchen?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out', style: 'destructive',
-          onPress: async () => {
-            loggingOutRef.current = true;
-            disconnectSocket();
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ],
-    );
-  }, [logout]);
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Sign out from kitchen?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        loggingOutRef.current = true;
+        disconnectSocket();
+        await logout();
+        router.replace('/login');
+      },
+    });
+  }, [logout, showConfirm]);
 
   if (isLoading || !isAuthenticated) return null;
 
