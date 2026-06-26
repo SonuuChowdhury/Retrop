@@ -53,7 +53,7 @@ export default function KitchenLayout() {
           `${ENDPOINTS.KITCHEN_LOGIN.replace('/login', '/fcm-token')}`,
           { method: 'POST', body: JSON.stringify({ fcmToken }) },
           async () => accessToken,
-          async () => ({ success: false }),
+          async () => false,
           () => {},
         );
       } catch {

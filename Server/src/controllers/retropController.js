@@ -14,6 +14,8 @@ import { nowIST } from '../utils/time.js';
 import bcrypt from 'bcryptjs';
 import { generateInvoicePDF, uploadInvoiceToStorage } from '../services/invoiceService.js';
 import { sendWelcomeEmail, sendInvoiceEmail, sendCredentialsEmail } from '../services/mailer.js';
+import { encryptSetupPayload } from '../utils/crypto.js';
+import QRCode from 'qrcode';
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isValidUUID = (id) => uuidRegex.test(id);
@@ -1145,7 +1147,7 @@ export const retropController = {
         gstin: '09AAAAA1111A1Z1',
         mobile: '9876543210',
         email: 'billing@retrop.com',
-        bankDetails: { bankName: 'HDFC Bank', accountNo: '501002233445566', ifsc: 'HDFC0000123' },
+        bankDetails: {},
       };
 
       // Generate invoice number: INV-YYYY-MM-RAND
@@ -1314,7 +1316,7 @@ export const retropController = {
           gstin: '09AAAAA1111A1Z1',
           mobile: '9876543210',
           email: 'billing@retrop.com',
-          bankDetails: { bankName: 'HDFC Bank', accountNo: '501002233445566', ifsc: 'HDFC0000123' },
+          bankDetails: {},
         };
 
         const baseAmount = ticketCost;
@@ -1364,7 +1366,16 @@ export const retropController = {
         // Generate PDF and email
         generateInvoicePDF(transaction, restaurant, globalConfig)
           .then(async (pdfBuffer) => {
-            await sendInvoiceEmail(ownerEmail, restaurant.businessName, invoiceNo, pdfBuffer);
+            await sendInvoiceEmail(
+              ownerEmail,
+              restaurant.businessName,
+              invoiceNo,
+              pdfBuffer,
+              sub.pricing_plan.name,
+              'support',
+              null,
+              restaurant.ownerName
+            );
           })
           .catch((pdfErr) => {
             logger.error('PDF invoice generation for support ticket failed', pdfErr.message);
@@ -1490,7 +1501,7 @@ export const retropController = {
         gstin: '09AAAAA1111A1Z1',
         mobile: '9876543210',
         email: 'billing@retrop.com',
-        bankDetails: { bankName: 'HDFC Bank', accountNo: '501002233445566', ifsc: 'HDFC0000123' },
+        bankDetails: {},
       };
 
       // 3. Generate dynamic PDF
@@ -1566,7 +1577,9 @@ export const retropController = {
 
       // Send the email to combined recipient list
       const toEmail = emailRecipients.join(', ');
-      const mailResult = await sendCredentialsEmail(toEmail, restaurant.businessName, activeKey, admins);
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const serverUrl = `${protocol}://${req.get('host')}`.replace(/\/+$/, '');
+      const mailResult = await sendCredentialsEmail(toEmail, restaurant.businessName, activeKey, admins, serverUrl);
       if (!mailResult.success) {
         logger.error('Failed to send credentials email', mailResult.error);
         return res.status(500).json({ success: false, message: `Failed to dispatch credentials email: ${mailResult.error}` });
@@ -1576,6 +1589,43 @@ export const retropController = {
     } catch (err) {
       logger.error('retropController.mailCredentials error', err.message);
       return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  },
+
+  // GET /api/retrop/restaurants/:restaurantId/setup-qrcode
+  getSetupQrCode: async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      if (!isValidUUID(restaurantId)) {
+        return res.status(400).json({ success: false, message: 'Invalid restaurantId format' });
+      }
+
+      // Fetch active product key
+      const { data: keys, error: keyErr } = await supabase
+        .from('product_key')
+        .select('keyValue')
+        .eq('restaurantId', restaurantId)
+        .eq('isActive', true)
+        .limit(1);
+
+      if (keyErr || !keys || keys.length === 0) {
+        return res.status(400).json({ success: false, message: 'Active product license key not found for this restaurant' });
+      }
+      const activeKey = keys[0].keyValue;
+
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const serverUrl = `${protocol}://${req.get('host')}`.replace(/\/+$/, '');
+
+      // Encrypt the setup payload
+      const cipherText = encryptSetupPayload(serverUrl, activeKey);
+
+      // Generate QR Code
+      const qrCodeDataUrl = await QRCode.toDataURL(cipherText, { errorCorrectionLevel: 'H' });
+
+      return res.status(200).json({ success: true, qrCode: qrCodeDataUrl });
+    } catch (err) {
+      logger.error('retropController.getSetupQrCode error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to generate setup QR code' });
     }
   },
 };

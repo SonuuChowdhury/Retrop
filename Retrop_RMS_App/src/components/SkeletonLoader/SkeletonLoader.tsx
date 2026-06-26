@@ -35,8 +35,9 @@ export function SkeletonLoader({
     return () => anim.stop();
   }, [opacity]);
 
+  const AnimatedView = Animated.View as any;
   return (
-    <Animated.View
+    <AnimatedView
       style={[
         styles.skeleton,
         {

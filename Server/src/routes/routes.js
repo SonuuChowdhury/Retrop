@@ -151,6 +151,7 @@ router.post('/api/retrop/restaurants/:restaurantId/admins',          retropAuth,
 router.patch('/api/retrop/restaurants/:restaurantId/admins/:adminId', retropAuth, retropController.updateRestaurantAdmin);
 router.delete('/api/retrop/restaurants/:restaurantId/admins/:adminId', retropAuth, retropController.deleteRestaurantAdmin);
 router.post('/api/retrop/restaurants/:restaurantId/mail-credentials', retropAuth, retropOperationLimiter, retropController.mailCredentials);
+router.get('/api/retrop/restaurants/:restaurantId/setup-qrcode', retropAuth, retropController.getSetupQrCode);
 
 // Product key management
 router.post('/api/retrop/keys/generate/:restaurantId', retropAuth, retropController.generateKey);

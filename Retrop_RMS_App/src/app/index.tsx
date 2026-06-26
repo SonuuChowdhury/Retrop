@@ -17,18 +17,29 @@ import { useAuth } from '@/context/AuthContext';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
+import { isSetupViaScan } from '@/config/api';
 
 export default function HomeScreen() {
   const { theme, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [showSettings, setShowSettings] = useState(false);
+  const [isConfiguredByScan, setIsConfiguredByScan] = useState<boolean>(false);
 
   const { isAuthenticated: isManagerAuth, isLoading: managerLoading } = useAuth();
   const { isAuthenticated: isWaiterAuth, isLoading: waiterLoading } = useWaiterAuth();
   const { isAuthenticated: isKitchenAuth, isLoading: kitchenLoading } = useKitchenAuth();
 
   const isLoading = managerLoading || waiterLoading || kitchenLoading;
+
+  const checkConfig = async () => {
+    const configured = await isSetupViaScan();
+    setIsConfiguredByScan(configured);
+  };
+
+  useEffect(() => {
+    checkConfig();
+  }, [showSettings]);
 
   // Auto-redirect if a session is already active
   useEffect(() => {
@@ -199,12 +210,13 @@ export default function HomeScreen() {
 
         {/* Login Button */}
         <Pressable
-          onPress={() => router.push('/login')}
+          onPress={() => isConfiguredByScan && router.push('/login')}
+          disabled={!isConfiguredByScan}
           style={({ pressed }) => [
             styles.loginButton,
             {
-              backgroundColor: theme.colors.primary,
-              opacity: pressed ? 0.8 : 1,
+              backgroundColor: isConfiguredByScan ? theme.colors.primary : '#9ca3af',
+              opacity: pressed && isConfiguredByScan ? 0.8 : 1,
             },
           ]}
         >
@@ -218,6 +230,22 @@ export default function HomeScreen() {
             style={styles.loginIcon}
           />
         </Pressable>
+
+        {!isConfiguredByScan && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 12,
+            paddingHorizontal: 16,
+            gap: 6
+          }}>
+            <MaterialCommunityIcons name="alert-decagram" size={16} color={theme.colors.error || '#ef4444'} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.error || '#ef4444' }}>
+              Setup required. Scan the Retrop QR code in Settings first.
+            </Text>
+          </View>
+        )}
 
         {/* Divider */}
         <View

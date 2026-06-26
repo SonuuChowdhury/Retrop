@@ -1342,7 +1342,7 @@ export default function AnalyticsScreen() {
             <SectionList
               sections={groupedOrders}
               keyExtractor={(item) => item.ordersId}
-              renderItem={({ item, index }) => (
+              renderItem={({ item, index }: any) => (
                 <AnalyticsOrderRow
                   order={item}
                   colors={c}

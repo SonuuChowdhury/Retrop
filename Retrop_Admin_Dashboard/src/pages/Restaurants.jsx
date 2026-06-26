@@ -4,8 +4,10 @@ import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { Plus, ToggleLeft, ToggleRight, Key, Trash2, Clipboard, Check, ArrowUpRight, DollarSign, CreditCard, Shield, AlertCircle, Percent, Edit2, Calendar, ShieldCheck, HelpCircle, Save, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useDialog } from '../context/DialogContext';
 
 export default function Restaurants() {
+  const { alert, confirm } = useDialog();
   const [restaurants, setRestaurants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +196,7 @@ export default function Restaurants() {
   };
 
   const handleDeletePlan = async (planId, name) => {
-    if (!window.confirm(`Are you sure you want to delete the plan "${name}"? This action cannot be undone.`)) {
+    if (!await confirm(`Are you sure you want to delete the plan "${name}"? This action cannot be undone.`)) {
       return;
     }
     setPlansError('');
@@ -294,7 +296,7 @@ export default function Restaurants() {
   const handleConfirmPayment = async (e) => {
     e.preventDefault();
     if (!paymentPendingData?.subscriptionId) {
-      alert("Error: Subscription ID is missing.\n\nThis happens because the required 'billingCycleDays' and 'gracePeriodDays' columns are missing in the 'subscription' table of your database.\n\nTo resolve this:\n1. Go to your Supabase SQL Editor.\n2. Run the SQL commands in 'Server/src/migrations/004_custom_billing.sql' (or run: ALTER TABLE subscription ADD COLUMN IF NOT EXISTS \"billingCycleDays\" INTEGER DEFAULT 28; ALTER TABLE subscription ADD COLUMN IF NOT EXISTS \"gracePeriodDays\" INTEGER DEFAULT 10;)\n3. Reload the Supabase cache by running: NOTIFY pgrst, 'reload schema';\n4. Re-try creating the restaurant.");
+      await alert("Error: Subscription ID is missing.\n\nThis happens because the required 'billingCycleDays' and 'gracePeriodDays' columns are missing in the 'subscription' table of your database.\n\nTo resolve this:\n1. Go to your Supabase SQL Editor.\n2. Run the SQL commands in 'Server/src/migrations/004_custom_billing.sql' (or run: ALTER TABLE subscription ADD COLUMN IF NOT EXISTS \"billingCycleDays\" INTEGER DEFAULT 28; ALTER TABLE subscription ADD COLUMN IF NOT EXISTS \"gracePeriodDays\" INTEGER DEFAULT 10;)\n3. Reload the Supabase cache by running: NOTIFY pgrst, 'reload schema';\n4. Re-try creating the restaurant.");
       return;
     }
     setPaymentLoading(true);
@@ -313,7 +315,7 @@ export default function Restaurants() {
         fetchRestaurants();
       }
     } catch (err) {
-      alert(err.message || 'Failed to confirm payment.');
+      await alert(err.message || 'Failed to confirm payment.');
     } finally {
       setPaymentLoading(false);
     }
@@ -331,7 +333,7 @@ export default function Restaurants() {
         fetchRestaurants();
       }
     } catch (err) {
-      alert(err.message || 'Failed to generate key.');
+      await alert(err.message || 'Failed to generate key.');
     } finally {
       setGeneratingKeyRestaurantId(null);
     }
@@ -347,14 +349,14 @@ export default function Restaurants() {
         )
       );
     } catch (err) {
-      alert(err.message || 'Failed to update status.');
+      await alert(err.message || 'Failed to update status.');
     } finally {
       setTogglingRestaurantId(null);
     }
   };
 
   const handleDeleteRestaurant = async (restaurantId, businessName) => {
-    if (!window.confirm(`⚠️ WARNING: Are you sure you want to permanently delete "${businessName}"?\n\nThis will instantly delete the restaurant registry, all staff accounts, menus, active tables, custom info, settings, and all active order history permanently! This action CANNOT be undone.`)) {
+    if (!await confirm(`⚠️ WARNING: Are you sure you want to permanently delete "${businessName}"?\n\nThis will instantly delete the restaurant registry, all staff accounts, menus, active tables, custom info, settings, and all active order history permanently! This action CANNOT be undone.`)) {
       return;
     }
 
@@ -362,18 +364,18 @@ export default function Restaurants() {
     try {
       const res = await api.deleteRestaurant(restaurantId);
       if (res.status === 'success') {
-        alert('Restaurant deleted successfully.');
+        await alert('Restaurant deleted successfully.');
         fetchRestaurants();
       }
     } catch (err) {
-      alert(err.message || 'Failed to delete restaurant.');
+      await alert(err.message || 'Failed to delete restaurant.');
     } finally {
       setDeletingRestaurantId(null);
     }
   };
 
   const handleGenerateNewKey = async (restaurantId, businessName) => {
-    if (!window.confirm(`Are you sure you want to generate a new product key for "${businessName}"?`)) {
+    if (!await confirm(`Are you sure you want to generate a new product key for "${businessName}"?`)) {
       return;
     }
 
@@ -387,7 +389,7 @@ export default function Restaurants() {
         fetchRestaurants();
       }
     } catch (err) {
-      alert(err.message || 'Failed to generate key.');
+      await alert(err.message || 'Failed to generate key.');
     } finally {
       setGeneratingKeyRestaurantId(null);
     }

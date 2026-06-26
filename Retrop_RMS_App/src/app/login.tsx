@@ -26,11 +26,12 @@ import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenAnimationWrapper } from '@/components/ScreenAnimationWrapper';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
+import { isSetupViaScan } from '@/config/api';
 
 type Role = 'waiter' | 'manager' | 'kitchen';
 
@@ -50,6 +51,16 @@ export default function LoginScreen() {
 
   const [selectedRole, setSelectedRole] = useState<Role>('manager');
   const [showSettings, setShowSettings] = useState(false);
+  const [isConfiguredByScan, setIsConfiguredByScan] = useState<boolean>(false);
+
+  const checkConfig = async () => {
+    const configured = await isSetupViaScan();
+    setIsConfiguredByScan(configured);
+  };
+
+  useEffect(() => {
+    checkConfig();
+  }, [showSettings]);
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -270,7 +281,7 @@ export default function LoginScreen() {
                     onChangeText={handleMobileChange}
                     onBlur={handleMobileBlur}
                     returnKeyType="next"
-                    editable={!isLoading}
+                    editable={!isLoading && isConfiguredByScan}
                   />
                   {mobile.length === 10 && !mobileError && (
                     <MaterialCommunityIcons name="check-circle" size={18} color={c.success} />
@@ -313,12 +324,12 @@ export default function LoginScreen() {
                     onChangeText={(v) => { setPassword(v); setLoginError(''); }}
                     returnKeyType="done"
                     onSubmitEditing={handleSubmit}
-                    editable={!isLoading}
+                    editable={!isLoading && isConfiguredByScan}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword((prev) => !prev)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    disabled={isLoading}
+                    disabled={isLoading || !isConfiguredByScan}
                   >
                     <MaterialCommunityIcons
                       name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -340,11 +351,14 @@ export default function LoginScreen() {
 
             {/* Login Button */}
             <Pressable
-              onPress={handleSubmit}
-              disabled={isLoading}
+              onPress={() => isConfiguredByScan && handleSubmit()}
+              disabled={isLoading || !isConfiguredByScan}
               style={({ pressed }) => [
                 styles.loginButton,
-                { backgroundColor: c.primary, opacity: pressed || isLoading ? 0.75 : 1 },
+                { 
+                  backgroundColor: isConfiguredByScan ? c.primary : '#9ca3af', 
+                  opacity: (pressed && isConfiguredByScan) || isLoading ? 0.75 : 1 
+                },
               ]}
             >
               {isLoading ? (
@@ -352,7 +366,7 @@ export default function LoginScreen() {
               ) : (
                 <>
                   <Text style={[styles.loginButtonText, { color: c.buttonText }]}>
-                    Sign In as {ROLES.find((r) => r.key === selectedRole)?.label}
+                    {isConfiguredByScan ? `Sign In as ${ROLES.find((r) => r.key === selectedRole)?.label}` : 'Scanner Setup Required'}
                   </Text>
                   <MaterialCommunityIcons name="arrow-right" size={20} color={c.buttonText} />
                 </>

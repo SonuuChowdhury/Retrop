@@ -122,7 +122,7 @@ export const runSubscriptionChecks = async () => {
               gstin: '09AAAAA1111A1Z1',
               mobile: '9876543210',
               email: 'billing@retrop.com',
-              bankDetails: { bankName: 'HDFC Bank', accountNo: '501002233445566', ifsc: 'HDFC0000123' },
+              bankDetails: {},
             };
 
             // Generate invoice PDF in background and mail it as pending

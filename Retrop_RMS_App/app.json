@@ -36,7 +36,15 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Retrop to access your camera to scan setup QR codes.",
+          "barcodeScannerEnabled": true
+        }
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

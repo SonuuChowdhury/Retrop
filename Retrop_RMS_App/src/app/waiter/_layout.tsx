@@ -109,7 +109,7 @@ export default function WaiterLayout() {
           `${ENDPOINTS.WAITER_LOGIN.replace('/login', '/fcm-token')}`,
           { method: 'POST', body: JSON.stringify({ fcmToken }) },
           async () => accessToken,
-          async () => ({ success: false }),
+          async () => false,
           () => {},
         );
       } catch {

@@ -50,6 +50,7 @@ interface KitchenOrder {
   customer?: { name: string };
   createdAt: string;
   isModified?: boolean;
+  totalAmount?: string | number;
 }
 
 interface KitchenDashboard {

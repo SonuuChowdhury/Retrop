@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
+import { encryptSetupPayload } from '../utils/crypto.js';
+import QRCode from 'qrcode';
 
 // Transporter configuration using environment variables with Gmail defaults
 const emailHost = process.env.EMAIL_HOST || 'smtp.gmail.com';
@@ -266,7 +268,7 @@ export const sendPendingInvoiceEmail = async (clientEmail, businessName, invoice
 /**
  * Sends credentials email containing the product key, admin details, and passwords.
  */
-export const sendCredentialsEmail = async (clientEmail, businessName, productKey, adminsInfo) => {
+export const sendCredentialsEmail = async (clientEmail, businessName, productKey, adminsInfo, serverUrl) => {
   const legalName = await getRetropLegalName();
   const subject = `RMS Application Activation & Login Credentials - ${businessName}`;
   
@@ -281,6 +283,34 @@ export const sendCredentialsEmail = async (clientEmail, businessName, productKey
       </div>
     `;
   });
+
+  let qrCodeAttachment = null;
+  let qrCodeHtml = '';
+  if (serverUrl) {
+    try {
+      const cipherText = encryptSetupPayload(serverUrl, productKey);
+      const qrDataUrl = await QRCode.toDataURL(cipherText, { errorCorrectionLevel: 'H' });
+      const base64Data = qrDataUrl.split(',')[1];
+      qrCodeAttachment = {
+        filename: 'setup-qrcode.png',
+        content: Buffer.from(base64Data, 'base64'),
+        cid: 'setupqrcode',
+      };
+      qrCodeHtml = `
+        <div style="background-color: #f0fdf4; padding: 20px; border: 1.5px dashed #16a34a; border-radius: 8px; text-align: center; margin: 24px 0;">
+           <h4 style="margin: 0 0 8px 0; color: #16a34a; font-size: 16px;">App Quick Configuration QR Code</h4>
+           <p style="margin: 0 0 16px 0; font-size: 13px; color: #15803d;">
+             Scan the QR code below from the app settings menu to automatically configure your connection and activate the product license key.
+           </p>
+           <div style="text-align: center;">
+             <img src="cid:setupqrcode" alt="App Configuration QR Code" style="width: 200px; height: 200px; display: inline-block;" />
+           </div>
+        </div>
+      `;
+    } catch (qrErr) {
+      logger.error('Failed to generate QR Code for credentials email', qrErr.message);
+    }
+  }
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
@@ -301,10 +331,12 @@ export const sendCredentialsEmail = async (clientEmail, businessName, productKey
         Please follow the steps below to configure your application with these credentials:
         <ol style="margin-top: 8px; padding-left: 20px; margin-bottom: 0;">
           <li>Open the RMS App on your tablet or mobile device.</li>
-          <li>Go to Settings and enter your server URL and the <strong>Product License Key</strong> shown above.</li>
+          <li>Go to Settings, tap the edit icon, and scan the <strong>Configuration QR Code</strong> shown below.</li>
           <li>Save the configuration and log in with your administrative credentials.</li>
         </ol>
       </div>
+
+      ${qrCodeHtml}
 
       <p>If you require any technical assistance during this setup, please contact our support department.</p>
       <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Support Team</strong></p>
@@ -315,5 +347,10 @@ export const sendCredentialsEmail = async (clientEmail, businessName, productKey
     </div>
   `;
 
-  return sendEmail({ to: clientEmail, subject, html });
+  const attachments = [];
+  if (qrCodeAttachment) {
+    attachments.push(qrCodeAttachment);
+  }
+
+  return sendEmail({ to: clientEmail, subject, html, attachments });
 };

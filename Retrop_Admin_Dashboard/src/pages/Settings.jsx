@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../services/api';
-import { Save, AlertCircle, CheckCircle, Shield, Building, Percent } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Shield, Percent } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 
 export default function Settings() {
@@ -12,11 +12,7 @@ export default function Settings() {
     mobile: '',
     email: '',
     gstRate: 18.00,
-    bankDetails: {
-      bankName: '',
-      accountNo: '',
-      ifsc: '',
-    },
+    bankDetails: {},
   });
 
   const [loading, setLoading] = useState(true);
@@ -36,7 +32,7 @@ export default function Settings() {
             mobile: res.data.mobile || '',
             email: res.data.email || '',
             gstRate: res.data.gstRate || 18.00,
-            bankDetails: res.data.bankDetails || { bankName: '', accountNo: '', ifsc: '' },
+            bankDetails: res.data.bankDetails || {},
           });
         }
       } catch (err) {
@@ -56,16 +52,6 @@ export default function Settings() {
     }));
   };
 
-  const handleBankChange = (e) => {
-    const { name, value } = e.target;
-    setConfig((prev) => ({
-      ...prev,
-      bankDetails: {
-        ...prev.bankDetails,
-        [name]: value,
-      },
-    }));
-  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -100,7 +86,7 @@ export default function Settings() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Retrop Settings</h1>
-          <p style={styles.subtitle}>Configure Retrop legal credentials, tax variables, and bank settings for customer invoicing</p>
+          <p style={styles.subtitle}>Configure Retrop legal credentials and tax variables for customer invoicing</p>
         </div>
       </div>
 
@@ -225,54 +211,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Section 3: Bank details */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <Building size={20} style={{ color: 'var(--color-primary)' }} />
-                <h3 style={styles.sectionTitle}>Retrop Bank Details (For Invoice Wire Transfers)</h3>
-              </div>
-              
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Bank name</label>
-                  <input
-                    type="text"
-                    name="bankName"
-                    value={config.bankDetails?.bankName || ''}
-                    onChange={handleBankChange}
-                    placeholder="e.g. HDFC Bank"
-                    style={styles.input}
-                    disabled={saving}
-                  />
-                </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Account Number</label>
-                  <input
-                    type="text"
-                    name="accountNo"
-                    value={config.bankDetails?.accountNo || ''}
-                    onChange={handleBankChange}
-                    placeholder="e.g. 50100012345678"
-                    style={styles.input}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>IFSC Code</label>
-                  <input
-                    type="text"
-                    name="ifsc"
-                    value={config.bankDetails?.ifsc || ''}
-                    onChange={handleBankChange}
-                    placeholder="e.g. HDFC0000123"
-                    style={styles.input}
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-            </div>
 
             <div style={styles.footer}>
               <button type="submit" style={styles.saveBtn} disabled={saving}>

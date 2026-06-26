@@ -129,21 +129,7 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
 
       doc.moveTo(350, currentHeight + 92).lineTo(545, currentHeight + 92).strokeColor('#dddddd').lineWidth(1).stroke();
 
-      // --- BANK DETAILS & INSTRUCTIONS ---
-      const bankDetails = typeof retropConfig.bankDetails === 'string' 
-        ? JSON.parse(retropConfig.bankDetails) 
-        : retropConfig.bankDetails;
 
-      if (bankDetails && bankDetails.bankName) {
-        doc
-          .fillColor(textColor)
-          .fontSize(10)
-          .text('Payment Terms / Bank details for wire transfer:', 50, currentHeight + 70, { bold: true })
-          .fontSize(9)
-          .text(`Bank Name: ${bankDetails.bankName}`, 50, 85 + currentHeight)
-          .text(`Account No: ${bankDetails.accountNo}`, 50, 97 + currentHeight)
-          .text(`IFSC Code: ${bankDetails.ifsc}`, 50, 109 + currentHeight);
-      }
 
       // --- FOOTER NOTE ---
       doc

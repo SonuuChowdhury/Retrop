@@ -3,15 +3,20 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
-import { ArrowLeft, Key, User, Edit, Save, Plus, ShieldCheck, ShieldAlert, ToggleLeft, ToggleRight, Clipboard, Check, Eye, Trash2, FileText, LifeBuoy, DollarSign, Calendar, Mail } from 'lucide-react';
+import { ArrowLeft, Key, User, Edit, Save, Plus, ShieldCheck, ShieldAlert, ToggleLeft, ToggleRight, Clipboard, Check, Eye, Trash2, FileText, LifeBuoy, DollarSign, Calendar, Mail, QrCode } from 'lucide-react';
+import { useDialog } from '../context/DialogContext';
 
 export default function RestaurantDetails() {
+  const { alert, confirm } = useDialog();
   const { restaurantId } = useParams();
   const navigate = useNavigate();
 
   const [restaurant, setRestaurant] = useState(null);
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
 
@@ -143,12 +148,12 @@ export default function RestaurantDetails() {
   const handleCreateSupportTicket = async (e) => {
     e.preventDefault();
     if (!supportForm.title.trim() || !supportForm.description.trim()) {
-      alert('Support ticket title and description are required.');
+      await alert('Support ticket title and description are required.');
       return;
     }
 
     if (supportForm.paymentMethod === 'UPI' && !supportForm.upiTransactionId.trim()) {
-      alert('UPI Transaction UTR ID is required for UPI payments.');
+      await alert('UPI Transaction UTR ID is required for UPI payments.');
       return;
     }
 
@@ -165,7 +170,7 @@ export default function RestaurantDetails() {
 
       const res = await api.createSupportTicket(payload);
       if (res.status === 'success') {
-        alert('Support ticket created & billed successfully. Invoice generated.');
+        await alert('Support ticket created & billed successfully. Invoice generated.');
         setIsSupportModalOpen(false);
         setSupportForm({
           title: '',
@@ -177,7 +182,7 @@ export default function RestaurantDetails() {
         fetchDetails();
       }
     } catch (err) {
-      alert(err.message || 'Failed to submit support incident ticket.');
+      await alert(err.message || 'Failed to submit support incident ticket.');
     } finally {
       setSupportLoading(false);
     }
@@ -186,7 +191,7 @@ export default function RestaurantDetails() {
   const handleConfirmPendingPayment = async (e) => {
     e.preventDefault();
     if (paymentForm.paymentMethod === 'UPI' && !paymentForm.upiTransactionId.trim()) {
-      alert('UPI Transaction ID is required.');
+      await alert('UPI Transaction ID is required.');
       return;
     }
 
@@ -205,21 +210,21 @@ export default function RestaurantDetails() {
 
       const res = await api.confirmPayment(payload);
       if (res.status === 'success') {
-        alert('Payment confirmed successfully. Active status restored.');
+        await alert('Payment confirmed successfully. Active status restored.');
         setIsPaymentModalOpen(false);
         fetchDetails();
       }
     } catch (err) {
-      alert(err.message || 'Payment confirmation failed.');
+      await alert(err.message || 'Payment confirmation failed.');
     } finally {
       setPaymentLoading(false);
     }
   };
 
-  const handleOpenSubEdit = () => {
+  const handleOpenSubEdit = async () => {
     const sub = restaurant.subscription?.[0];
     if (!sub) {
-      alert('No subscription details found for this business.');
+      await alert('No subscription details found for this business.');
       return;
     }
     const formatDateInput = (isoStr) => {
@@ -255,12 +260,12 @@ export default function RestaurantDetails() {
 
       const res = await api.updateSubscription(sub.subscriptionId, payload);
       if (res.status === 'success') {
-        alert('Subscription updated successfully.');
+        await alert('Subscription updated successfully.');
         setIsSubEditModalOpen(false);
         fetchDetails();
       }
     } catch (err) {
-      alert(err.message || 'Failed to update subscription.');
+      await alert(err.message || 'Failed to update subscription.');
     } finally {
       setSubEditLoading(false);
     }
@@ -308,14 +313,14 @@ export default function RestaurantDetails() {
         isActive: !prev.isActive,
       }));
     } catch (err) {
-      alert(err.message || 'Failed to update status.');
+      await alert(err.message || 'Failed to update status.');
     } finally {
       setTogglingRestaurant(false);
     }
   };
 
   const handleGenerateNewKey = async () => {
-    if (!window.confirm('Are you sure you want to generate a new product key?')) {
+    if (!await confirm('Are you sure you want to generate a new product key?')) {
       return;
     }
 
@@ -332,7 +337,7 @@ export default function RestaurantDetails() {
         }
       }
     } catch (err) {
-      alert(err.message || 'Failed to generate key.');
+      await alert(err.message || 'Failed to generate key.');
     } finally {
       setGeneratingKey(false);
     }
@@ -346,14 +351,14 @@ export default function RestaurantDetails() {
         prev.map((k) => (k.keyId === keyId ? { ...k, isActive: !currentStatus } : k))
       );
     } catch (err) {
-      alert(err.message || 'Failed to toggle product key.');
+      await alert(err.message || 'Failed to toggle product key.');
     } finally {
       setTogglingKeyId(null);
     }
   };
 
   const handleDeleteKey = async (keyId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this product key? The restaurant will immediately lose access to their services until a new key is generated.')) {
+    if (!await confirm('Are you sure you want to permanently delete this product key? The restaurant will immediately lose access to their services until a new key is generated.')) {
       return;
     }
 
@@ -361,11 +366,11 @@ export default function RestaurantDetails() {
     try {
       const res = await api.deleteKey(keyId);
       if (res.status === 'success') {
-        alert('Product key deleted.');
+        await alert('Product key deleted.');
         fetchDetails();
       }
     } catch (err) {
-      alert(err.message || 'Failed to delete key.');
+      await alert(err.message || 'Failed to delete key.');
     } finally {
       setDeletingKeyId(null);
     }
@@ -472,7 +477,7 @@ export default function RestaurantDetails() {
   };
 
   const handleDeleteAdmin = async (adminId, adminName) => {
-    if (!window.confirm(`Are you sure you want to permanently delete admin "${adminName}"?`)) {
+    if (!await confirm(`Are you sure you want to permanently delete admin "${adminName}"?`)) {
       return;
     }
 
@@ -480,30 +485,50 @@ export default function RestaurantDetails() {
     try {
       const res = await api.deleteRestaurantAdmin(restaurantId, adminId);
       if (res.status === 'success') {
-        alert('Admin account deleted successfully.');
+        await alert('Admin account deleted successfully.');
         fetchDetails();
       }
     } catch (err) {
-      alert(err.message || 'Failed to delete admin.');
+      await alert(err.message || 'Failed to delete admin.');
     } finally {
       setDeletingAdminId(null);
     }
   };
 
   const handleMailCredentials = async () => {
-    if (!window.confirm("Are you sure you want to mail the activation product key and account login credentials to the registered admin emails?")) {
+    if (!await confirm("Are you sure you want to mail the activation product key and account login credentials to the registered admin emails?")) {
       return;
     }
     setMailLoading(true);
     try {
       const res = await api.mailRestaurantCredentials(restaurantId);
       if (res.status === 'success') {
-        alert(res.message || "Credentials and product key mailed successfully!");
+        await alert(res.message || "Credentials and product key mailed successfully!");
       }
     } catch (err) {
-      alert(err.message || "Failed to mail credentials.");
+      await alert(err.message || "Failed to mail credentials.");
     } finally {
       setMailLoading(false);
+    }
+  };
+
+  const handleViewQrCode = async () => {
+    setQrLoading(true);
+    setQrModalOpen(true);
+    setQrCodeImage('');
+    try {
+      const res = await api.getSetupQrCode(restaurantId);
+      if (res.status === 'success' && res.qrCode) {
+        setQrCodeImage(res.qrCode);
+      } else {
+        await alert(res.message || 'Failed to load QR code');
+        setQrModalOpen(false);
+      }
+    } catch (err) {
+      await alert(err.message || 'Failed to load QR code');
+      setQrModalOpen(false);
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -845,6 +870,16 @@ export default function RestaurantDetails() {
                             <span style={styles.inactiveLabel}>Inactive</span>
                           )}
                         </button>
+                        {k.isActive && (
+                          <button
+                            onClick={handleViewQrCode}
+                            style={styles.viewQrBtn}
+                            title="View Setup QR Code"
+                          >
+                            <QrCode size={14} style={{ marginRight: '4px' }} />
+                            <span>View QR</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteKey(k.keyId)}
                           style={{
@@ -1579,6 +1614,80 @@ export default function RestaurantDetails() {
           </div>
         </div>
       )}
+
+      {/* Modal: View Setup QR Code */}
+      {qrModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>📱 App Configuration QR Code</h3>
+              <button onClick={() => setQrModalOpen(false)} style={styles.modalCloseBtn}>×</button>
+            </div>
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              {qrLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <span className="spinner"></span>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Generating encrypted QR code...</p>
+                </div>
+              ) : qrCodeImage ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', maxWidth: '360px', margin: '0 auto' }}>
+                    Scan this QR code from the settings menu of the Retrop RMS App to automatically configure the Server URL and Product License Key.
+                  </p>
+                  <img
+                    src={qrCodeImage}
+                    alt="Setup QR Code"
+                    style={{
+                      width: '240px',
+                      height: '240px',
+                      border: '8px solid white',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      backgroundColor: 'white',
+                      display: 'inline-block',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px', justifyContent: 'center' }}>
+                    <a
+                      href={qrCodeImage}
+                      download={`setup_qr_${restaurantId}.png`}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: 'var(--color-primary)',
+                        color: 'white',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Download PNG
+                    </a>
+                    <button
+                      onClick={() => setQrModalOpen(false)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text)',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--color-error)' }}>Failed to load QR code.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
@@ -2104,5 +2213,20 @@ const styles = {
   summaryRow: {
     display: 'flex',
     justifyContent: 'space-between',
+  },
+  viewQrBtn: {
+    marginLeft: '12px',
+    backgroundColor: 'var(--color-primary-light)',
+    border: '1px solid var(--color-primary)',
+    borderRadius: '4px',
+    color: 'var(--color-primary)',
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '4px 8px',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
   },
 };

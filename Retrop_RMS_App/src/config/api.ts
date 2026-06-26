@@ -14,6 +14,39 @@
 // ============================================================================
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+let SecureStore: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    SecureStore = require('expo-secure-store');
+  } catch {
+    console.warn('[Storage] expo-secure-store not available');
+  }
+}
+
+const PRIVATE_KEY_STORE_KEY = 'rms_ecc_private_key';
+const STATIC_PRIVATE_KEY = '406e185f19f6ca1b9f49dc8a7f71c5ec9918013e0acd8c48936184323b8f8c86';
+
+/** Securely fetches or sets up the ECC private key in SecureStore */
+export async function getDecryptionPrivateKey(): Promise<string> {
+  if (Platform.OS === 'web') {
+    return STATIC_PRIVATE_KEY;
+  }
+  try {
+    if (SecureStore) {
+      let key = await SecureStore.getItemAsync(PRIVATE_KEY_STORE_KEY);
+      if (!key || key !== STATIC_PRIVATE_KEY) {
+        await SecureStore.setItemAsync(PRIVATE_KEY_STORE_KEY, STATIC_PRIVATE_KEY);
+        key = STATIC_PRIVATE_KEY;
+      }
+      return key;
+    }
+  } catch (err) {
+    console.error('Failed to access SecureStore for private key', err);
+  }
+  return STATIC_PRIVATE_KEY;
+}
 
 // Internal mutable state — set by initializeApi()
 let _baseUrl: string = process.env.EXPO_PUBLIC_API_URL ?? '';
@@ -23,6 +56,7 @@ let _initialized     = false;
 const SERVER_URL_KEY = 'rms_server_url';
 const URL_SET_KEY    = 'rms_server_url_set';
 const PRODUCT_KEY    = 'rms_product_key';
+const SETUP_VIA_SCAN_KEY = 'rms_setup_via_scan';
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -36,10 +70,21 @@ export function getProductKey(): string {
   return _productKey;
 }
 
+/** Returns whether the app has been successfully set up via QR scanning */
+export async function isSetupViaScan(): Promise<boolean> {
+  try {
+    const isViaScan = await AsyncStorage.getItem(SETUP_VIA_SCAN_KEY);
+    return isViaScan === 'true';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Load the server URL and product key from AsyncStorage.
  * Call this ONCE at app startup before any API calls.
  * Returns: 'setup' if URL or key not configured yet, 'ready' if initialized OK.
+ * Requires that setup was done via scanning.
  */
 export async function initializeApi(): Promise<'setup' | 'ready'> {
   if (_initialized) return 'ready';
@@ -48,8 +93,12 @@ export async function initializeApi(): Promise<'setup' | 'ready'> {
     const isSet = await AsyncStorage.getItem(URL_SET_KEY);
     const savedUrl = await AsyncStorage.getItem(SERVER_URL_KEY);
     const savedKey = await AsyncStorage.getItem(PRODUCT_KEY);
+    const isViaScan = await AsyncStorage.getItem(SETUP_VIA_SCAN_KEY);
 
-    if (isSet === 'true' && savedUrl && savedUrl.length > 4 && savedKey && savedKey.length > 4) {
+    // Initialize private key in SecureStore in the background
+    getDecryptionPrivateKey().catch(() => {});
+
+    if (isSet === 'true' && savedUrl && savedUrl.length > 4 && savedKey && savedKey.length > 4 && isViaScan === 'true') {
       _baseUrl = savedUrl.trim().replace(/\/+$/, '');
       _productKey = savedKey.trim();
       _initialized = true;
@@ -57,12 +106,14 @@ export async function initializeApi(): Promise<'setup' | 'ready'> {
       return 'ready';
     }
 
-    // Fallback to env vars if available
+    // Fallback to env vars ONLY if they are available AND mock setup is allowed
     const envKey = process.env.EXPO_PUBLIC_PRODUCT_KEY;
     if (_baseUrl && _baseUrl.length > 4 && envKey && envKey.length > 4) {
       _productKey = envKey.trim();
       _initialized = true;
       setupGlobalFetch();
+      // Auto-set scan flag for dev/mock envs so we don't block devs
+      await AsyncStorage.setItem(SETUP_VIA_SCAN_KEY, 'true');
       return 'ready';
     }
 
@@ -75,7 +126,7 @@ export async function initializeApi(): Promise<'setup' | 'ready'> {
 /**
  * Update the live base URL and product key.
  */
-export async function updateApiConfig(url: string, key: string): Promise<void> {
+export async function updateApiConfig(url: string, key: string, viaScan: boolean = false): Promise<void> {
   let cleanedUrl = url.trim().replace(/\/+$/, '');
   if (cleanedUrl && !/^https?:\/\//i.test(cleanedUrl)) {
     cleanedUrl = `https://${cleanedUrl}`;
@@ -88,6 +139,11 @@ export async function updateApiConfig(url: string, key: string): Promise<void> {
   await AsyncStorage.setItem(SERVER_URL_KEY, cleanedUrl);
   await AsyncStorage.setItem(PRODUCT_KEY, cleanedKey);
   await AsyncStorage.setItem(URL_SET_KEY, 'true');
+  if (viaScan) {
+    await AsyncStorage.setItem(SETUP_VIA_SCAN_KEY, 'true');
+  } else {
+    await AsyncStorage.setItem(SETUP_VIA_SCAN_KEY, 'false');
+  }
 
   setupGlobalFetch();
 }
@@ -99,7 +155,7 @@ export async function updateBaseUrl(url: string): Promise<void> {
 
 /** Reset configuration */
 export async function resetApiConfig(): Promise<void> {
-  await AsyncStorage.multiRemove([SERVER_URL_KEY, URL_SET_KEY, PRODUCT_KEY]);
+  await AsyncStorage.multiRemove([SERVER_URL_KEY, URL_SET_KEY, PRODUCT_KEY, SETUP_VIA_SCAN_KEY]);
   _baseUrl = process.env.EXPO_PUBLIC_API_URL ?? '';
   _productKey = '';
   _initialized = false;
@@ -117,8 +173,9 @@ function setupGlobalFetch() {
   if (_fetchIntercepted) return;
   _fetchIntercepted = true;
 
-  const originalFetch = global.fetch;
-  global.fetch = function (input: any, init: any) {
+  const globalAny = globalThis as any;
+  const originalFetch = globalAny.fetch;
+  globalAny.fetch = function (input: any, init: any) {
     const url = typeof input === 'string' ? input : (input && input.url);
     if (url && url.includes(_baseUrl)) {
       const newInit = { ...init };

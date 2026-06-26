@@ -184,6 +184,7 @@ export const api = {
   mailRestaurantCredentials: (restaurantId) => request(`/api/retrop/restaurants/${restaurantId}/mail-credentials`, {
     method: 'POST',
   }),
+  getSetupQrCode: (restaurantId) => request(`/api/retrop/restaurants/${restaurantId}/setup-qrcode`),
 
   // Retrop Own Business Config
   getBusinessConfig: () => request('/api/retrop/config'),
