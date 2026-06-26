@@ -74,25 +74,27 @@ async function getRetropLegalName() {
  */
 export const sendWelcomeEmail = async (clientEmail, businessName, ownerName, mobile, gender) => {
   const legalName = await getRetropLegalName();
-  const subject = `Welcome to ${legalName} - Account Activated! 🎉`;
+  const subject = `Welcome to ${legalName} - Account Activated`;
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: #FF6B35; text-align: center;">Welcome to ${legalName}!</h2>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: #ea580c; text-align: center; margin-top: 0; font-weight: 600;">Welcome to ${legalName}</h2>
       <p>Dear <strong>${ownerName}</strong>,</p>
-      <p>Thank you for choosing ${legalName} for <strong>${businessName}</strong>. We are thrilled to partner with you!</p>
+      <p>Thank you for choosing ${legalName} for <strong>${businessName}</strong>. We are pleased to confirm that your account is now active and registered in our system.</p>
       
-      <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #FF6B35; margin: 20px 0;">
-         <h4 style="margin-top: 0; color: #FF6B35;">Registered Owner Details</h4>
-         <p style="margin: 5px 0;"><strong>Owner Name:</strong> ${ownerName}</p>
-         <p style="margin: 5px 0;"><strong>Owner Email:</strong> ${clientEmail || 'N/A'}</p>
-         <p style="margin: 5px 0;"><strong>Owner Mobile:</strong> ${mobile}</p>
-         <p style="margin: 5px 0;"><strong>Gender:</strong> ${gender || 'N/A'}</p>
+      <div style="background-color: #f9fafb; padding: 16px; border-left: 4px solid #ea580c; margin: 24px 0; border-radius: 0 6px 6px 0;">
+         <h4 style="margin: 0 0 12px 0; color: #ea580c; font-size: 16px;">Registered Owner Details</h4>
+         <p style="margin: 6px 0; font-size: 14px;"><strong>Owner Name:</strong> ${ownerName}</p>
+         <p style="margin: 6px 0; font-size: 14px;"><strong>Owner Email:</strong> ${clientEmail || 'N/A'}</p>
+         <p style="margin: 6px 0; font-size: 14px;"><strong>Owner Mobile:</strong> ${mobile}</p>
+         <p style="margin: 6px 0; font-size: 14px;"><strong>Gender:</strong> ${gender || 'N/A'}</p>
       </div>
 
-      <p>The app and bill details wil be sent to you when ever ypouo are registered for the usage by Retrop</p>
+      <p>Your application settings and billing details will be sent to you as soon as your registration is completed by the administrative team.</p>
+      <p>If you have any questions or require assistance, please feel free to contact our support department.</p>
       
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
@@ -105,37 +107,38 @@ export const sendWelcomeEmail = async (clientEmail, businessName, ownerName, mob
  */
 export const sendInvoiceEmail = async (clientEmail, businessName, invoiceNo, invoiceBuffer, planName, planType, nextBillingDate, ownerName) => {
   const legalName = await getRetropLegalName();
-  const subject = `Invoice ${invoiceNo} from ${legalName} 📄`;
+  const subject = `Invoice ${invoiceNo} from ${legalName}`;
   
   let planDetailsHtml = `
-    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #10B981; margin: 20px 0;">
-       <h4 style="margin-top: 0; color: #10B981;">Billing & Plan Details</h4>
-       <p style="margin: 5px 0;"><strong>Owner Name:</strong> ${ownerName || 'N/A'}</p>
-       <p style="margin: 5px 0;"><strong>Plan Name:</strong> ${planName || 'N/A'}</p>
-       <p style="margin: 5px 0;"><strong>Plan Type:</strong> ${planType === 'monthly' ? 'Monthly Subscription' : planType === 'lifetime' ? 'One-time Buy (Lifetime)' : 'Support Incident'}</p>
+    <div style="background-color: #f9fafb; padding: 16px; border-left: 4px solid #059669; margin: 24px 0; border-radius: 0 6px 6px 0;">
+       <h4 style="margin: 0 0 12px 0; color: #059669; font-size: 16px;">Billing & Plan Details</h4>
+       <p style="margin: 6px 0; font-size: 14px;"><strong>Owner Name:</strong> ${ownerName || 'N/A'}</p>
+       <p style="margin: 6px 0; font-size: 14px;"><strong>Plan Name:</strong> ${planName || 'N/A'}</p>
+       <p style="margin: 6px 0; font-size: 14px;"><strong>Plan Type:</strong> ${planType === 'monthly' ? 'Monthly Subscription' : planType === 'lifetime' ? 'Lifetime License' : 'Support Incident'}</p>
   `;
 
   if (planType === 'monthly' && nextBillingDate) {
     planDetailsHtml += `
-       <p style="margin: 5px 0;"><strong>Next Billing Date:</strong> ${new Date(nextBillingDate).toLocaleDateString('en-IN')}</p>
+       <p style="margin: 6px 0; font-size: 14px;"><strong>Next Billing Date:</strong> ${new Date(nextBillingDate).toLocaleDateString('en-IN')}</p>
     `;
   }
 
   planDetailsHtml += `</div>`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: #10B981; text-align: center;">Payment Confirmed</h2>
-      <p>Hello <strong>${ownerName || ''}</strong>,</p>
-      <p>We have successfully processed your payment for <strong>${businessName}</strong>.</p>
-      <p>Please find attached your invoice <strong>${invoiceNo}</strong> (including 18% GST) for your records.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: #059669; text-align: center; margin-top: 0; font-weight: 600;">Payment Confirmed</h2>
+      <p>Dear <strong>${ownerName || ''}</strong>,</p>
+      <p>We are pleased to inform you that we have successfully processed your payment for <strong>${businessName}</strong>.</p>
+      <p>Please find attached invoice <strong>${invoiceNo}</strong> (inclusive of 18% GST) for your records.</p>
       
       ${planDetailsHtml}
       
-      <p>If you paid via UPI, your transaction details have been logged in the transaction history page on your admin panel.</p>
+      <p>If this transaction was completed via UPI, you can access your full transaction history anytime through the administration panel.</p>
 
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Billing Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
@@ -161,29 +164,30 @@ export const sendRenewalReminderEmail = async (clientEmail, businessName, nextBi
   const legalName = await getRetropLegalName();
   const isGracePeriod = daysRemaining <= 0;
   const subject = isGracePeriod 
-    ? `⚠️ ACTION REQUIRED: Your subscription for ${businessName} has expired!`
-    : `Upcoming Subscription Renewal for ${businessName}`;
+    ? `URGENT ACTION REQUIRED: Subscription Expired for ${businessName}`
+    : `Subscription Renewal Notice - ${businessName}`;
   
-  const textTitle = isGracePeriod ? 'Subscription Expired!' : 'Subscription Renewal Notice';
+  const textTitle = isGracePeriod ? 'Subscription Expired - Immediate Action Required' : 'Subscription Renewal Notice';
   const textInfo = isGracePeriod
-    ? `Your subscription expired on <strong>${new Date(nextBillingDate).toLocaleDateString()}</strong>. You are currently in the <strong>10-day grace period</strong>. Please pay your pending invoice immediately to avoid service suspension.`
-    : `This is a reminder that your subscription for <strong>${businessName}</strong> is due for renewal on <strong>${new Date(nextBillingDate).toLocaleDateString()}</strong> (${daysRemaining} days left).`;
+    ? `Your subscription expired on <strong>${new Date(nextBillingDate).toLocaleDateString('en-IN')}</strong>. You are currently in the 10-day grace period. To ensure uninterrupted service, please settle the outstanding invoice immediately.`
+    : `This is a reminder that your subscription for <strong>${businessName}</strong> is scheduled for renewal on <strong>${new Date(nextBillingDate).toLocaleDateString('en-IN')}</strong> (${daysRemaining} days remaining).`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: ${isGracePeriod ? '#EF4444' : '#FF6B35'}; text-align: center;">${textTitle}</h2>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: ${isGracePeriod ? '#dc2626' : '#ea580c'}; text-align: center; margin-top: 0; font-weight: 600;">${textTitle}</h2>
       <p>Dear Partner,</p>
       <p>${textInfo}</p>
       
-      <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid ${isGracePeriod ? '#EF4444' : '#FF6B35'}; margin: 20px 0;">
-        <h4 style="margin-top: 0; color: ${isGracePeriod ? '#EF4444' : '#FF6B35'};">Bill Details</h4>
-        <p style="margin: 5px 0;"><strong>Base Rate:</strong> 18% GST applicable</p>
-        <p style="margin: 5px 0;"><strong>To Pay:</strong> Check your super-admin panel for invoice links.</p>
+      <div style="background-color: #f9fafb; padding: 16px; border-left: 4px solid ${isGracePeriod ? '#dc2626' : '#ea580c'}; margin: 24px 0; border-radius: 0 6px 6px 0;">
+        <h4 style="margin: 0 0 12px 0; color: ${isGracePeriod ? '#dc2626' : '#ea580c'}; font-size: 16px;">Billing Details</h4>
+        <p style="margin: 6px 0; font-size: 14px;"><strong>Base Rate:</strong> 18% GST applicable</p>
+        <p style="margin: 6px 0; font-size: 14px;"><strong>Outstanding Bill:</strong> Please review and complete your payment via the administrative panel link.</p>
       </div>
 
-      <p>Thank you for your business!</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p>Thank you for your prompt attention to this matter.</p>
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Billing Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
@@ -197,22 +201,22 @@ export const sendRenewalReminderEmail = async (clientEmail, businessName, nextBi
  */
 export const sendSuspensionEmail = async (clientEmail, businessName) => {
   const legalName = await getRetropLegalName();
-  const subject = `❌ SERVICE SUSPENDED: ${businessName}`;
+  const subject = `SERVICE SUSPENDED: ${businessName}`;
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: #EF4444; text-align: center;">Services Suspended</h2>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: #dc2626; text-align: center; margin-top: 0; font-weight: 600;">Service Suspension Notice</h2>
       <p>Dear Partner,</p>
-      <p>We regret to inform you that your services for <strong>${businessName}</strong> have been suspended due to non-payment of subscription fees after the 10-day grace period.</p>
-      <p>Your license key and login sessions have been temporarily deactivated.</p>
+      <p>We regret to inform you that the services for <strong>${businessName}</strong> have been suspended due to non-payment of outstanding subscription fees past the grace period.</p>
+      <p>Consequently, your license key and associated login sessions have been temporarily deactivated.</p>
       
-      <div style="background-color: #FDF2F2; padding: 15px; border-left: 4px solid #EF4444; margin: 20px 0; color: #9B1C1C;">
-        Please make payment immediately via UPI or Cash at the administrative portal to reactivate your product key and resume operations.
+      <div style="background-color: #fef2f2; padding: 16px; border-left: 4px solid #dc2626; margin: 24px 0; color: #991b1b; border-radius: 0 6px 6px 0; font-size: 14px;">
+        To reactivate your license key and resume restaurant operations, please settle your outstanding balance immediately via UPI or Cash through the administrative portal.
       </div>
 
-      <p>Thank you,</p>
-      <p>${legalName} Billing Team</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p>Thank you for your prompt attention to this matter.</p>
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Billing Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
@@ -225,21 +229,22 @@ export const sendSuspensionEmail = async (clientEmail, businessName) => {
  */
 export const sendPendingInvoiceEmail = async (clientEmail, businessName, invoiceNo, invoiceBuffer, gracePeriodEndsAt) => {
   const legalName = await getRetropLegalName();
-  const subject = `Urgent: Pending Invoice ${invoiceNo} for ${businessName} 📄`;
+  const subject = `Pending Invoice ${invoiceNo} - Renewal for ${businessName}`;
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: #FF6B35; text-align: center;">Subscription Renewal Generated</h2>
-      <p>Hello,</p>
-      <p>A new subscription renewal invoice has been generated for <strong>${businessName}</strong>.</p>
-      <p>Please find attached your invoice <strong>${invoiceNo}</strong> (including 18% GST). Payment is currently pending.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: #ea580c; text-align: center; margin-top: 0; font-weight: 600;">Subscription Renewal Invoice</h2>
+      <p>Dear Partner,</p>
+      <p>A renewal invoice has been generated for your subscription to <strong>${businessName}</strong>.</p>
+      <p>Please find attached invoice <strong>${invoiceNo}</strong> (inclusive of 18% GST). Payment for this period is currently outstanding.</p>
       <p><strong>Grace Period Ends:</strong> ${new Date(gracePeriodEndsAt).toLocaleDateString('en-IN')}</p>
       
-      <div style="background-color: #FFFBEB; padding: 15px; border-left: 4px solid #FF6B35; margin: 20px 0; color: #B45309;">
-         Please make payment via UPI or Cash on your super-admin panel before the grace period ends to ensure uninterrupted service.
+      <div style="background-color: #fffbef; padding: 16px; border-left: 4px solid #ea580c; margin: 24px 0; color: #9a3412; border-radius: 0 6px 6px 0; font-size: 14px;">
+         Please complete your payment via UPI or Cash through the administration panel before the grace period expires to ensure uninterrupted service.
       </div>
 
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Billing Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
@@ -263,14 +268,14 @@ export const sendPendingInvoiceEmail = async (clientEmail, businessName, invoice
  */
 export const sendCredentialsEmail = async (clientEmail, businessName, productKey, adminsInfo) => {
   const legalName = await getRetropLegalName();
-  const subject = `RMS Application Activation & Login Credentials - ${businessName} 🔑`;
+  const subject = `RMS Application Activation & Login Credentials - ${businessName}`;
   
   let adminsHtml = '';
   adminsInfo.forEach(admin => {
     const defaultPassword = admin.mobile.substring(0, 5) + '@password';
     adminsHtml += `
-      <div style="margin-bottom: 15px; padding: 12px; background-color: #f3f4f6; border-radius: 6px;">
-        <strong style="color: #374151;">Role: ${admin.role.toUpperCase()} (${admin.name})</strong><br/>
+      <div style="margin-bottom: 12px; padding: 12px; background-color: #f3f4f6; border-radius: 6px; font-size: 14px;">
+        <strong style="color: #374151; display: block; margin-bottom: 4px;">Role: ${admin.role.toUpperCase()} (${admin.name})</strong>
         <strong>Username / Mobile:</strong> ${admin.mobile}<br/>
         <strong>Default Password:</strong> ${defaultPassword}
       </div>
@@ -278,31 +283,33 @@ export const sendCredentialsEmail = async (clientEmail, businessName, productKey
   });
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; color: #333;">
-      <h2 style="color: #FF6B35; text-align: center;">RMS Configuration Details</h2>
-      <p>Hello,</p>
-      <p>Your Restaurant Management System (RMS) configuration has been successfully completed for <strong>${businessName}</strong>.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
+      <h2 style="color: #ea580c; text-align: center; margin-top: 0; font-weight: 600;">RMS Configuration Details</h2>
+      <p>Dear Partner,</p>
+      <p>The configuration of your Restaurant Management System (RMS) has been successfully completed for <strong>${businessName}</strong>.</p>
       
-      <div style="background-color: #FFF5F5; padding: 15px; border-left: 4px solid #EF4444; margin: 20px 0;">
-         <h4 style="margin-top: 0; color: #B91C1C;">🔑 Product License Key</h4>
-         <code style="font-family: monospace; font-size: 16px; font-weight: bold; color: #EF4444; background: #FFF5F5; padding: 4px 8px; border-radius: 4px; border: 1px solid #FCA5A5; display: inline-block;">${productKey}</code>
+      <div style="background-color: #fef2f2; padding: 16px; border-left: 4px solid #dc2626; margin: 24px 0; border-radius: 0 6px 6px 0;">
+         <h4 style="margin: 0 0 8px 0; color: #991b1b; font-size: 16px;">Product License Key</h4>
+         <code style="font-family: monospace; font-size: 16px; font-weight: bold; color: #dc2626; background: #fff5f5; padding: 6px 12px; border-radius: 4px; border: 1px solid #fca5a5; display: inline-block;">${productKey}</code>
       </div>
 
-      <h4 style="color: #374151; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">Login Accounts & Credentials</h4>
+      <h4 style="color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-top: 24px; font-size: 16px;">Login Accounts & Credentials</h4>
       ${adminsHtml}
       
-      <div style="background-color: #EFF6FF; padding: 15px; border-left: 4px solid #3B82F6; margin: 20px 0; color: #1E3A8A; font-size: 13px; line-height: 1.5;">
-        <strong>Instructions:</strong><br/>
-        Please follow the instructions given by Retrop to use these credentials for a smart and easy flow.
-        <ol style="margin-top: 6px; padding-left: 20px;">
+      <div style="background-color: #eff6ff; padding: 16px; border-left: 4px solid #2563eb; margin: 24px 0; color: #1e3a8a; font-size: 14px; line-height: 1.5; border-radius: 0 6px 6px 0;">
+        <strong>Configuration Instructions:</strong><br/>
+        Please follow the steps below to configure your application with these credentials:
+        <ol style="margin-top: 8px; padding-left: 20px; margin-bottom: 0;">
           <li>Open the RMS App on your tablet or mobile device.</li>
-          <li>Go to Settings (⚙) and paste your server URL and the <strong>Product License Key</strong> shown above.</li>
-          <li>Save configuration and log in with your account credentials.</li>
+          <li>Go to Settings and enter your server URL and the <strong>Product License Key</strong> shown above.</li>
+          <li>Save the configuration and log in with your administrative credentials.</li>
         </ol>
       </div>
 
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="font-size: 12px; color: #777; text-align: center;">
+      <p>If you require any technical assistance during this setup, please contact our support department.</p>
+      <p style="margin-top: 24px;">Sincerely,<br/><strong>The ${legalName} Support Team</strong></p>
+      <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #6b7280; text-align: center; margin: 0;">
         ${legalName} &copy; 2026. All rights reserved.
       </p>
     </div>
