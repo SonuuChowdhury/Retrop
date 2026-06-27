@@ -954,7 +954,7 @@ export const retropController = {
   // PUT /api/retrop/config
   updateBusinessConfig: async (req, res) => {
     try {
-      const { legalName, address, gstin, mobile, email, bankDetails, gstRate } = req.body;
+      const { legalName, address, gstin, mobile, email, bankDetails, gstRate, isTaxEnabled } = req.body;
       
       const { data: existing } = await supabase
         .from('retrop_business_config')
@@ -964,11 +964,12 @@ export const retropController = {
       const payload = {
         legalName: legalName?.trim(),
         address: address?.trim(),
-        gstin: gstin?.trim()?.toUpperCase(),
+        gstin: isTaxEnabled !== false ? gstin?.trim()?.toUpperCase() : '',
         mobile: mobile?.trim(),
         email: email?.trim(),
         bankDetails: bankDetails || {},
         gstRate: gstRate !== undefined ? parseFloat(gstRate) : 18.00,
+        isTaxEnabled: isTaxEnabled !== undefined ? !!isTaxEnabled : true,
         updatedAt: nowIST(),
       };
 
@@ -980,12 +981,49 @@ export const retropController = {
           .eq('configId', existing.configId)
           .select()
           .single();
+
+        const isMissingColumnError = result.error && (
+          result.error.code === 'PGRST204' ||
+          result.error.message.includes('column "isTaxEnabled"') ||
+          result.error.message.includes("isTaxEnabled' column")
+        );
+        if (isMissingColumnError) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.isTaxEnabled;
+          result = await supabase
+            .from('retrop_business_config')
+            .update(fallbackPayload)
+            .eq('configId', existing.configId)
+            .select()
+            .single();
+          if (!result.error && result.data) {
+            result.data.dbMigrationRequired = true;
+          }
+        }
       } else {
         result = await supabase
           .from('retrop_business_config')
           .insert([payload])
           .select()
           .single();
+
+        const isMissingColumnError = result.error && (
+          result.error.code === 'PGRST204' ||
+          result.error.message.includes('column "isTaxEnabled"') ||
+          result.error.message.includes("isTaxEnabled' column")
+        );
+        if (isMissingColumnError) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.isTaxEnabled;
+          result = await supabase
+            .from('retrop_business_config')
+            .insert([fallbackPayload])
+            .select()
+            .single();
+          if (!result.error && result.data) {
+            result.data.dbMigrationRequired = true;
+          }
+        }
       }
 
       if (result.error) throw result.error;
@@ -1168,11 +1206,6 @@ export const retropController = {
         return res.status(404).json({ success: false, message: 'Subscription record not found' });
       }
 
-      const plan = subscription.pricing_plan;
-      const baseAmount = parseFloat(plan.basePrice);
-      const gstAmount = baseAmount * (parseFloat(plan.gstPercent) / 100);
-      const finalAmount = baseAmount + gstAmount;
-
       // Fetch Retrop business config
       const { data: retropConfig } = await supabase
         .from('retrop_business_config')
@@ -1187,6 +1220,13 @@ export const retropController = {
         email: 'billing@retrop.com',
         bankDetails: {},
       };
+
+      const isTaxEnabled = globalConfig.isTaxEnabled !== false;
+      const plan = subscription.pricing_plan;
+      const baseAmount = parseFloat(plan.basePrice);
+      const gstPercent = isTaxEnabled ? (parseFloat(plan.gstPercent) || 18.00) : 0;
+      const gstAmount = baseAmount * (gstPercent / 100);
+      const finalAmount = baseAmount + gstAmount;
 
       // Generate invoice number: INV-YYYY-MM-RAND
       const today = new Date(nowIST());
@@ -1357,8 +1397,10 @@ export const retropController = {
           bankDetails: {},
         };
 
-        const baseAmount = ticketCost;
-        const gstAmount = baseAmount * 0.18;
+        const isTaxEnabled = globalConfig.isTaxEnabled !== false;
+        const baseAmount = parseFloat(ticketCost);
+        const gstPercent = isTaxEnabled ? (globalConfig.gstRate !== undefined ? parseFloat(globalConfig.gstRate) : 18.00) : 0;
+        const gstAmount = baseAmount * (gstPercent / 100);
         const finalAmount = baseAmount + gstAmount;
 
         const today = new Date(nowIST());

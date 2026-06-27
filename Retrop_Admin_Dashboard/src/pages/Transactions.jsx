@@ -6,6 +6,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
+  const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
@@ -19,11 +20,23 @@ export default function Transactions() {
         }
       } catch (err) {
         setError('Failed to load transaction history.');
-      } finally {
-        setLoading(false);
       }
     };
-    fetchTransactions();
+
+    const fetchConfig = async () => {
+      try {
+        const res = await api.getBusinessConfig();
+        if (res.status === 'success' && res.data) {
+          setConfig(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load business config:', err);
+      }
+    };
+
+    Promise.all([fetchTransactions(), fetchConfig()]).finally(() => {
+      setLoading(false);
+    });
   }, []);
 
   const filtered = transactions.filter((t) => {
@@ -65,17 +78,21 @@ export default function Transactions() {
       {/* Summary Metrics */}
       <div style={styles.metricsGrid}>
         <div style={styles.metricCard}>
-          <span style={styles.metricLabel}>Total Revenue (GST Incl.)</span>
+          <span style={styles.metricLabel}>{config?.isTaxEnabled !== false ? 'Total Revenue (GST Incl.)' : 'Total Revenue'}</span>
           <span style={styles.metricValue}>INR {totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
         </div>
-        <div style={styles.metricCard}>
-          <span style={styles.metricLabel}>Base Value (Net Profit)</span>
-          <span style={styles.metricValue}>INR {totalBase.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div style={styles.metricCard}>
-          <span style={styles.metricLabel}>GST Collected (18% Liability)</span>
-          <span style={styles.metricValue}>INR {totalGst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
+        {config?.isTaxEnabled !== false && (
+          <>
+            <div style={styles.metricCard}>
+              <span style={styles.metricLabel}>Base Value (Net Profit)</span>
+              <span style={styles.metricValue}>INR {totalBase.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div style={styles.metricCard}>
+              <span style={styles.metricLabel}>GST Collected ({config?.gstRate || 18}% Liability)</span>
+              <span style={styles.metricValue}>INR {totalGst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={styles.tableCard}>
@@ -146,7 +163,9 @@ export default function Transactions() {
                     <td style={styles.td}>
                       <div style={styles.amtCol}>
                         <span style={styles.finalAmt}>INR {parseFloat(tx.finalAmount).toFixed(2)}</span>
-                        <span style={styles.gstBreakdown}>Base: {parseFloat(tx.baseAmount).toFixed(2)} (18% GST)</span>
+                        {parseFloat(tx.gstAmount) > 0 ? (
+                          <span style={styles.gstBreakdown}>Base: {parseFloat(tx.baseAmount).toFixed(2)} ({((parseFloat(tx.gstAmount) / parseFloat(tx.baseAmount)) * 100).toFixed(0)}% GST)</span>
+                        ) : null}
                       </div>
                     </td>
                     <td style={styles.td} style={{ ...styles.td, textAlign: 'right' }}>

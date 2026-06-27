@@ -12,6 +12,7 @@ export default function Settings() {
     mobile: '',
     email: '',
     gstRate: 18.00,
+    isTaxEnabled: true,
     bankDetails: {},
   });
 
@@ -32,6 +33,7 @@ export default function Settings() {
             mobile: res.data.mobile || '',
             email: res.data.email || '',
             gstRate: res.data.gstRate || 18.00,
+            isTaxEnabled: res.data.isTaxEnabled !== false,
             bankDetails: res.data.bankDetails || {},
           });
         }
@@ -58,21 +60,31 @@ export default function Settings() {
     setError('');
     setSuccess('');
 
-    if (!config.legalName.trim() || !config.address.trim() || !config.gstin.trim() || !config.mobile.trim() || !config.email.trim()) {
+    if (!config.legalName.trim() || !config.address.trim() || !config.mobile.trim() || !config.email.trim()) {
       setError('All standard business information fields are required.');
       return;
     }
 
-    if (config.gstin.trim().length !== 15) {
-      setError('GSTIN must be a valid 15-character ID.');
-      return;
+    if (config.isTaxEnabled) {
+      if (!config.gstin.trim()) {
+        setError('Corporate GSTIN is required when tax is enabled.');
+        return;
+      }
+      if (config.gstin.trim().length !== 15) {
+        setError('GSTIN must be a valid 15-character ID.');
+        return;
+      }
     }
 
     setSaving(true);
     try {
       const res = await api.updateBusinessConfig(config);
       if (res.status === 'success' && res.data) {
-        setSuccess('Retrop billing credentials and business configuration updated successfully.');
+        if (res.data.dbMigrationRequired) {
+          setError('Settings saved, but the "isTaxEnabled" column is missing in your database. Please run the SQL migration script "Server/src/migrations/005_taxation_flag.sql" in your Supabase SQL Editor to fully enable tax configuration.');
+        } else {
+          setSuccess('Retrop billing credentials and business configuration updated successfully.');
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to save settings.');
@@ -135,20 +147,6 @@ export default function Settings() {
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Corporate GSTIN</label>
-                  <input
-                    type="text"
-                    name="gstin"
-                    value={config.gstin}
-                    onChange={handleInputChange}
-                    placeholder="15-character GSTIN code"
-                    maxLength={15}
-                    style={styles.input}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
                   <label style={styles.label}>Contact Email</label>
                   <input
                     type="email"
@@ -195,20 +193,49 @@ export default function Settings() {
                 <Percent size={20} style={{ color: 'var(--color-primary)' }} />
                 <h3 style={styles.sectionTitle}>Taxation Settings</h3>
               </div>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Standard GST Rate (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="gstRate"
-                    value={config.gstRate}
-                    onChange={handleInputChange}
-                    style={styles.input}
-                    disabled={saving}
-                  />
-                </div>
+              
+              <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={styles.toggleLabel}>Apply Tax / GST on Invoices</span>
+                <button
+                  type="button"
+                  onClick={() => setConfig(prev => ({ ...prev, isTaxEnabled: !prev.isTaxEnabled }))}
+                  style={config.isTaxEnabled ? styles.toggleBtnActive : styles.toggleBtnInactive}
+                  disabled={saving}
+                >
+                  <span style={config.isTaxEnabled ? styles.toggleSliderActive : styles.toggleSliderInactive} />
+                </button>
               </div>
+
+              {config.isTaxEnabled && (
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Corporate GSTIN</label>
+                    <input
+                      type="text"
+                      name="gstin"
+                      value={config.gstin}
+                      onChange={handleInputChange}
+                      placeholder="15-character GSTIN code"
+                      maxLength={15}
+                      style={styles.input}
+                      disabled={saving}
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Standard GST Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="gstRate"
+                      value={config.gstRate}
+                      onChange={handleInputChange}
+                      style={styles.input}
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
 
@@ -361,5 +388,54 @@ const styles = {
   },
   skeletonContainer: {
     padding: '10px 0',
+  },
+  toggleLabel: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: 'var(--color-text)',
+  },
+  toggleBtnActive: {
+    width: '50px',
+    height: '26px',
+    borderRadius: '13px',
+    backgroundColor: 'var(--color-primary)',
+    border: 'none',
+    cursor: 'pointer',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 3px',
+    transition: 'background-color 0.2s ease',
+  },
+  toggleBtnInactive: {
+    width: '50px',
+    height: '26px',
+    borderRadius: '13px',
+    backgroundColor: '#374151',
+    border: 'none',
+    cursor: 'pointer',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 3px',
+    transition: 'background-color 0.2s ease',
+  },
+  toggleSliderActive: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    right: '3px',
+    transition: 'all 0.2s ease',
+  },
+  toggleSliderInactive: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    left: '3px',
+    transition: 'all 0.2s ease',
   },
 };

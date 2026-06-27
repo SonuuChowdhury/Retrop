@@ -69,13 +69,31 @@ export const runSubscriptionChecks = async () => {
           continue;
         }
 
+        // Fetch Retrop business config
+        const { data: retropConfig } = await supabase
+          .from('retrop_business_config')
+          .select('*')
+          .maybeSingle();
+
+        const globalConfig = retropConfig || {
+          legalName: 'Retrop Software Solutions',
+          address: '123 Tech Park, Sector 62, Noida, UP, India',
+          gstin: '09AAAAA1111A1Z1',
+          mobile: '9876543210',
+          email: 'billing@retrop.com',
+          bankDetails: {},
+        };
+
+        const isTaxEnabled = globalConfig.isTaxEnabled !== false;
+
         // Generate next pending transaction (the renewal invoice)
         const yearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
         const seq = Math.floor(1000 + Math.random() * 9000); // random 4 digits for mock invoice sequence
         const invoiceNo = `RETROP/${yearMonth}/${seq}`;
         
         const baseAmount = parseFloat(plan.basePrice);
-        const gstAmount = baseAmount * (parseFloat(plan.gstPercent) / 100);
+        const gstPercent = isTaxEnabled ? (parseFloat(plan.gstPercent) || 18.00) : 0;
+        const gstAmount = baseAmount * (gstPercent / 100);
         const finalAmount = baseAmount + gstAmount;
 
         const { data: transaction, error: txErr } = await supabase
@@ -110,21 +128,6 @@ export const runSubscriptionChecks = async () => {
           );
 
           if (transaction) {
-            // Fetch Retrop business config
-            const { data: retropConfig } = await supabase
-              .from('retrop_business_config')
-              .select('*')
-              .maybeSingle();
-
-            const globalConfig = retropConfig || {
-              legalName: 'Retrop Software Solutions',
-              address: '123 Tech Park, Sector 62, Noida, UP, India',
-              gstin: '09AAAAA1111A1Z1',
-              mobile: '9876543210',
-              email: 'billing@retrop.com',
-              bankDetails: {},
-            };
-
             // Generate invoice PDF in background and mail it as pending
             generateInvoicePDF(transaction, restaurant, globalConfig)
               .then(async (pdfBuffer) => {

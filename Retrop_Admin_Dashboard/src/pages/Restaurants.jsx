@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useDialog } from '../context/DialogContext';
 
 export default function Restaurants() {
+  const [businessConfig, setBusinessConfig] = useState(null);
   const { alert, confirm } = useDialog();
   const [restaurants, setRestaurants] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -111,9 +112,21 @@ export default function Restaurants() {
     }
   };
 
+  const fetchBusinessConfig = async () => {
+    try {
+      const res = await api.getBusinessConfig();
+      if (res.status === 'success' && res.data) {
+        setBusinessConfig(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch business config', err);
+    }
+  };
+
   useEffect(() => {
     fetchRestaurants();
     fetchPlans();
+    fetchBusinessConfig();
   }, []);
 
   // Pricing Plans CRUD Handlers
@@ -677,7 +690,9 @@ export default function Restaurants() {
                     <div style={styles.priceContainer}>
                       <span style={styles.priceSymbol}>INR</span>
                       <span style={styles.priceValue}>{parseFloat(plan.basePrice).toLocaleString('en-IN')}</span>
-                      <span style={styles.priceTax}>+ {plan.gstPercent}% GST</span>
+                      {businessConfig?.isTaxEnabled !== false && (
+                        <span style={styles.priceTax}>+ {plan.gstPercent}% GST</span>
+                      )}
                     </div>
 
                     {isMonthly && (
@@ -929,14 +944,23 @@ export default function Restaurants() {
                         <span>Base Price:</span>
                         <span>INR {parseFloat(getPlanDetails(paymentPendingData.planId).basePrice).toFixed(2)}</span>
                       </div>
-                      <div style={styles.summaryRow}>
-                        <span>GST (18%):</span>
-                        <span>INR {(parseFloat(getPlanDetails(paymentPendingData.planId).basePrice) * 0.18).toFixed(2)}</span>
-                      </div>
-                      <div style={{ ...styles.summaryRow, borderTop: '1px dashed var(--color-border)', paddingTop: '8px', marginTop: '8px', fontSize: '15px' }}>
-                        <span>Grand Total:</span>
-                        <strong>INR {(parseFloat(getPlanDetails(paymentPendingData.planId).basePrice) * 1.18).toFixed(2)}</strong>
-                      </div>
+                      {businessConfig?.isTaxEnabled !== false ? (
+                        <>
+                          <div style={styles.summaryRow}>
+                            <span>GST ({parseFloat(getPlanDetails(paymentPendingData.planId).gstPercent || 18).toFixed(0)}%):</span>
+                            <span>INR {(parseFloat(getPlanDetails(paymentPendingData.planId).basePrice) * (parseFloat(getPlanDetails(paymentPendingData.planId).gstPercent || 18) / 100)).toFixed(2)}</span>
+                          </div>
+                          <div style={{ ...styles.summaryRow, borderTop: '1px dashed var(--color-border)', paddingTop: '8px', marginTop: '8px', fontSize: '15px' }}>
+                            <span>Grand Total:</span>
+                            <strong>INR {(parseFloat(getPlanDetails(paymentPendingData.planId).basePrice) * (1 + (parseFloat(getPlanDetails(paymentPendingData.planId).gstPercent || 18) / 100))).toFixed(2)}</strong>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ ...styles.summaryRow, borderTop: '1px dashed var(--color-border)', paddingTop: '8px', marginTop: '8px', fontSize: '15px' }}>
+                          <span>Total Amount:</span>
+                          <strong>INR {parseFloat(getPlanDetails(paymentPendingData.planId).basePrice).toFixed(2)}</strong>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1159,18 +1183,20 @@ export default function Restaurants() {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>GST Percentage (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="gstPercent"
-                    value={planForm.gstPercent}
-                    onChange={handlePlanInputChange}
-                    style={styles.input}
-                    disabled={planModalLoading}
-                  />
-                </div>
+                {businessConfig?.isTaxEnabled !== false && (
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>GST Percentage (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="gstPercent"
+                      value={planForm.gstPercent}
+                      onChange={handlePlanInputChange}
+                      style={styles.input}
+                      disabled={planModalLoading}
+                    />
+                  </div>
+                )}
               </div>
 
               <div style={{ ...styles.formGroup, marginTop: '10px' }}>

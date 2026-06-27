@@ -39,20 +39,26 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
         .text(retropConfig.address, 50, 90, { width: 250 })
         .text(`Email: ${retropConfig.email} | Mobile: ${retropConfig.mobile}`, 50, 130);
 
+      const isTaxEnabled = retropConfig.isTaxEnabled !== false;
+
       // --- INVOICE METADATA (Right-aligned) ---
       doc
         .fontSize(18)
         .fillColor(primaryColor)
-        .text('TAX INVOICE', 350, 50, { align: 'right', bold: true })
+        .text(isTaxEnabled ? 'TAX INVOICE' : 'INVOICE', 350, 50, { align: 'right', bold: true })
         .fontSize(10)
         .fillColor(textColor)
         .text(`Invoice No: ${transaction.invoiceNo}`, 350, 75, { align: 'right' })
-        .text(`Date: ${new Date(transaction.createdAt || Date.now()).toLocaleDateString('en-IN')}`, 350, 90, { align: 'right' })
-        .text(`Our GSTIN: ${retropConfig.gstin}`, 350, 105, { align: 'right', bold: true })
-        .text(`Payment Mode: ${transaction.paymentMethod}`, 350, 120, { align: 'right' });
+        .text(`Date: ${new Date(transaction.createdAt || Date.now()).toLocaleDateString('en-IN')}`, 350, 90, { align: 'right' });
+
+      if (isTaxEnabled) {
+        doc.text(`Our GSTIN: ${retropConfig.gstin}`, 350, 105, { align: 'right', bold: true });
+      }
+
+      doc.text(`Payment Mode: ${transaction.paymentMethod}`, 350, isTaxEnabled ? 120 : 105, { align: 'right' });
 
       if (transaction.paymentMethod === 'UPI' && transaction.upiTransactionId) {
-        doc.text(`UPI Ref No: ${transaction.upiTransactionId}`, 350, 135, { align: 'right' });
+        doc.text(`UPI Ref No: ${transaction.upiTransactionId}`, 350, isTaxEnabled ? 135 : 120, { align: 'right' });
       }
 
       // Draw a line separator
@@ -85,20 +91,33 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
       doc
         .fillColor(textColor)
         .fontSize(9)
-        .text('DESCRIPTION', 60, currentHeight + 5, { bold: true })
-        .text('TAX RATE', 300, currentHeight + 5, { bold: true, align: 'right', width: 60 })
-        .text('BASE PRICE', 370, currentHeight + 5, { bold: true, align: 'right', width: 80 })
-        .text('TOTAL (INR)', 460, currentHeight + 5, { bold: true, align: 'right', width: 80 });
+        .text('DESCRIPTION', 60, currentHeight + 5, { bold: true });
+
+      if (isTaxEnabled) {
+        doc
+          .text('TAX RATE', 300, currentHeight + 5, { bold: true, align: 'right', width: 60 })
+          .text('BASE PRICE', 370, currentHeight + 5, { bold: true, align: 'right', width: 80 });
+      }
+
+      doc.text(isTaxEnabled ? 'TOTAL (INR)' : 'AMOUNT (INR)', 460, currentHeight + 5, { bold: true, align: 'right', width: 80 });
 
       currentHeight += 20;
 
       // Table Row
       doc
         .fontSize(10)
-        .text(transaction.description, 60, currentHeight + 10, { width: 230 })
-        .text('18.00%', 300, currentHeight + 10, { align: 'right', width: 60 })
-        .text(`INR ${parseFloat(transaction.baseAmount).toFixed(2)}`, 370, currentHeight + 10, { align: 'right', width: 80 })
-        .text(`INR ${parseFloat(transaction.finalAmount).toFixed(2)}`, 460, currentHeight + 10, { align: 'right', width: 80 });
+        .text(transaction.description, 60, currentHeight + 10, { width: isTaxEnabled ? 230 : 390 });
+
+      if (isTaxEnabled) {
+        const rateVal = transaction.baseAmount > 0 
+          ? ((transaction.gstAmount / transaction.baseAmount) * 100).toFixed(2)
+          : (retropConfig.gstRate !== undefined ? parseFloat(retropConfig.gstRate).toFixed(2) : '18.00');
+        doc
+          .text(`${rateVal}%`, 300, currentHeight + 10, { align: 'right', width: 60 })
+          .text(`INR ${parseFloat(transaction.baseAmount).toFixed(2)}`, 370, currentHeight + 10, { align: 'right', width: 80 });
+      }
+
+      doc.text(`INR ${parseFloat(transaction.finalAmount).toFixed(2)}`, 460, currentHeight + 10, { align: 'right', width: 80 });
 
       // Draw bottom row line
       doc.moveTo(50, currentHeight + 35).lineTo(545, currentHeight + 35).strokeColor('#dddddd').lineWidth(1).stroke();
@@ -107,27 +126,44 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
 
       // --- CALCULATIONS / SUMMARY ---
       const rightX = 350;
-      doc
-        .fontSize(10)
-        .text('Subtotal:', rightX, currentHeight + 15, { width: 100 })
-        .text(`INR ${parseFloat(transaction.baseAmount).toFixed(2)}`, 450, currentHeight + 15, { align: 'right', width: 95 })
-        
-        .text('CGST (9%):', rightX, currentHeight + 30, { width: 100 })
-        .text(`INR ${(parseFloat(transaction.gstAmount) / 2).toFixed(2)}`, 450, currentHeight + 30, { align: 'right', width: 95 })
-        
-        .text('SGST (9%):', rightX, currentHeight + 45, { width: 100 })
-        .text(`INR ${(parseFloat(transaction.gstAmount) / 2).toFixed(2)}`, 450, currentHeight + 45, { align: 'right', width: 95 });
+      if (isTaxEnabled) {
+        const halfGst = (parseFloat(transaction.gstAmount) / 2).toFixed(2);
+        const rateVal = transaction.baseAmount > 0 
+          ? ((transaction.gstAmount / transaction.baseAmount) * 100)
+          : (retropConfig.gstRate !== undefined ? parseFloat(retropConfig.gstRate) : 18.00);
+        const halfRate = (rateVal / 2).toFixed(2);
 
-      // Draw double line for grand total
-      doc.moveTo(350, currentHeight + 65).lineTo(545, currentHeight + 65).strokeColor('#dddddd').lineWidth(1).stroke();
+        doc
+          .fontSize(10)
+          .text('Subtotal:', rightX, currentHeight + 15, { width: 100 })
+          .text(`INR ${parseFloat(transaction.baseAmount).toFixed(2)}`, 450, currentHeight + 15, { align: 'right', width: 95 })
+          
+          .text(`CGST (${halfRate}%):`, rightX, currentHeight + 30, { width: 100 })
+          .text(`INR ${halfGst}`, 450, currentHeight + 30, { align: 'right', width: 95 })
+          
+          .text(`SGST (${halfRate}%):`, rightX, currentHeight + 45, { width: 100 })
+          .text(`INR ${halfGst}`, 450, currentHeight + 45, { align: 'right', width: 95 });
 
-      doc
-        .fontSize(12)
-        .fillColor(primaryColor)
-        .text('Grand Total:', rightX, currentHeight + 72, { bold: true, width: 100 })
-        .text(`INR ${parseFloat(transaction.finalAmount).toFixed(2)}`, 450, currentHeight + 72, { bold: true, align: 'right', width: 95 });
+        // Draw double line for grand total
+        doc.moveTo(350, currentHeight + 65).lineTo(545, currentHeight + 65).strokeColor('#dddddd').lineWidth(1).stroke();
 
-      doc.moveTo(350, currentHeight + 92).lineTo(545, currentHeight + 92).strokeColor('#dddddd').lineWidth(1).stroke();
+        doc
+          .fontSize(12)
+          .fillColor(primaryColor)
+          .text('Grand Total:', rightX, currentHeight + 72, { bold: true, width: 100 })
+          .text(`INR ${parseFloat(transaction.finalAmount).toFixed(2)}`, 450, currentHeight + 72, { bold: true, align: 'right', width: 95 });
+
+        doc.moveTo(350, currentHeight + 92).lineTo(545, currentHeight + 92).strokeColor('#dddddd').lineWidth(1).stroke();
+      } else {
+        // Direct Total Amount without GST breakdown
+        doc
+          .fontSize(12)
+          .fillColor(primaryColor)
+          .text('Total Amount:', rightX, currentHeight + 15, { bold: true, width: 100 })
+          .text(`INR ${parseFloat(transaction.finalAmount).toFixed(2)}`, 450, currentHeight + 15, { bold: true, align: 'right', width: 95 });
+
+        doc.moveTo(350, currentHeight + 35).lineTo(545, currentHeight + 35).strokeColor('#dddddd').lineWidth(1).stroke();
+      }
 
 
 

@@ -58,17 +58,34 @@ export const sendEmail = async ({ to, subject, html, attachments = [] }) => {
 /**
  * Sends a welcome email to a newly onboarded client.
  */
-async function getRetropLegalName() {
+async function getRetropConfig() {
   try {
     const { data } = await supabase
       .from('retrop_business_config')
-      .select('legalName')
+      .select('*')
       .maybeSingle();
-    if (data?.legalName) return data.legalName;
+    if (data) {
+      return {
+        legalName: data.legalName || 'Retrop Software Solutions',
+        isTaxEnabled: data.isTaxEnabled !== false,
+        gstRate: data.gstRate !== undefined ? parseFloat(data.gstRate) : 18.00,
+        gstin: data.gstin || '',
+      };
+    }
   } catch (err) {
-    logger.warn('Failed to fetch legal name from retrop_business_config', err.message);
+    logger.warn('Failed to fetch config from retrop_business_config', err.message);
   }
-  return 'Retrop Software Solutions';
+  return {
+    legalName: 'Retrop Software Solutions',
+    isTaxEnabled: true,
+    gstRate: 18.00,
+    gstin: '09AAAAA1111A1Z1',
+  };
+}
+
+async function getRetropLegalName() {
+  const config = await getRetropConfig();
+  return config.legalName;
 }
 
 /**
@@ -108,7 +125,8 @@ export const sendWelcomeEmail = async (clientEmail, businessName, ownerName, mob
  * Sends an invoice receipt email.
  */
 export const sendInvoiceEmail = async (clientEmail, businessName, invoiceNo, invoiceBuffer, planName, planType, nextBillingDate, ownerName) => {
-  const legalName = await getRetropLegalName();
+  const config = await getRetropConfig();
+  const legalName = config.legalName;
   const subject = `Invoice ${invoiceNo} from ${legalName}`;
   
   let planDetailsHtml = `
@@ -127,12 +145,16 @@ export const sendInvoiceEmail = async (clientEmail, businessName, invoiceNo, inv
 
   planDetailsHtml += `</div>`;
 
+  const taxNote = config.isTaxEnabled 
+    ? `(inclusive of ${config.gstRate}% GST)` 
+    : '(no tax applicable)';
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
       <h2 style="color: #059669; text-align: center; margin-top: 0; font-weight: 600;">Payment Confirmed</h2>
       <p>Dear <strong>${ownerName || ''}</strong>,</p>
       <p>We are pleased to inform you that we have successfully processed your payment for <strong>${businessName}</strong>.</p>
-      <p>Please find attached invoice <strong>${invoiceNo}</strong> (inclusive of 18% GST) for your records.</p>
+      <p>Please find attached invoice <strong>${invoiceNo}</strong> ${taxNote} for your records.</p>
       
       ${planDetailsHtml}
       
@@ -163,7 +185,8 @@ export const sendInvoiceEmail = async (clientEmail, businessName, invoiceNo, inv
  * Sends a renewal warning email (days remaining in subscription / grace period warning)
  */
 export const sendRenewalReminderEmail = async (clientEmail, businessName, nextBillingDate, daysRemaining) => {
-  const legalName = await getRetropLegalName();
+  const config = await getRetropConfig();
+  const legalName = config.legalName;
   const isGracePeriod = daysRemaining <= 0;
   const subject = isGracePeriod 
     ? `URGENT ACTION REQUIRED: Subscription Expired for ${businessName}`
@@ -174,6 +197,10 @@ export const sendRenewalReminderEmail = async (clientEmail, businessName, nextBi
     ? `Your subscription expired on <strong>${new Date(nextBillingDate).toLocaleDateString('en-IN')}</strong>. You are currently in the 10-day grace period. To ensure uninterrupted service, please settle the outstanding invoice immediately.`
     : `This is a reminder that your subscription for <strong>${businessName}</strong> is scheduled for renewal on <strong>${new Date(nextBillingDate).toLocaleDateString('en-IN')}</strong> (${daysRemaining} days remaining).`;
 
+  const taxNote = config.isTaxEnabled 
+    ? `${config.gstRate}% GST applicable` 
+    : 'No tax applicable';
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
       <h2 style="color: ${isGracePeriod ? '#dc2626' : '#ea580c'}; text-align: center; margin-top: 0; font-weight: 600;">${textTitle}</h2>
@@ -182,7 +209,7 @@ export const sendRenewalReminderEmail = async (clientEmail, businessName, nextBi
       
       <div style="background-color: #f9fafb; padding: 16px; border-left: 4px solid ${isGracePeriod ? '#dc2626' : '#ea580c'}; margin: 24px 0; border-radius: 0 6px 6px 0;">
         <h4 style="margin: 0 0 12px 0; color: ${isGracePeriod ? '#dc2626' : '#ea580c'}; font-size: 16px;">Billing Details</h4>
-        <p style="margin: 6px 0; font-size: 14px;"><strong>Base Rate:</strong> 18% GST applicable</p>
+        <p style="margin: 6px 0; font-size: 14px;"><strong>Base Rate:</strong> ${taxNote}</p>
         <p style="margin: 6px 0; font-size: 14px;"><strong>Outstanding Bill:</strong> Please review and complete your payment via the administrative panel link.</p>
       </div>
 
@@ -230,14 +257,19 @@ export const sendSuspensionEmail = async (clientEmail, businessName) => {
  * Sends a pending invoice bill email containing the invoice PDF.
  */
 export const sendPendingInvoiceEmail = async (clientEmail, businessName, invoiceNo, invoiceBuffer, gracePeriodEndsAt) => {
-  const legalName = await getRetropLegalName();
+  const config = await getRetropConfig();
+  const legalName = config.legalName;
   const subject = `Pending Invoice ${invoiceNo} - Renewal for ${businessName}`;
+  const taxNote = config.isTaxEnabled 
+    ? `(inclusive of ${config.gstRate}% GST)` 
+    : '(no tax applicable)';
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; color: #1f2937; line-height: 1.6;">
       <h2 style="color: #ea580c; text-align: center; margin-top: 0; font-weight: 600;">Subscription Renewal Invoice</h2>
       <p>Dear Partner,</p>
       <p>A renewal invoice has been generated for your subscription to <strong>${businessName}</strong>.</p>
-      <p>Please find attached invoice <strong>${invoiceNo}</strong> (inclusive of 18% GST). Payment for this period is currently outstanding.</p>
+      <p>Please find attached invoice <strong>${invoiceNo}</strong> ${taxNote}. Payment for this period is currently outstanding.</p>
       <p><strong>Grace Period Ends:</strong> ${new Date(gracePeriodEndsAt).toLocaleDateString('en-IN')}</p>
       
       <div style="background-color: #fffbef; padding: 16px; border-left: 4px solid #ea580c; margin: 24px 0; color: #9a3412; border-radius: 0 6px 6px 0; font-size: 14px;">
