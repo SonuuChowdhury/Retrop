@@ -1517,112 +1517,166 @@ export default function RestaurantDetails() {
               <button onClick={() => setIsSubEditModalOpen(false)} style={styles.modalCloseBtn}>×</button>
             </div>
 
-            <form onSubmit={handleSaveSubEdit} style={styles.form}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Subscription Plan</label>
-                  <select
-                    value={subEditForm.planId}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, planId: e.target.value }))}
-                    style={styles.select}
-                    disabled={subEditLoading}
-                    required
-                  >
-                    <option value="" disabled>Select a Pricing Plan</option>
-                    {plans.map((p) => (
-                      <option key={p.planId} value={p.planId}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {(() => {
+              const isLifetime = restaurant.subscription?.[0]?.pricing_plan?.planType === 'lifetime';
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Status</label>
-                  <select
-                    value={subEditForm.status}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, status: e.target.value }))}
-                    style={styles.select}
-                    disabled={subEditLoading}
-                    required
-                  >
-                    <option value="active">Active</option>
-                    <option value="grace_period">Grace Period</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="pending_payment">Pending Payment</option>
-                  </select>
-                </div>
+              if (isLifetime) {
+                const subPlan = plans.find(p => p.planId === subEditForm.planId) || restaurant.subscription?.[0]?.pricing_plan;
+                return (
+                  <div style={styles.form}>
+                    <div style={styles.lifetimeBanner}>
+                      <span style={{ fontSize: '18px', marginRight: '8px' }}>✨</span>
+                      <span>This restaurant is on a <strong>Lifetime Plan</strong>. No expiration or renewal dates apply.</span>
+                    </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Start Date</label>
-                  <input
-                    type="date"
-                    value={subEditForm.startDate}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    style={styles.input}
-                    disabled={subEditLoading}
-                  />
-                </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginTop: '8px' }}>
+                      <div style={styles.formGroup}>
+                        <span style={styles.infoLabel}>Subscription Plan</span>
+                        <span style={styles.infoValue}>{subPlan?.name || 'Lifetime Plan'}</span>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <span style={styles.infoLabel}>Plan Type</span>
+                        <span style={{ ...styles.infoValue, textTransform: 'uppercase', color: 'var(--color-primary)' }}>
+                          {subPlan?.planType || 'LIFETIME'}
+                        </span>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <span style={styles.infoLabel}>Status</span>
+                        <span style={{
+                          ...styles.subBadge,
+                          display: 'inline-block',
+                          alignSelf: 'flex-start',
+                          color: subEditForm.status === 'active' ? 'var(--color-success)' : 'var(--color-error)',
+                          backgroundColor: subEditForm.status === 'active' ? 'var(--color-success-light)' : 'var(--color-error-light)',
+                          marginTop: '4px'
+                        }}>
+                          {subEditForm.status?.toUpperCase()?.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>End Date</label>
-                  <input
-                    type="date"
-                    value={subEditForm.endDate}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, endDate: e.target.value }))}
-                    style={styles.input}
-                    disabled={subEditLoading}
-                  />
-                </div>
+                    <div style={styles.modalFooter}>
+                      <button
+                        type="button"
+                        onClick={() => setIsSubEditModalOpen(false)}
+                        style={styles.modalCancelBtn}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Next Billing Date</label>
-                  <input
-                    type="date"
-                    value={subEditForm.nextBillingDate}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, nextBillingDate: e.target.value }))}
-                    style={styles.input}
-                    disabled={subEditLoading}
-                  />
-                </div>
+              return (
+                <form onSubmit={handleSaveSubEdit} style={styles.form}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Subscription Plan</label>
+                      <select
+                        value={subEditForm.planId}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, planId: e.target.value }))}
+                        style={styles.select}
+                        disabled={subEditLoading}
+                        required
+                      >
+                        <option value="" disabled>Select a Pricing Plan</option>
+                        {plans.map((p) => (
+                          <option key={p.planId} value={p.planId}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Grace Period Ends At</label>
-                  <input
-                    type="date"
-                    value={subEditForm.gracePeriodEndsAt}
-                    onChange={(e) => setSubEditForm(prev => ({ ...prev, gracePeriodEndsAt: e.target.value }))}
-                    style={styles.input}
-                    disabled={subEditLoading}
-                  />
-                </div>
-              </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Status</label>
+                      <select
+                        value={subEditForm.status}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, status: e.target.value }))}
+                        style={styles.select}
+                        disabled={subEditLoading}
+                        required
+                      >
+                        <option value="active">Active</option>
+                        <option value="grace_period">Grace Period</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="pending_payment">Pending Payment</option>
+                      </select>
+                    </div>
 
-              <div style={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setIsSubEditModalOpen(false)}
-                  style={styles.modalCancelBtn}
-                  disabled={subEditLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={styles.modalSaveBtn}
-                  disabled={subEditLoading}
-                >
-                  {subEditLoading ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="spinner"></span>
-                      <span>Saving...</span>
-                    </span>
-                  ) : (
-                    'Save Details'
-                  )}
-                </button>
-              </div>
-            </form>
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Start Date</label>
+                      <input
+                        type="date"
+                        value={subEditForm.startDate}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        style={styles.input}
+                        disabled={subEditLoading}
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>End Date</label>
+                      <input
+                        type="date"
+                        value={subEditForm.endDate}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        style={styles.input}
+                        disabled={subEditLoading}
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Next Billing Date</label>
+                      <input
+                        type="date"
+                        value={subEditForm.nextBillingDate}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, nextBillingDate: e.target.value }))}
+                        style={styles.input}
+                        disabled={subEditLoading}
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.label}>Grace Period Ends At</label>
+                      <input
+                        type="date"
+                        value={subEditForm.gracePeriodEndsAt}
+                        onChange={(e) => setSubEditForm(prev => ({ ...prev, gracePeriodEndsAt: e.target.value }))}
+                        style={styles.input}
+                        disabled={subEditLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={styles.modalFooter}>
+                    <button
+                      type="button"
+                      onClick={() => setIsSubEditModalOpen(false)}
+                      style={styles.modalCancelBtn}
+                      disabled={subEditLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      style={styles.modalSaveBtn}
+                      disabled={subEditLoading}
+                    >
+                      {subEditLoading ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="spinner"></span>
+                          <span>Saving...</span>
+                        </span>
+                      ) : (
+                        'Save Details'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2240,5 +2294,42 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.2s ease',
+  },
+  modalCancelBtn: {
+    padding: '12px 20px',
+    borderRadius: '8px',
+    border: '1px solid var(--color-border)',
+    backgroundColor: 'transparent',
+    color: 'var(--color-text-muted)',
+    fontWeight: '600',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'var(--transition)',
+  },
+  lifetimeBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(234, 88, 12, 0.1)',
+    border: '1px solid rgba(234, 88, 12, 0.2)',
+    color: '#F97316',
+    fontSize: '14px',
+    marginBottom: '16px',
+  },
+  infoLabel: {
+    fontSize: '11px',
+    fontWeight: '600',
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: '4px',
+    display: 'block',
+  },
+  infoValue: {
+    fontSize: '14px',
+    color: 'var(--color-text)',
+    fontWeight: '600',
+    display: 'block',
   },
 };
