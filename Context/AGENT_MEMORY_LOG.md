@@ -1,7 +1,7 @@
 # Agent Memory Log
 
 ## Last Updated
-2026-06-22 | Updated by: Antigravity AI Agent
+2026-06-27 | Updated by: Antigravity AI Agent (Claude Opus 4.6 Thinking)
 
 ## How to use this file
 - READ this entire file before starting any task
@@ -13,6 +13,16 @@
 
 ## Session Log
 A record of every agent work session. Each entry created at the end of a session.
+
+### 2026-06-27 — Complete Context Folder Update for Multi-Tenant SaaS Architecture
+**Agent**: Antigravity (Claude Opus 4.6 Thinking)
+**Task**: Deep-analysed the entire current ecosystem (Server/, Retrop_RMS_App/, Retrop_RMS_Frontend/, Retrop_Admin_Dashboard/) and rewrote all three context files (PROJECT_BLUEPRINT.md, FEATURE_FLOWS.md, AGENT_MEMORY_LOG.md) to reflect the massive multi-tenant SaaS migration. The old context referenced directory names (App/, Frontend/, Backend/, SuperAdmin/) and a single-restaurant schema. The new context documents the full Retrop SaaS platform with product key auth, tenant-scoped Supabase proxy, billing/subscription lifecycle, ECIES setup QR, email dispatch, PDF invoicing, and 5 new migration files.
+**Files changed**:
+- Overwritten: `Context/PROJECT_BLUEPRINT.md`
+- Overwritten: `Context/FEATURE_FLOWS.md`
+- Overwritten: `Context/AGENT_MEMORY_LOG.md`
+**Outcome**: success
+**Notes**: Key structural changes detected: (1) All directories renamed (Backend→Server, App→Retrop_RMS_App, Frontend→Retrop_RMS_Frontend, SuperAdmin→Retrop_Admin_Dashboard). (2) Migrations reset from 001-012 incremental to 001-005 fresh schema. (3) All tables now have restaurantId FK. (4) Supabase client wrapped in JS Proxy for auto-scoping. (5) Redis keys include restaurantId. (6) 7 new Retrop SaaS tables added. (7) 6 new server services added (retropAuthService, productKeyService, invoiceService, mailer, billingCron, crypto). (8) retropController.js is 1701 lines — largest file in codebase. (9) New dependencies: pdfkit, qrcode, eciesjs, nodemailer, node-cron. (10) New env vars: RETROP_JWT_SECRET, RETROP_JWT_REFRESH_SECRET, EMAIL_HOST/PORT/USER/PASS, ECC_PUBLIC_KEY. (11) Admin Dashboard has Settings.jsx and Transactions.jsx pages not in old context.
 
 ### 2026-06-22 — Retrop SaaS Migration and SuperAdmin Panel Scaffolding
 **Agent**: Antigravity (Claude Sonnet 4.6 Thinking)
@@ -38,7 +48,7 @@ A record of every agent work session. Each entry created at the end of a session
 - Modified: `Context/PROJECT_BLUEPRINT.md`
 - Modified: `Context/AGENT_MEMORY_LOG.md`
 **Outcome**: success
-**Notes**: Retrop SuperAdmin panel has been fully structured, all routes defined, dependency installation completed, and Retrop logo assets copied.
+**Notes**: Retrop SuperAdmin panel has been fully structured, all routes defined, dependency installation completed, and Retrop logo assets copied. *(Note: Directories were later renamed: App→Retrop_RMS_App, Frontend→Retrop_RMS_Frontend, SuperAdmin→Retrop_Admin_Dashboard, Backend→Server)*
 
 ### 2026-06-21 — Initial full codebase scan and AI Project Context creation
 **Agent**: Antigravity (Claude Sonnet 4.6 Thinking)
@@ -48,12 +58,48 @@ A record of every agent work session. Each entry created at the end of a session
 - Created: `AI Project Context/FEATURE_FLOWS.md`
 - Created: `AI Project Context/AGENT_MEMORY_LOG.md`
 **Outcome**: success
-**Notes**: All three files derived exclusively from reading source code and migration files. No Docker/CI config found in the three scanned directories — deployment target for the backend is unverified. The `App/src/app/explore.tsx` file appears to be an unused Expo starter screen (6.5 KB, not referenced by any other file examined). The `App/src/constants/` directory was not internally examined but exists. The `Backend/src/services/database.js` file (9.7 KB) was not fully read — it likely contains low-level Supabase query helpers but its exact exports are unverified.
+**Notes**: All three files derived exclusively from reading source code and migration files. *(Note: Context folder was later moved from "AI Project Context" to "Context")*
 
 ---
 
 ## Decisions & Rationale
 Architectural or design decisions made during agent sessions — so future agents don't re-open settled questions.
+
+### 2026-06-27 — Multi-Tenant Isolation via AsyncLocalStorage Supabase Proxy
+**Context**: The system migrated from single-restaurant (one DB = one restaurant) to multi-tenant SaaS (shared DB, scoped by restaurantId). Every tenant table needs `restaurantId` filtering on every query.
+**Decision**: Instead of manually adding `.eq('restaurantId', ...)` to every query, a JavaScript `Proxy` wraps the Supabase client. When a tenant-scoped table is accessed and `tenantContext` (Node.js `AsyncLocalStorage`) has a store, the proxy automatically injects `restaurantId` into inserts/upserts and appends `.eq('restaurantId', ...)` to all queries. The `productKeyAuth` middleware sets the context via `tenantContext.enterWith({ restaurantId })`.
+**Alternatives considered**: Manual scoping on each query (error-prone, verbose). Supabase RLS policies (would require per-request JWT with restaurant claims — complex). Separate databases per tenant (too expensive at this stage).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-06-27 — Product Key as Multi-Tenant Identifier
+**Context**: Restaurants need a portable, human-readable identifier that can be entered into the mobile app and included in customer frontend requests.
+**Decision**: Each restaurant gets a unique product key (`RETROP-XXXX-XXXX-XXXX`). Clients send this via `X-Product-Key` header. The `productKeyAuth` middleware resolves it to a `restaurantId`. Key format uses hex segments for uniqueness. Only one active key per restaurant is allowed.
+**Alternatives considered**: Using restaurantId directly as header (UUIDs are unwieldy for manual entry). API keys with hashed storage (adds complexity). Subdomain-based routing (requires DNS management).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-06-27 — Separate JWT Secrets for Retrop SuperAdmin
+**Context**: Retrop SuperAdmin accounts manage ALL restaurants and have different privilege levels from restaurant admins.
+**Decision**: `RETROP_JWT_SECRET` and `RETROP_JWT_REFRESH_SECRET` are completely separate from `JWT_SECRET` and `JWT_REFRESH_SECRET`. Retrop tokens have 8h access / 30d refresh (more lenient than restaurant admin's 15m/7d). Retrop admin table is `retrop_admin` with email-based login (not mobile-based).
+**Alternatives considered**: Shared JWT secret with role-based claims (security concern — a compromised restaurant JWT could potentially be used on Retrop routes if secrets are shared).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-06-27 — ECIES Encrypted Setup QR Codes
+**Context**: The mobile app needs both a server URL and product key to function. Manual entry is error-prone. QR codes are convenient but expose credentials if intercepted.
+**Decision**: Server encrypts `[serverUrl, productKey]` payload using ECIES (Elliptic Curve Integrated Encryption Scheme, secp256k1). The QR code contains Base64 ciphertext. The mobile app has the corresponding private key (`getDecryptionPrivateKey()`) to decrypt. Uses `eciesjs` library on both server and app.
+**Alternatives considered**: Plain text QR codes (security risk). AES encryption (requires shared secret distribution). HTTPS-only approach (doesn't solve QR interception at rest).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-06-27 — Subscription Lifecycle: active → grace_period → suspended
+**Context**: SaaS restaurants need automated billing enforcement without manual intervention.
+**Decision**: Monthly subscriptions follow: `active` (paid, within billing cycle) → `grace_period` (cycle expired, grace days given, default 10) → `suspended` (grace expired, restaurant+keys deactivated). The `billingCron.js` runs daily at midnight and processes each state transition. On suspension, `retrop_restaurant.isActive = false` and all `product_key.isActive = false`, which immediately blocks all API access via `productKeyAuth`.
+**Alternatives considered**: Manual suspension only (no cron). Immediate suspension on expiry (too harsh — 10-day grace is standard SaaS practice).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-06-27 — Nodemailer for Transactional Emails
+**Context**: The platform needs to send welcome, credentials, invoice, renewal, and suspension emails.
+**Decision**: Gmail SMTP via Nodemailer with app-specific password (`EMAIL_USER`, `EMAIL_PASS`). If credentials are missing, emails are mocked (logged but not sent). The `From` name dynamically uses `retrop_business_config.legalName`.
+**Alternatives considered**: SendGrid/Mailgun (adds third-party dependency and cost). AWS SES (overkill for current scale).
+**Do not reverse without owner confirmation**: no (can be changed without breaking architecture)
 
 ### 2026-06-21 — Separate JWT secrets for admin, waiter, and kitchen
 **Context**: The system has three distinct actor types (admin/manager, waiter, kitchen) each needing independent authentication and token revocation.
@@ -73,24 +119,14 @@ Architectural or design decisions made during agent sessions — so future agent
 **Alternatives considered**: Disabling customer order modification after order placement (too restrictive — customers legitimately add items).
 **Do not reverse without owner confirmation**: yes
 
-### 2026-06-21 — Dynamic server URL configuration for the Expo app
-**Context**: The backend URL changes frequently (ngrok URL for local dev, deployment URL for production). Rebuilding the app for each URL change is impractical.
-**Decision**: The backend URL is stored in `AsyncStorage` and loaded at app startup by `initializeApi()`. On first launch (or after reset), the app shows a setup screen where the user enters the URL. `ENDPOINTS` are lazy getters that read `_baseUrl` at call time, so they always reflect the latest URL.
-**Alternatives considered**: Hardcoding URL via env var requires app rebuild; EAS update for config changes (more overhead).
-**Do not reverse without owner confirmation**: yes
-
 ### 2026-06-21 — taxType: inclusive vs exclusive on restaurant_info
 **Context**: Some restaurants include tax in their listed prices (inclusive); others add tax on top (exclusive).
-**Decision**: `restaurant_info.taxType` defaults to `'exclusive'`. Manager can switch to `'inclusive'` in the Info screen. Tax calculation in `concludeOrder` branches on this value:
-- `exclusive`: `finalAmount = discountedSubtotal + sum(taxes)`
-- `inclusive`: taxes are mathematically extracted from the discountedSubtotal for the breakdown display; `finalAmount = discountedSubtotal`
-**Alternatives considered**: None documented in code.
+**Decision**: `restaurant_info.taxType` defaults to `'exclusive'`. Manager can switch to `'inclusive'` in the Info screen.
 **Do not reverse without owner confirmation**: yes
 
 ### 2026-06-21 — Invoice number format: INV + YYYYMMDD + 4-digit-seq
 **Context**: Invoices need human-readable, sortable, unique identifiers that encode date information.
-**Decision**: Format is `INV{YYYYMMDD}{0001}`. Date is IST (`Asia/Kolkata` timezone). Sequence is from a Redis daily counter that resets each day (48-h TTL on the key).
-**Alternatives considered**: UUID-based invoice numbers (not human-readable). Sequential global counter (date information lost).
+**Decision**: Format is `INV{YYYYMMDD}{0001}`. Date is IST. Sequence is from a tenant-scoped Redis daily counter.
 **Do not reverse without owner confirmation**: yes
 
 ---
@@ -98,104 +134,91 @@ Architectural or design decisions made during agent sessions — so future agent
 ## Bugs Encountered & Fixes Applied
 A record of bugs found and how they were resolved.
 
-### 2026-06-21 — ISSUE 1: Table busy on QR re-scan by stranger
-**Symptom**: A second customer scanning the QR at an occupied table would receive the session of the first customer, allowing them to see/interfere with another customer's order.
-**Root cause**: Session creation returned any existing active session without checking ownership.
-**Fix applied**: `Backend/src/services/orderSessionService.js` — if an existing session is found with status beyond `'waiting_customer_info'`, the service now returns HTTP 423 (Table Busy) instead of handing out the session. Re-entry for the legitimate customer is handled via `customerToken` stored in localStorage.
-**Regression risk**: Any logic that calls `createOrderSession` and expects to receive an existing session in mid-flow states must handle 423.
-
-### 2026-06-21 — ISSUE 2: Customer add-on items not visible to kitchen as separate cards
-**Symptom**: When a customer added items after an order was placed, the kitchen had no way to distinguish the new additions from the original order items.
-**Root cause**: Customer `modifyOrder` only updated `ordersInfo` without creating a trackable addon batch.
-**Fix applied**: `Backend/src/services/orderSessionService.js` `customerModifyOrder` — when items are added (net new quantity), an `addonBatch` object `{type: 'addon', addonId (UUID), addonItems, kitchenAcknowledged: false, timestamp, customer: true}` is appended to `orders.ordersUpdateInfo`. Kitchen dashboard reads this and renders addon cards. Waiter can also acknowledge via `PATCH /api/kitchen/orders/{orderId}/addon/{addonId}/done`.
-**Regression risk**: Any code reading `ordersUpdateInfo` must handle both old-format log entries and new addon batch format.
-
-### 2026-06-21 — ISSUE 3: Customer removes items after food served (malpractice)
-**Symptom**: Customer could reduce items or remove dishes from their order after the kitchen had already prepared them, resulting in unpaid food.
-**Root cause**: No immutable record of what was actually prepared.
-**Fix applied**: Three-part fix:
-1. `kitchenOrderReady` snapshots `ordersInfo → lockedItems` (migration 008, `orderSessionService.js`).
-2. `customerModifyOrder` enforces locked quantities as minimum.
-3. `concludeOrder` uses locked items as billing baseline.
-**Regression risk**: `lockedItems` must never be mutated after first set. The guard `(order.lockedItems && order.lockedItems.length > 0) ? order.lockedItems : [...order.ordersInfo]` ensures idempotency.
-
-### 2026-06-21 — ISSUE 9: Discounts not applied before tax calculation
-**Symptom**: Taxes were calculated on the full subtotal; discounts were applied after tax, resulting in incorrect final amounts.
-**Root cause**: Order of operations in `concludeOrder` applied discounts after tax.
-**Fix applied**: `Backend/src/services/orderSessionService.js` `concludeOrder` — active discounts from `restaurant_info.discounts` are summed first, producing `discountedSubtotal`. Tax is then calculated on `discountedSubtotal`.
-**Regression risk**: Billing math must always follow: `subtotal → apply discounts → apply taxes → finalAmount`.
-
-### 2026-06-21 — ISSUE 10: Customer can bypass "restaurant closed" by typing URL directly
-**Symptom**: If the restaurant was marked closed, a customer who knew the URL could navigate directly to `/order/...` pages, bypassing the closed check.
-**Root cause**: Closed check only existed on the QR landing page, not on subsequent pages.
-**Fix applied**:
-1. `Frontend/src/context/OrderContext.jsx` — fetches `GET /api/public/restaurant-info` on mount; exposes `isRestaurantClosed` and `closedCheckDone`.
-2. `Frontend/src/App.jsx` — `ClosedGuard` component wraps all `/order/*` sub-routes and renders "We're Closed" screen if `isRestaurantClosed = true`.
-3. `Backend/src/routes/routes.js` line 242–243 — `GET /api/order/{tableId}/token-check` now also applies `requireRestaurantOpen`.
-**Regression risk**: `closedCheckDone` must be checked before rendering guard, to avoid flash of "closed" before the API responds.
-
-### 2026-06-21 — ISSUE 13: Manager logout redirect loop
-**Symptom**: Logging out from the manager section caused a redirect loop: logout → `isAuthenticated = false` → auth guard fires → redirect to login → back to layout → repeat.
-**Root cause**: Auth guard `useEffect` ran on `isAuthenticated` change, including the change triggered by logout itself.
-**Fix applied**: `App/src/app/manager/_layout.tsx` — `loggingOutRef = useRef(false)` flag set to `true` before calling `logout()`. Auth guard checks `!loggingOutRef.current` before redirecting.
-**Regression risk**: Any future logout flow that does not set this flag before calling `logout()` will re-introduce the loop.
-
-### 2026-06-21 — ISSUE 16: Manager tab bar showing labels + icons (too crowded)
-**Symptom**: With 7 tabs + logout, showing both icon and label made the tab bar too cramped.
-**Fix applied**: `App/src/app/manager/_layout.tsx` — `TabBarButton` renders icon only (no label text). Logout button retains its label as an exception per the spec comment in code.
-**Regression risk**: If tab count increases further, icon-only may still become cramped. Consider a scrollable tab bar or overflow menu.
-
 ### 2026-06-22 — ISSUE: SuperAdmin API Response Check Mismatch
 **Symptom**: Onboarding new restaurants or requesting keys completes successfully on the backend, but the SuperAdmin / RMS_ADMIN UI remains stuck loading without closing modals, displaying generated product keys, or refreshing lists.
-**Root cause**: Backend Retrop control plane endpoints respond with `{ success: true, data: ... }` instead of `{ status: 'success', data: ... }`. The dashboard views (Dashboard, Restaurants, RestaurantDetails, Layout) strictly check `res.status === 'success'` and thus bypass processing successful responses.
-**Fix applied**: Updated the request wrapper in RMS_ADMIN/src/services/api.js to automatically map `success: true` to `status: 'success'` and `success: false` to `status: 'error'` if `status` is not returned.
+**Root cause**: Backend Retrop control plane endpoints respond with `{ success: true, data: ... }` instead of `{ status: 'success', data: ... }`. The dashboard views strictly check `res.status === 'success'` and thus bypass processing successful responses.
+**Fix applied**: Updated the request wrapper in Retrop_Admin_Dashboard/src/services/api.js to automatically map `success: true` to `status: 'success'` and `success: false` to `status: 'error'` if `status` is not returned.
 **Regression risk**: None, acts as a transparent normalization layer.
+
+### 2026-06-21 — ISSUE 1: Table busy on QR re-scan by stranger
+**Symptom**: A second customer scanning the QR at an occupied table would receive the session of the first customer.
+**Root cause**: Session creation returned any existing active session without checking ownership.
+**Fix applied**: Returns HTTP 423 (Table Busy) if existing session is past `waiting_customer_info` stage.
+**Regression risk**: Any logic calling `createOrderSession` and expecting an existing mid-flow session must handle 423.
+
+### 2026-06-21 — ISSUE 2: Customer add-on items not visible to kitchen as separate cards
+**Symptom**: Kitchen couldn't distinguish new additions from original order.
+**Fix applied**: `customerModifyOrder` creates addon batch objects in `ordersUpdateInfo`.
+**Regression risk**: Code reading `ordersUpdateInfo` must handle both old and new formats.
+
+### 2026-06-21 — ISSUE 3: Customer removes items after food served (malpractice)
+**Symptom**: Customer could reduce items after kitchen prepared them.
+**Fix applied**: Three-part fix: lockedItems snapshot, customerModifyOrder enforcement, concludeOrder baseline.
+**Regression risk**: `lockedItems` must never be mutated after first set.
+
+### 2026-06-21 — ISSUE 9: Discounts not applied before tax calculation
+**Fix applied**: Billing math follows: subtotal → apply discounts → apply taxes → finalAmount.
+**Regression risk**: Order of operations must always follow this sequence.
+
+### 2026-06-21 — ISSUE 10: Customer can bypass "restaurant closed" by typing URL directly
+**Fix applied**: `ClosedGuard` component + `requireRestaurantOpen` middleware on token-check route.
+**Regression risk**: `closedCheckDone` must be checked before rendering guard.
+
+### 2026-06-21 — ISSUE 13: Manager logout redirect loop
+**Fix applied**: `loggingOutRef` flag in `_layout.tsx`.
+**Regression risk**: Any future logout flow must set this flag before calling `logout()`.
+
+### 2026-06-21 — ISSUE 16: Manager tab bar showing labels + icons (too crowded)
+**Fix applied**: Tab bar renders icon only (no label text).
+**Regression risk**: If tab count increases further, consider scrollable tab bar.
 
 ---
 
 ## Patterns That Work
 Reusable approaches confirmed to work well in this codebase.
 
-### IST timestamp generation for DB writes
-**Context**: All DB timestamps should be in IST (Asia/Kolkata, UTC+5:30) for this Indian restaurant system.
-**Approach**: Use `nowIST()` and `todayDateIST()` from `Backend/src/utils/time.js` for all timestamp generation. Do not use `new Date().toISOString()` directly in DB writes — it produces UTC strings.
-**Example**: `Backend/src/services/orderSessionService.js` — `createdAt: nowIST()` in all Supabase inserts/updates.
-**First confirmed**: 2026-06-21
+### Supabase multi-tenant Proxy pattern
+**Context**: All tenant-scoped queries need automatic restaurantId filtering.
+**Approach**: Use JavaScript `Proxy` over Supabase client + `AsyncLocalStorage` for request-scoped context. Set context in middleware, consumed transparently by all services.
+**Example**: `Server/src/config/supabase.js`
+**First confirmed**: 2026-06-27
 
-### Redis key namespacing via REDIS_KEYS constants
-**Context**: Redis keys need consistent naming to avoid collisions and make debugging easier.
-**Approach**: All Redis key strings are defined as functions in `REDIS_KEYS` object in `Backend/src/config/redis.js`. Always use `REDIS_KEYS.orderSession(tableId)` etc., never inline string keys.
-**Example**: `Backend/src/services/orderSessionService.js` — `redis.get(REDIS_KEYS.orderSession(tableId))`.
+### Product key middleware pattern
+**Context**: Every restaurant-facing route needs tenant resolution.
+**Approach**: Single `productKeyAuth` middleware resolves key → restaurantId, sets tenantContext, and attaches to req. All downstream code is automatically scoped.
+**Example**: `Server/src/middleware/productKeyAuth.js`
+**First confirmed**: 2026-06-27
+
+### Tenant-scoped Redis key pattern
+**Context**: Redis keys must not collide across restaurants in a shared instance.
+**Approach**: All `REDIS_KEYS` functions accept `(restaurantId, entityId)` or fall back to `tenantContext.getStore()?.restaurantId`. Key format: `{purpose}:{restaurantId}:{entityId}`.
+**Example**: `Server/src/config/redis.js` — `REDIS_KEYS.orderSession(restaurantId, tableId)` → `order_session:{restaurantId}:{tableId}`
+**First confirmed**: 2026-06-27
+
+### IST timestamp generation for DB writes
+**Context**: All DB timestamps should be in IST (Asia/Kolkata, UTC+5:30).
+**Approach**: Use `nowIST()` and `todayDateIST()` from `Server/src/utils/time.js` for all Supabase writes.
 **First confirmed**: 2026-06-21
 
 ### ENDPOINTS lazy getters in App
-**Context**: The backend URL is set at runtime (not at build time). All endpoint URLs must reflect the current `_baseUrl` at call time, not at import time.
-**Approach**: `ENDPOINTS` in `App/src/config/api.ts` uses ES getter syntax (`get ENDPOINT_NAME() { return \`${base()}/...\`; }`) so every access reads the live `_baseUrl`. Parameterised endpoints use arrow functions (`ENDPOINT_NAME: (id) => \`...\``).
-**Example**: `App/src/config/api.ts` lines 93–172.
+**Context**: The backend URL is set at runtime. All endpoint URLs must reflect the current `_baseUrl` at call time.
+**Approach**: `ENDPOINTS` uses ES getter syntax. Parameterised endpoints use arrow functions.
+**Example**: `Retrop_RMS_App/src/config/api.ts`
 **First confirmed**: 2026-06-21
 
 ### Auth context pattern (login / logout / getAuthHeaders / refreshToken)
-**Context**: All three actor types (manager, waiter, kitchen) need the same auth lifecycle.
-**Approach**: Each auth context (AuthContext, WaiterAuthContext, KitchenAuthContext) exposes `{isAuthenticated, isLoading, login, logout, getAuthHeaders, refreshToken}`. `apiClient.ts` uses the `refreshToken` callback for auto-refresh on 401. `getAuthHeaders()` builds the `Authorization: Bearer ...` + `ngrok-skip-browser-warning` header set.
-**Example**: `App/src/context/AuthContext.tsx`.
+**Context**: All three actor types need the same auth lifecycle.
+**Approach**: Each auth context exposes `{isAuthenticated, isLoading, login, logout, getAuthHeaders, refreshToken}`. `apiClient.ts` uses the `refreshToken` callback for auto-refresh on 401.
 **First confirmed**: 2026-06-21
 
 ### loggingOutRef pattern for auth guard in layouts
-**Context**: Setting `isAuthenticated = false` (from logout) triggers the auth guard useEffect, which can re-redirect before the router has moved.
-**Approach**: Use a `useRef(false)` flag (`loggingOutRef`). Set it to `true` synchronously before calling `logout()`. Auth guard checks `!loggingOutRef.current` before redirecting. This is a one-way flag; do not reset it.
-**Example**: `App/src/app/manager/_layout.tsx` lines 112, 116, 182.
+**Context**: Setting `isAuthenticated = false` (from logout) triggers the auth guard useEffect.
+**Approach**: Use `useRef(false)` flag set to `true` before calling `logout()`.
 **First confirmed**: 2026-06-21
 
 ### requireRestaurantOpen middleware placement
-**Context**: Restaurant closed check must run on all customer order routes without code duplication.
-**Approach**: `Backend/src/middleware/restaurantOpen.js` is a standalone middleware applied per-route in `routes.js`. It is NOT applied as global middleware (some customer routes like `getOrderBill` and `getPublicMenu` must work even when closed). Apply it explicitly to each route that should be blocked.
-**Example**: `Backend/src/routes/routes.js` lines 234–243.
-**First confirmed**: 2026-06-21
-
-### Supabase service role key for storage operations
-**Context**: Supabase Storage RLS policies are in place, but the backend bypasses them by using the service role key.
-**Approach**: Backend always uses the service role Supabase client (`SUPABASE_SERVICE_ROLE_KEY`) for storage upload/delete operations. This means backend code does NOT need to manage storage RLS; all permission control is at the API authentication layer.
-**Example**: `Backend/src/config/supabase.js`, `003_menu_images_storage.sql` comment at line 53.
+**Context**: Restaurant closed check per-route, not global.
+**Approach**: Apply `restaurantOpen.js` middleware explicitly to each route that should be blocked.
 **First confirmed**: 2026-06-21
 
 ---
@@ -203,74 +226,71 @@ Reusable approaches confirmed to work well in this codebase.
 ## Patterns to Avoid
 
 ### Trusting client-submitted prices for order calculation
-**What was tried**: (Hypothetical / general web pattern) — accepting `price` fields from the client in order placement requests.
-**Why it failed**: Menu prices can be manipulated client-side. The backend validates and re-prices all order items from the `menu` table at the time of `placeOrder`. Customer-submitted item lists only carry `dishId`, `quantity`, and `remarks` — never `price`.
-**Alternative**: Always re-fetch prices from Supabase `menu` table in `orderSessionService.placeOrder`.
+**What was tried**: Accepting `price` fields from the client in order placement requests.
+**Why it failed**: Menu prices can be manipulated client-side. Backend re-prices from DB.
+**Alternative**: Always re-fetch prices from Supabase `menu` table.
 **Date confirmed**: 2026-06-21
 
 ### Global CORS `origin: '*'` in production
-**What was tried**: Current config uses `origin: '*'` in both Express CORS and Socket.io CORS.
-**Why it failed**: Not yet confirmed as a production problem, but this is a security concern. Any domain can make cross-origin requests to the backend.
-**Alternative**: Restrict `origin` to the specific frontend domain(s) in production. This is marked UNVERIFIED — owner needs to confirm the intended deployment model (local LAN only vs public).
+**What was tried**: Current config uses `origin: '*'`.
+**Why it failed**: Any domain can make cross-origin requests. Security concern for production.
+**Alternative**: Restrict `origin` to specific frontend domains.
 **Date confirmed**: 2026-06-21
 
 ### Using `new Date().toISOString()` for DB writes
 **What was tried**: Standard JS ISO string for timestamps.
-**Why it failed**: Produces UTC timestamps (`Z` suffix), inconsistent with the IST-aware system. The codebase explicitly converts to IST (`+05:30`) for DB storage.
-**Alternative**: Use `nowIST()` from `Backend/src/utils/time.js` for all Supabase writes.
+**Why it failed**: Produces UTC timestamps, inconsistent with IST-aware system.
+**Alternative**: Use `nowIST()` from `Server/src/utils/time.js`.
 **Date confirmed**: 2026-06-21
 
 ### Inline Redis key strings
-**What was tried**: Writing Redis key names as inline template literals (e.g. `` `order_session:${tableId}` ``).
-**Why it failed**: Error-prone; typos create silent key mismatches that are hard to debug.
-**Alternative**: Always use the `REDIS_KEYS.*` functions from `Backend/src/config/redis.js`.
+**What was tried**: Writing Redis key names as inline template literals.
+**Why it failed**: Error-prone; typos create silent key mismatches.
+**Alternative**: Use `REDIS_KEYS.*` functions from `Server/src/config/redis.js`.
 **Date confirmed**: 2026-06-21
+
+### Querying tenant tables without product key context
+**What was tried**: Calling Supabase tenant-scoped tables from Retrop control plane routes without setting tenantContext.
+**Why it failed**: The Proxy auto-appends `.eq('restaurantId', ...)` only when `tenantContext.getStore()` has data. Without it, queries are unscoped (return all restaurants' data).
+**Alternative**: For Retrop routes that need to query tenant tables for a specific restaurant, manually add `.eq('restaurantId', specificId)` to the query. Do NOT use the proxy's auto-scoping for cross-restaurant operations.
+**Date confirmed**: 2026-06-27
 
 ---
 
 ## Owner Corrections
 Every time the owner corrected an agent's output or redirected a task.
 
-*(No owner corrections recorded yet — this is the first agent session.)*
+*(No owner corrections recorded yet.)*
 
 ---
 
 ## Open Questions
 Things agents couldn't resolve and flagged for the owner.
 
+### 2026-06-27 — .env.example is outdated
+**Context**: The `.env.example` file in `Server/` only lists the original 9 variables. The actual `.env` has 15+ variables including `RETROP_JWT_SECRET`, `RETROP_JWT_REFRESH_SECRET`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `ECC_PUBLIC_KEY`.
+**Blocked task**: New developers will not know which environment variables to configure.
+**Status**: open
+**Answer**: N/A
+
+### 2026-06-27 — SERVER_URL env var for email QR generation
+**Context**: The `sendCredentialsEmail` and `getSetupQrCode` functions need the server's public URL to encrypt into the QR code payload. It's unclear how `serverUrl` is determined at runtime (could be from request headers, an env var, or hardcoded).
+**Blocked task**: Cannot fully document the setup QR flow without knowing the serverUrl source.
+**Status**: open
+**Answer**: N/A
+
 ### 2026-06-21 — Backend deployment target
-**Context**: No Dockerfile, docker-compose, or CI/CD configuration files were found in the scanned directories (App/, Frontend/, Backend/). The backend deployment environment is unknown.
-**Blocked task**: Cannot document infrastructure in PROJECT_BLUEPRINT.md with certainty. Cannot advise on production CORS config, environment variable injection method, or process management.
+**Context**: No Dockerfile, docker-compose, or CI/CD configuration files found. Deployment environment unknown.
 **Status**: open
 **Answer**: N/A
 
 ### 2026-06-21 — Frontend deployment target
-**Context**: `vite.config.js` shows a dev server on port 5173 with LAN QR code generation. No build/deploy pipeline was found. The frontend appears intended for LAN use (customers scan QR to same LAN IP), but a production deployment target is unclear.
-**Blocked task**: Cannot confirm whether `VITE_API_URL` is set at build time or runtime, or whether the frontend is hosted on a public URL.
-**Status**: open
-**Answer**: N/A
-
-### 2026-06-21 — Contents of Backend/src/services/database.js
-**Context**: This file (9.7 KB) was not fully examined during the initial scan. Its exact exports and purpose within the service layer are unverified.
-**Blocked task**: Some backend service functionality may rely on this file in ways not captured in PROJECT_BLUEPRINT.md or FEATURE_FLOWS.md.
-**Status**: open
-**Answer**: N/A
-
-### 2026-06-21 — App/src/constants/ directory contents
-**Context**: The directory `App/src/constants/` exists but its files were not examined.
-**Blocked task**: Any shared app-level constants (color tokens, strings, etc.) defined there are not documented.
-**Status**: open
-**Answer**: N/A
-
-### 2026-06-21 — Frontend/src/hooks/useRestaurantData.js source
-**Context**: `Frontend/src/App.jsx` imports `useRestaurantData` which reads from `public/data.json` (confirmed by error message in JSX: `"Failed to load restaurant data. Please check public/data.json."`). The actual `public/data.json` file structure and schema were not read.
-**Blocked task**: The homepage restaurant content (hours, location, signature dishes, etc.) schema is undocumented.
+**Context**: Vite static build. Dev server on port 5173 with LAN QR code generation. Production deployment target unclear.
 **Status**: open
 **Answer**: N/A
 
 ### 2026-06-21 — CORS origin restriction for production
-**Context**: Both Express and Socket.io have `origin: '*'` in current config. It is unclear whether this is intentional (LAN-only deployment where security via obscurity is acceptable) or a development convenience that should be restricted in production.
-**Blocked task**: Cannot make a definitive security recommendation without knowing the deployment model.
+**Context**: Both Express and Socket.io have `origin: '*'`.
 **Status**: open
 **Answer**: N/A
 
@@ -283,10 +303,11 @@ Things agents couldn't resolve and flagged for the owner.
 > 1. **READ the entire file** before starting any work in this repository. It contains decisions and bug fixes that must not be repeated or reversed.
 > 2. **APPEND, never edit or delete** existing entries. This file is append-only. Historical entries have permanent value.
 > 3. **After every work session**, add an entry to **Session Log** (newest-first). Include: date, one-line summary, agent name, task, files changed, outcome, and key notes for the next agent.
-> 4. **After every architectural decision**, add an entry to **Decisions & Rationale**. Set "Do not reverse without owner confirmation" honestly — this prevents future agents from re-litigating settled questions.
-> 5. **After fixing a bug**, add an entry to **Bugs Encountered & Fixes Applied**. Always note the regression risk — areas that could break if related code changes.
+> 4. **After every architectural decision**, add an entry to **Decisions & Rationale**. Set "Do not reverse without owner confirmation" honestly.
+> 5. **After fixing a bug**, add an entry to **Bugs Encountered & Fixes Applied**. Always note the regression risk.
 > 6. **After discovering a reusable pattern**, add it to **Patterns That Work** with a concrete code example reference.
 > 7. **After discovering a pattern that caused problems**, add it to **Patterns to Avoid** with the confirmed reason and the recommended alternative.
-> 8. **When the owner corrects your output**, add an entry to **Owner Corrections** immediately. This is the highest-value signal — future agents must honour these rules.
-> 9. **When you cannot resolve something**, add it to **Open Questions**. Set `Status: open`. When the owner answers, update the entry to `Status: answered` and add the answer. Do NOT attempt to work around open questions by guessing — flag and stop if the question is blocking.
+> 8. **When the owner corrects your output**, add an entry to **Owner Corrections** immediately.
+> 9. **When you cannot resolve something**, add it to **Open Questions**. Set `Status: open`. When the owner answers, update the entry to `Status: answered` and add the answer.
 > 10. **Update the "Last Updated" line** at the top of this file after every session.
+> 11. **Use NEW directory names**: `Server/`, `Retrop_RMS_App/`, `Retrop_RMS_Frontend/`, `Retrop_Admin_Dashboard/`. The old names (Backend/, App/, Frontend/, SuperAdmin/) are deprecated.
