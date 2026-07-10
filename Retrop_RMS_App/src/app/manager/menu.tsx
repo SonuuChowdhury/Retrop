@@ -40,6 +40,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
+import { router } from 'expo-router';
 
 // ============================================================================
 // TYPES
@@ -84,6 +85,8 @@ function DishFormModal({
   onSuccess,
   colors,
   getAuthHeaders,
+  showWarning,
+  showError,
 }: {
   visible: boolean;
   dish: MenuItem | null;
@@ -1027,7 +1030,12 @@ export default function MenuScreen() {
     <View style={[styles.container, { backgroundColor: c.background }]}>
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.pageTitle, { color: c.text }]}>Menu</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 4 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={c.text} />
+          </Pressable>
+          <Text style={[styles.pageTitle, { color: c.text }]}>Menu</Text>
+        </View>
         <Pressable
           onPress={() => { setEditingDish(null); setShowForm(true); }}
           style={[styles.addBtn, { backgroundColor: c.primary }]}

@@ -60,6 +60,8 @@ export function AppDialog({ visible, config, onDismiss }: AppDialogProps) {
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
+  const AnimatedView = Animated.View as any;
+
   useEffect(() => {
     if (visible) {
       Animated.parallel([
@@ -122,13 +124,13 @@ export function AppDialog({ visible, config, onDismiss }: AppDialogProps) {
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
       {/* Backdrop */}
-      <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
+      <AnimatedView style={[styles.backdrop, { opacity: backdropAnim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
-      </Animated.View>
+      </AnimatedView>
 
       {/* Dialog Card */}
       <View style={styles.centeredContainer} pointerEvents="box-none">
-        <Animated.View
+        <AnimatedView
           style={[
             styles.card,
             {
@@ -196,7 +198,7 @@ export function AppDialog({ visible, config, onDismiss }: AppDialogProps) {
               );
             })}
           </View>
-        </Animated.View>
+        </AnimatedView>
       </View>
     </Modal>
   );
@@ -206,7 +208,7 @@ export function AppDialog({ visible, config, onDismiss }: AppDialogProps) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   centeredContainer: {

@@ -204,7 +204,6 @@ export const retropController = {
   // RESTAURANT MANAGEMENT
   // ==========================================================================
 
-  // POST /api/retrop/restaurants
   createRestaurant: async (req, res) => {
     try {
       const { businessName, ownerName, gender, ownerMobile, ownerEmail, businessTypeId, hasGst, gstin, planId, billingCycleDays, gracePeriodDays } = req.body;
@@ -216,7 +215,51 @@ export const retropController = {
         });
       }
 
-      // Create restaurant registry entry
+      // 1. Check if owner already exists
+      let ownerId = null;
+      let defaultPassword = null;
+      
+      const { data: existingOwner, error: ownerCheckError } = await supabase
+        .from('retrop_owner')
+        .select('ownerId')
+        .eq('mobile', ownerMobile.trim())
+        .maybeSingle();
+
+      if (ownerCheckError) {
+        logger.error('Check existing owner error', ownerCheckError.message);
+      }
+
+      if (existingOwner) {
+        ownerId = existingOwner.ownerId;
+      } else {
+        // Create new owner
+        defaultPassword = ownerMobile.trim().substring(0, 5) + '@password';
+        const hashedOwnerPassword = await bcrypt.hash(defaultPassword, 10);
+        const fallbackEmail = ownerEmail ? ownerEmail.trim() : `${ownerMobile.trim()}@retrop.com`;
+
+        const { data: newOwner, error: ownerCreateError } = await supabase
+          .from('retrop_owner')
+          .insert([{
+            name: ownerName.trim(),
+            email: fallbackEmail.toLowerCase(),
+            mobile: ownerMobile.trim(),
+            password: hashedOwnerPassword,
+            needsPasswordReset: true,
+            isActive: true,
+            createdAt: nowIST(),
+            updatedAt: nowIST()
+          }])
+          .select()
+          .single();
+
+        if (ownerCreateError) {
+          logger.error('Create owner DB error', ownerCreateError.message);
+          return res.status(500).json({ success: false, message: 'Failed to create restaurant owner account' });
+        }
+        ownerId = newOwner.ownerId;
+      }
+
+      // Create restaurant registry entry linked to owner
       const { data: restaurant, error } = await supabase
         .from('retrop_restaurant')
         .insert([{
@@ -224,6 +267,7 @@ export const retropController = {
           ownerName: ownerName.trim(),
           gender: gender || null,
           ownerMobile: ownerMobile.trim(),
+          ownerId: ownerId,
           isActive: true,
           businessTypeId: businessTypeId || 'restaurant',
           hasGst: hasGst || false,
@@ -242,9 +286,11 @@ export const retropController = {
         return res.status(500).json({ success: false, message: 'Failed to create restaurant' });
       }
 
-      // Bootstrap: create settings, info, and default owner admin account
+      // Bootstrap: create settings and info rows
       await bootstrapRestaurant(restaurant.restaurantId, businessName);
-      await createDefaultManager(restaurant.restaurantId, ownerName, ownerMobile, ownerEmail);
+
+      // Create owner account in the admin table as well
+      await createDefaultManager(restaurant.restaurantId, ownerName.trim(), ownerMobile.trim(), ownerEmail?.trim());
 
       // Create a pending subscription linked to pricing plan
       let subscription = null;
@@ -279,9 +325,13 @@ export const retropController = {
         success: true,
         data: {
           ...restaurant,
-          subscription
+          subscription,
+          ownerCredentials: defaultPassword ? {
+            mobile: ownerMobile,
+            defaultPassword
+          } : null
         },
-        message: `Restaurant created. Default manager login: mobile=${ownerMobile}, password=${ownerMobile}`,
+        message: `Restaurant created. Owner login: mobile=${ownerMobile}, password=${defaultPassword || '[Existing password]'}`,
       });
     } catch (err) {
       logger.error('retropController.createRestaurant error', err.message);
@@ -428,6 +478,54 @@ export const retropController = {
           .eq('role', 'owner');
       }
 
+      // Sync owner's details to the retrop_owner table
+      if (data && data.ownerId) {
+        const ownerUpdates = {};
+        if (ownerName !== undefined) ownerUpdates.name = ownerName.trim();
+        if (ownerMobile !== undefined) ownerUpdates.mobile = ownerMobile.trim();
+        if (ownerEmail !== undefined) ownerUpdates.email = ownerEmail ? ownerEmail.trim().toLowerCase() : null;
+        
+        if (Object.keys(ownerUpdates).length > 0) {
+          ownerUpdates.updatedAt = nowIST();
+          await supabase
+            .from('retrop_owner')
+            .update(ownerUpdates)
+            .eq('ownerId', data.ownerId);
+        }
+      }
+
+      // Sync GST settings to restaurant_info (GST pro-rate toggle fix)
+      if (hasGst !== undefined || gstin !== undefined) {
+        const infoUpdates = { updatedAt: nowIST() };
+        if (hasGst !== undefined) infoUpdates.isGST = Boolean(hasGst);
+        if (hasGst !== undefined) {
+          infoUpdates.GSTIN = hasGst ? (gstin?.trim()?.toUpperCase() || null) : null;
+        } else if (gstin !== undefined) {
+          infoUpdates.GSTIN = gstin?.trim()?.toUpperCase() || null;
+        }
+
+        // Auto-seed CGST/SGST if toggling GST on for the first time
+        if (hasGst === true) {
+          const { data: existingInfo } = await supabase
+            .from('restaurant_info')
+            .select('taxes')
+            .eq('restaurantId', restaurantId)
+            .maybeSingle();
+
+          if (!existingInfo?.taxes || !existingInfo.taxes.length) {
+            infoUpdates.taxes = [
+              { name: 'CGST', percent: 2.5 },
+              { name: 'SGST', percent: 2.5 }
+            ];
+          }
+        }
+
+        await supabase
+          .from('restaurant_info')
+          .update(infoUpdates)
+          .eq('restaurantId', restaurantId);
+      }
+
       logger.info(`Restaurant updated: ${restaurantId}`);
       
       const enriched = {
@@ -528,7 +626,15 @@ export const retropController = {
         'customer',
         'admin',
         'waiter',
-        'kitchen'
+        'kitchen',
+        'support_service_ticket',
+        'transaction',
+        'subscription',
+        'vendor',
+        'inventory_item',
+        'purchase_entry',
+        'recipe',
+        'stock_adjustment'
       ];
 
       for (const table of tablesToDelete) {
@@ -561,6 +667,24 @@ export const retropController = {
 
       if (!data) {
         return res.status(404).json({ success: false, message: 'Restaurant not found' });
+      }
+
+      // 4. Delete the associated owner account profile from retrop_owner
+      if (data.ownerId) {
+        try {
+          const { error: ownerDelErr } = await supabase
+            .from('retrop_owner')
+            .delete()
+            .eq('ownerId', data.ownerId);
+
+          if (ownerDelErr) {
+            logger.warn(`Failed to clean up retrop_owner profile ${data.ownerId}`, ownerDelErr.message);
+          } else {
+            logger.info(`Owner cleanup: deleted retrop_owner profile ${data.ownerId}`);
+          }
+        } catch (ownerErr) {
+          logger.warn(`Error cleaning up retrop_owner profile ${data.ownerId}`, ownerErr.message);
+        }
       }
 
       logger.info(`Restaurant deleted: ${data.businessName} (${restaurantId})`);
@@ -871,6 +995,33 @@ export const retropController = {
 
       if (!updatedAdmin) {
         return res.status(404).json({ success: false, message: 'Admin not found' });
+      }
+
+      // If the updated admin is the owner, sync to retrop_owner table
+      if (updatedAdmin.role === 'owner') {
+        const { data: restData } = await supabase
+          .from('retrop_restaurant')
+          .select('ownerId')
+          .eq('restaurantId', restaurantId)
+          .maybeSingle();
+
+        if (restData && restData.ownerId) {
+          const ownerSyncUpdates = {};
+          if (name) ownerSyncUpdates.name = name.trim();
+          if (mobile) ownerSyncUpdates.mobile = mobile.trim();
+          if (email !== undefined) ownerSyncUpdates.email = email ? email.trim().toLowerCase() : null;
+          if (isActive !== undefined) ownerSyncUpdates.isActive = isActive;
+          if (password) {
+            ownerSyncUpdates.password = await bcrypt.hash(password, 10);
+          }
+          if (Object.keys(ownerSyncUpdates).length > 0) {
+            ownerSyncUpdates.updatedAt = nowIST();
+            await supabase
+              .from('retrop_owner')
+              .update(ownerSyncUpdates)
+              .eq('ownerId', restData.ownerId);
+          }
+        }
       }
 
       return res.status(200).json({ success: true, data: updatedAdmin, message: 'Admin updated successfully' });
@@ -1629,14 +1780,14 @@ export const retropController = {
       }
       const activeKey = keys[0].keyValue;
 
-      // Fetch admins (expecting both)
+      // Fetch admins (expecting owner)
       const { data: admins, error: adminErr } = await supabase
         .from('admin')
         .select('name, mobile, email, role')
         .eq('restaurantId', restaurantId);
 
-      if (adminErr || !admins || admins.length < 2) {
-        return res.status(400).json({ success: false, message: 'Both admin accounts (owner and manager) must be added before mailing credentials' });
+      if (adminErr || !admins || admins.length === 0) {
+        return res.status(400).json({ success: false, message: 'Owner admin account must be added before mailing credentials' });
       }
 
       // Get target email (owner only)

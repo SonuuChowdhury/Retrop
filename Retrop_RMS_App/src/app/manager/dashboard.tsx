@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
+import { router } from 'expo-router';
 
 import { SkeletonLoader, SkeletonKPI } from '@/components/SkeletonLoader/SkeletonLoader';
 
@@ -45,11 +46,25 @@ interface RestaurantSettings {
 // ============================================================================
 
 export default function ManagerDashboard() {
-  const { getAuthHeaders, manager } = useAuth();
+  const { getAuthHeaders, manager, logout } = useAuth();
   const { theme } = useTheme();
   const { showConfirm, showError } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
+
+  const handleLogout = () => {
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out from the manager portal?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await logout();
+        router.replace('/login');
+      },
+    });
+  };
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
@@ -168,7 +183,7 @@ export default function ManagerDashboard() {
       style={{ backgroundColor: c.background }}
       contentContainerStyle={[
         styles.scrollContent,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 },
       ]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />}
       showsVerticalScrollIndicator={false}
@@ -275,6 +290,110 @@ export default function ManagerDashboard() {
           </Text>
         </Animated.View>
       )}
+
+      {/* ── MANAGEMENT PORTAL DIRECTORY ────────────────────────────────── */}
+      <Animated.View
+        entering={FadeInDown.delay(350).duration(400)}
+        style={styles.directorySection}
+      >
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Operations & Setup</Text>
+        
+        <View style={styles.directoryGrid}>
+          {[
+            {
+              title: 'Waiters Management',
+              desc: 'Manage profiles, login status and daily stats',
+              icon: 'account-multiple-outline',
+              route: '/manager/waiters',
+              color: c.primary,
+            },
+            {
+              title: 'Kitchen Accounts',
+              desc: 'Credentials and access control for kitchen staff',
+              icon: 'chef-hat',
+              route: '/manager/kitchen',
+              color: '#10B981',
+            },
+            {
+              title: 'Tables & Seating',
+              desc: 'Setup dining tables, export and print QR codes',
+              icon: 'table-furniture',
+              route: '/manager/tables',
+              color: '#F59E0B',
+            },
+            {
+              title: 'Menu & Category',
+              desc: 'Edit dishes, category rules and availability',
+              icon: 'food-outline',
+              route: '/manager/menu',
+              color: '#EF4444',
+            },
+            {
+              title: 'Business Analytics',
+              desc: 'View sales stats, revenue details and trends',
+              icon: 'chart-line',
+              route: '/manager/analytics',
+              color: '#6366F1',
+            },
+            {
+              title: 'Restaurant Settings',
+              desc: 'Edit restaurant details, location and tax details',
+              icon: 'storefront-outline',
+              route: '/manager/restaurant-info',
+              color: '#8B5CF6',
+            },
+          ].map((item) => (
+            <Pressable
+              key={item.title}
+              onPress={() => router.push(item.route as any)}
+              style={({ pressed }) => [
+                styles.directoryCard,
+                {
+                  backgroundColor: c.card,
+                  borderColor: pressed ? item.color + '60' : c.border,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+            >
+              <View style={[styles.directoryIconBg, { backgroundColor: item.color + '15' }]}>
+                <MaterialCommunityIcons name={item.icon as any} size={22} color={item.color} />
+              </View>
+              <View style={styles.directoryCardContent}>
+                <Text style={[styles.directoryTitle, { color: c.text }]}>{item.title}</Text>
+                <Text style={[styles.directoryDesc, { color: c.textSecondary }]}>{item.desc}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={c.textSecondary} />
+            </Pressable>
+          ))}
+        </View>
+      </Animated.View>
+
+      {/* Logout Option Card */}
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(350)}
+        style={{ marginTop: 12, marginBottom: 20 }}
+      >
+        <Pressable
+          onPress={handleLogout}
+          style={({ pressed }) => [
+            styles.logoutCard,
+            {
+              backgroundColor: c.card,
+              borderColor: pressed ? c.error : c.error + '40',
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+        >
+          <View style={[styles.directoryIconBg, { backgroundColor: c.error + '12' }]}>
+            <MaterialCommunityIcons name="logout" size={22} color={c.error} />
+          </View>
+          <View style={styles.directoryCardContent}>
+            <Text style={[styles.directoryTitle, { color: c.error }]}>Sign Out</Text>
+            <Text style={[styles.directoryDesc, { color: c.textSecondary }]}>Log out from the manager portal safely</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={c.error} />
+        </Pressable>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -361,4 +480,55 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pendingText: { fontSize: 14, fontWeight: '500', flex: 1 },
+  
+  directorySection: {
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 14,
+    letterSpacing: -0.2,
+  },
+  directoryGrid: {
+    gap: 10,
+  },
+  directoryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  directoryIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  directoryCardContent: {
+    flex: 1,
+    marginLeft: 14,
+    paddingRight: 8,
+  },
+  directoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  directoryDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    lineHeight: 14,
+  },
+  logoutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    borderStyle: 'dashed',
+  },
 });

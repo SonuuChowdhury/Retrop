@@ -19,6 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
+import { router } from 'expo-router';
 
 // ============================================================================
 // TYPES
@@ -223,9 +224,14 @@ export default function RestaurantInfoScreen() {
     <View style={[{ flex: 1, backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View>
-          <Text style={[styles.title, { color: c.text }]}>Restaurant Info</Text>
-          <Text style={[styles.subtitle, { color: c.textSecondary }]}>Edit your restaurant details</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 4 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={c.text} />
+          </Pressable>
+          <View>
+            <Text style={[styles.title, { color: c.text }]}>Restaurant Info</Text>
+            <Text style={[styles.subtitle, { color: c.textSecondary }]}>Edit your restaurant details</Text>
+          </View>
         </View>
         <Pressable
           onPress={handleSave}

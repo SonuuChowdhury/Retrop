@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
+import { router } from 'expo-router';
 
 // ============================================================================
 // TYPES
@@ -361,7 +362,12 @@ export default function TablesScreen() {
     // FIX #1: Plain View instead of SafeAreaView
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.pageTitle, { color: c.text }]}>Tables</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 4 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={c.text} />
+          </Pressable>
+          <Text style={[styles.pageTitle, { color: c.text }]}>Tables</Text>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Pressable
             onPress={handleExportQRDetails}

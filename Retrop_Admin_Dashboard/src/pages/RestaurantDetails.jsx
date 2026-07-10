@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
-import { ArrowLeft, Key, User, Edit, Save, Plus, ShieldCheck, ShieldAlert, ToggleLeft, ToggleRight, Clipboard, Check, Eye, Trash2, FileText, LifeBuoy, DollarSign, Calendar, Mail, QrCode } from 'lucide-react';
+import { ArrowLeft, Key, User, Edit, Save, Plus, ShieldCheck, ShieldAlert, ToggleLeft, ToggleRight, Clipboard, Check, Eye, EyeOff, Trash2, FileText, LifeBuoy, DollarSign, Calendar, Mail, QrCode, ChevronDown } from 'lucide-react';
 import { useDialog } from '../context/DialogContext';
 
 export default function RestaurantDetails() {
@@ -60,6 +60,8 @@ export default function RestaurantDetails() {
   const [deletingKeyId, setDeletingKeyId] = useState(null);
   const [deletingAdminId, setDeletingAdminId] = useState(null);
   const [mailLoading, setMailLoading] = useState(false);
+  const [isMailDropdownOpen, setIsMailDropdownOpen] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
 
   // Billing & Subscriptions States
   const [plans, setPlans] = useState([]);
@@ -413,6 +415,7 @@ export default function RestaurantDetails() {
     setIsAdminModalOpen(false);
     setEditingAdmin(null);
     setAdminFormError('');
+    setShowAdminPassword(false);
   };
 
   const handleSaveAdmin = async (e) => {
@@ -909,24 +912,27 @@ export default function RestaurantDetails() {
             {/* Admin Management Card */}
             <div style={{ ...styles.card, gridColumn: 'span 2', marginTop: '10px' }}>
               <div style={styles.cardHeader}>
-                <h2 style={styles.cardTitle}>Admin Accounts ({admins.length}/2)</h2>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <h2 style={styles.cardTitle}>Owner Account</h2>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'relative' }}>
                   <button
-                    onClick={handleMailCredentials}
-                    disabled={keys.length === 0 || admins.length !== 2 || mailLoading}
+                    onClick={() => setIsMailDropdownOpen(!isMailDropdownOpen)}
+                    disabled={keys.length === 0 || admins.length === 0 || mailLoading}
                     style={{
                       ...styles.mailCredentialsBtn,
-                      backgroundColor: (keys.length === 0 || admins.length !== 2 || mailLoading) 
+                      backgroundColor: (keys.length === 0 || admins.length === 0 || mailLoading) 
                         ? 'var(--color-border)' 
                         : 'var(--color-success-light)',
-                      color: (keys.length === 0 || admins.length !== 2 || mailLoading) 
+                      color: (keys.length === 0 || admins.length === 0 || mailLoading) 
                         ? 'var(--color-text-muted)' 
                         : 'var(--color-success)',
-                      border: (keys.length === 0 || admins.length !== 2 || mailLoading) 
+                      border: (keys.length === 0 || admins.length === 0 || mailLoading) 
                         ? '1px solid var(--color-border)' 
                         : '1px solid var(--color-success)',
                       opacity: mailLoading ? 0.7 : 1,
-                      cursor: (keys.length === 0 || admins.length !== 2 || mailLoading) ? 'not-allowed' : 'pointer',
+                      cursor: (keys.length === 0 || admins.length === 0 || mailLoading) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
                     {mailLoading ? (
@@ -934,13 +940,60 @@ export default function RestaurantDetails() {
                     ) : (
                       <Mail size={16} />
                     )}
-                    <span>{mailLoading ? 'Mailing...' : 'Mail Credentials'}</span>
+                    <span>{mailLoading ? 'Mailing...' : 'Send Mail'}</span>
+                    <ChevronDown size={14} style={{ opacity: 0.8 }} />
                   </button>
-                  {admins.length < 2 && (
-                    <button onClick={handleOpenAddAdmin} style={styles.newKeyBtn}>
-                      <Plus size={16} />
-                      <span>Add Admin</span>
-                    </button>
+
+                  {isMailDropdownOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '44px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                      zIndex: 100,
+                      minWidth: '240px',
+                      padding: '8px',
+                      animation: 'fadeInScale 0.15s ease-out forwards',
+                    }}>
+                      <style>{`
+                        @keyframes fadeInScale {
+                          from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+                          to { opacity: 1; transform: scale(1) translateY(0); }
+                        }
+                      `}</style>
+                      <button
+                        onClick={() => {
+                          setIsMailDropdownOpen(false);
+                          handleMailCredentials();
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 12px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: 'var(--color-text)',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f8fafc';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <div style={{ fontWeight: '600', fontSize: '13px', color: '#1e293b' }}>📧 Send Credentials</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', whiteSpace: 'normal', lineHeight: '1.4' }}>
+                          Dispatches license key & login details to owner's email address
+                        </div>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1463,15 +1516,34 @@ export default function RestaurantDetails() {
                 <label style={styles.label}>
                   {editingAdmin ? 'New Password (Leave blank to keep current)' : 'Password'}
                 </label>
-                <input
-                  type="password"
-                  placeholder={editingAdmin ? 'Enter new password' : 'Enter account password'}
-                  value={adminForm.password}
-                  onChange={(e) => setAdminForm(prev => ({ ...prev, password: e.target.value }))}
-                  style={styles.input}
-                  disabled={adminFormLoading}
-                  required={false}
-                />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    placeholder={editingAdmin ? 'Enter new password' : 'Enter account password'}
+                    value={adminForm.password}
+                    onChange={(e) => setAdminForm(prev => ({ ...prev, password: e.target.value }))}
+                    style={{ ...styles.input, width: '100%', paddingRight: '40px' }}
+                    disabled={adminFormLoading}
+                    required={false}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '4px',
+                    }}
+                  >
+                    {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 {!editingAdmin && (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                     Default: first 5 digits of mobile + @password (e.g. {adminForm.mobile.substring(0, 5) || '90070'}@password)

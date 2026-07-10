@@ -27,6 +27,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useDialog } from '@/context/DialogContext';
 import { ENDPOINTS } from '@/config/api';
+import { router } from 'expo-router';
 import { SkeletonLoader, SkeletonCard, SkeletonKPI, SkeletonRow } from '@/components/SkeletonLoader/SkeletonLoader';
 
 const STALE_AFTER_MS = 2 * 60 * 1000;
@@ -1226,7 +1227,12 @@ export default function AnalyticsScreen() {
     <View style={[{ flex: 1, backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={[styles.title, { color: c.text }]}>Analytics</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Pressable onPress={() => router.back()} style={{ marginRight: 4 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={c.text} />
+          </Pressable>
+          <Text style={[styles.title, { color: c.text }]}>Analytics</Text>
+        </View>
         <Pressable
           onPress={() => {
             if (activeTab === 'orders') {

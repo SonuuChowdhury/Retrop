@@ -99,6 +99,10 @@ import { waiterAuthMiddleware, kitchenAuthMiddleware } from '../middleware/waite
 import { requireRestaurantOpen } from '../middleware/restaurantOpen.js';
 import { productKeyAuth } from '../middleware/productKeyAuth.js';
 import { retropAuth } from '../middleware/retropAuth.js';
+import { ownerController } from '../controllers/ownerController.js';
+import { inventoryController } from '../controllers/inventoryController.js';
+import { ownerAuthMiddleware } from '../middleware/ownerAuth.js';
+import { validate, schemas } from '../middleware/validate.js';
 import { RATE_LIMIT_CONFIG } from '../config/constants.js';
 
 const router = express.Router();
@@ -288,5 +292,42 @@ router.get('/api/order/:tableId/order-status',   productKeyAuth, publicOrderLimi
 router.post('/api/order/:orderId/customer-modify',productKeyAuth, publicOrderLimiter, requireRestaurantOpen, customerModifyOrder);
 // ISSUE 10 FIX: token-check now also requires restaurant to be open
 router.get('/api/order/:tableId/token-check',    productKeyAuth, publicOrderLimiter, requireRestaurantOpen, checkCustomerToken);
+
+// ── Owner Auth & Dashboard Operations ─────────────────────────────────────────
+router.post('/api/owner/auth/login',          validate(schemas.login), ownerController.login);
+router.post('/api/owner/auth/reset-password', validate(schemas.resetPassword), ownerController.resetPassword);
+router.post('/api/owner/auth/refresh',        ownerController.refreshToken);
+router.post('/api/owner/auth/logout',         ownerAuthMiddleware, ownerController.logout);
+router.get('/api/owner/auth/me',              ownerAuthMiddleware, ownerController.me);
+
+router.get('/api/owner/dashboard/summary',    ownerAuthMiddleware, ownerController.getDashboardSummary);
+router.get('/api/owner/dashboard/export',     ownerAuthMiddleware, ownerController.exportSalesReport);
+
+// Manager control endpoints via Owner Portal
+router.get('/api/owner/managers',             ownerAuthMiddleware, ownerController.getManagers);
+router.post('/api/owner/managers',            ownerAuthMiddleware, validate(schemas.createManager), ownerController.createManager);
+router.delete('/api/owner/managers/:adminId', ownerAuthMiddleware, ownerController.deleteManager);
+router.put('/api/owner/managers/:adminId/password', ownerAuthMiddleware, validate(schemas.resetManagerPassword), ownerController.updateManagerPassword);
+
+// Menu endpoint for recipe mapping
+router.get('/api/owner/menu',                         ownerAuthMiddleware, inventoryController.getMenuItems);
+
+// Inventory CRUD endpoints via Owner Portal
+router.get('/api/owner/inventory/vendors',             ownerAuthMiddleware, inventoryController.getVendors);
+router.post('/api/owner/inventory/vendors',            ownerAuthMiddleware, validate(schemas.vendor), inventoryController.createVendor);
+router.put('/api/owner/inventory/vendors/:vendorId',   ownerAuthMiddleware, validate(schemas.vendor), inventoryController.updateVendor);
+router.delete('/api/owner/inventory/vendors/:vendorId',ownerAuthMiddleware, inventoryController.deleteVendor);
+
+router.get('/api/owner/inventory/items',               ownerAuthMiddleware, inventoryController.getItems);
+router.post('/api/owner/inventory/items',              ownerAuthMiddleware, validate(schemas.inventoryItem), inventoryController.createItem);
+router.put('/api/owner/inventory/items/:itemId',       ownerAuthMiddleware, validate(schemas.inventoryItem), inventoryController.updateItem);
+router.delete('/api/owner/inventory/items/:itemId',    ownerAuthMiddleware, inventoryController.deleteItem);
+
+router.get('/api/owner/inventory/recipes',             ownerAuthMiddleware, inventoryController.getRecipes);
+router.post('/api/owner/inventory/recipes',            ownerAuthMiddleware, validate(schemas.recipe), inventoryController.saveRecipe);
+router.delete('/api/owner/inventory/recipes/:dishId',  ownerAuthMiddleware, inventoryController.deleteRecipe);
+
+router.get('/api/owner/inventory/purchases',           ownerAuthMiddleware, inventoryController.getPurchases);
+router.post('/api/owner/inventory/purchases',          ownerAuthMiddleware, validate(schemas.purchase), inventoryController.createPurchase);
 
 export default router;
