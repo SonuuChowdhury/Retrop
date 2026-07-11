@@ -7,26 +7,29 @@ import RestaurantDetails from './pages/RestaurantDetails';
 import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
 import { DialogProvider } from './context/DialogContext';
+import { TitleProvider } from './context/TitleContext';
 
 export default function App() {
   return (
-    <DialogProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Open route */}
-          <Route path="/login" element={<Login />} />
+    <TitleProvider>
+      <DialogProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Open route */}
+            <Route path="/login" element={<Login />} />
 
-          {/* Protected routes (internal checks in Layout component) */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/restaurants" element={<Restaurants />} />
-          <Route path="/restaurants/:restaurantId" element={<RestaurantDetails />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/transactions" element={<Transactions />} />
+            {/* Protected routes (internal checks in Layout component) */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/restaurants" element={<Restaurants />} />
+            <Route path="/restaurants/:restaurantId" element={<RestaurantDetails />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/transactions" element={<Transactions />} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </DialogProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </DialogProvider>
+    </TitleProvider>
   );
 }

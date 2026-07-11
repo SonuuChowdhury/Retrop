@@ -3,8 +3,10 @@ import Layout from '../components/Layout';
 import { api } from '../services/api';
 import { Save, AlertCircle, CheckCircle, Shield, Percent } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
+import { useTitle } from '../context/TitleContext';
 
 export default function Settings() {
+  useTitle('Settings');
   const [config, setConfig] = useState({
     legalName: '',
     address: '',

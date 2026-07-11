@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import logo from '../assets/retrop-logo.png';
 import { LayoutDashboard, Store, LogOut, User, Settings, CreditCard, Receipt, Menu, X } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -88,7 +87,7 @@ export default function Layout({ children }) {
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={styles.menuToggle}>
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
-          <img src={logo} alt="Retrop logo" style={styles.mobileLogo} />
+          <img src="/logo-corner-rounded.png" alt="Retrop logo" style={styles.mobileLogo} />
           <div style={{ width: 24 }} />
         </header>
       )}
@@ -105,8 +104,13 @@ export default function Layout({ children }) {
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         <div style={styles.brand}>
-          <img src={logo} alt="Retrop logo" style={styles.logo} />
-          <span style={styles.badge}>Control Panel</span>
+          <div style={styles.brandContainer}>
+            <img src="/logo-corner-rounded.png" alt="Retrop Logo" style={styles.brandLogo} />
+            <div style={styles.brandText}>
+              <h1 style={styles.brandTitle}>Retrop</h1>
+              <span style={styles.brandSubtitle}>Management Console</span>
+            </div>
+          </div>
         </div>
 
         <nav style={styles.nav}>
@@ -205,29 +209,39 @@ const styles = {
     zIndex: 10,
   },
   brand: {
-    padding: '30px 24px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
+    padding: '20px 16px',
     borderBottom: '1px solid var(--color-border)',
   },
-  logo: {
-    height: '28px',
-    width: 'auto',
-    alignSelf: 'flex-start',
+  brandContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  brandLogo: {
+    height: '38px',
+    width: '38px',
+    borderRadius: '8px',
     objectFit: 'contain',
   },
-  badge: {
-    fontSize: '11px',
+  brandText: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: '16px',
     fontWeight: '700',
-    color: 'var(--color-primary)',
+    color: 'var(--color-text)',
+    margin: 0,
+    lineHeight: '1.2',
+  },
+  brandSubtitle: {
+    fontSize: '9px',
+    color: 'var(--color-text-muted)',
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '1px',
-    alignSelf: 'flex-start',
-    backgroundColor: 'var(--color-primary-light)',
-    padding: '2px 6px',
-    borderRadius: '4px',
-    marginTop: '4px',
+    letterSpacing: '0.5px',
+    marginTop: '2px',
   },
   nav: {
     padding: '24px 16px',

@@ -3,8 +3,10 @@ import Layout from '../components/Layout';
 import { api } from '../services/api';
 import { FileText, Search, CreditCard, DollarSign, Download, ArrowUpRight } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
+import { useTitle } from '../context/TitleContext';
 
 export default function Transactions() {
+  useTitle('Transactions');
   const [transactions, setTransactions] = useState([]);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);

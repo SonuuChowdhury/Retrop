@@ -5,8 +5,10 @@ import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { ArrowLeft, Key, User, Edit, Save, Plus, ShieldCheck, ShieldAlert, ToggleLeft, ToggleRight, Clipboard, Check, Eye, EyeOff, Trash2, FileText, LifeBuoy, DollarSign, Calendar, Mail, QrCode, ChevronDown } from 'lucide-react';
 import { useDialog } from '../context/DialogContext';
+import { useTitle } from '../context/TitleContext';
 
 export default function RestaurantDetails() {
+  const setTitle = useTitle('Loading Restaurant...');
   const { alert, confirm } = useDialog();
   const { restaurantId } = useParams();
   const navigate = useNavigate();
@@ -95,6 +97,32 @@ export default function RestaurantDetails() {
     paymentMethod: 'UPI',
     upiTransactionId: '',
   });
+
+  useEffect(() => {
+    if (!restaurant) {
+      setTitle('Loading Restaurant...');
+      return;
+    }
+
+    const name = restaurant.businessName || 'Restaurant Details';
+    if (isEditing) {
+      setTitle(`Editing ${name}`);
+    } else if (isAdminModalOpen) {
+      setTitle(`Managing Admins | ${name}`);
+    } else if (isKeyModalOpen) {
+      setTitle(`License Key Generated | ${name}`);
+    } else if (qrModalOpen) {
+      setTitle(`QR Code | ${name}`);
+    } else if (isSubEditModalOpen) {
+      setTitle(`Configuring Subscription | ${name}`);
+    } else if (isPaymentModalOpen) {
+      setTitle(`Confirming Renewal | ${name}`);
+    } else if (isSupportModalOpen) {
+      setTitle(`Creating Support Request | ${name}`);
+    } else {
+      setTitle(name);
+    }
+  }, [restaurant, isEditing, isAdminModalOpen, isKeyModalOpen, qrModalOpen, isSubEditModalOpen, isPaymentModalOpen, isSupportModalOpen, setTitle]);
 
   const fetchDetails = async () => {
     try {

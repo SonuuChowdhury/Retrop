@@ -4,8 +4,10 @@ import Layout from '../components/Layout';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { Store, Key, ShieldAlert, ArrowRight, UserCheck, DollarSign, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTitle } from '../context/TitleContext';
 
 export default function Dashboard() {
+  useTitle('Dashboard');
   const [stats, setStats] = useState(null);
   const [recentRestaurants, setRecentRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);

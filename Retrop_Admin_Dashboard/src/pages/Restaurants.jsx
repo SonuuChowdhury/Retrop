@@ -5,8 +5,10 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import { Plus, ToggleLeft, ToggleRight, Key, Trash2, Clipboard, Check, ArrowUpRight, DollarSign, CreditCard, Shield, AlertCircle, Percent, Edit2, Calendar, ShieldCheck, HelpCircle, Save, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useDialog } from '../context/DialogContext';
+import { useTitle } from '../context/TitleContext';
 
 export default function Restaurants() {
+  const setTitle = useTitle('Restaurants');
   const [businessConfig, setBusinessConfig] = useState(null);
   const { alert, confirm } = useDialog();
   const [restaurants, setRestaurants] = useState([]);
@@ -74,6 +76,20 @@ export default function Restaurants() {
   const [togglingRestaurantId, setTogglingRestaurantId] = useState(null);
   const [deletingRestaurantId, setDeletingRestaurantId] = useState(null);
   const [generatingKeyRestaurantId, setGeneratingKeyRestaurantId] = useState(null);
+
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      setTitle('Creating Restaurant...');
+    } else if (isPlanModalOpen) {
+      setTitle('Configuring Subscription Plan...');
+    } else if (isPaymentModalOpen) {
+      setTitle('Confirming Payment...');
+    } else if (isKeyModalOpen) {
+      setTitle('License Key Generated');
+    } else {
+      setTitle(activeTab === 'plans' ? 'Subscription Plans' : 'Restaurants');
+    }
+  }, [activeTab, isCreateModalOpen, isPlanModalOpen, isPaymentModalOpen, isKeyModalOpen, setTitle]);
 
   const fetchRestaurants = async () => {
     try {

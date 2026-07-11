@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import logo from '../assets/retrop-logo.png';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { useTitle } from '../context/TitleContext';
 
 export default function Login() {
+  useTitle('Login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,9 +45,11 @@ export default function Login() {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.logoContainer}>
-          <img src={logo} alt="Retrop logo" style={styles.logo} />
-          <h1 style={styles.title}>SuperAdmin</h1>
-          <p style={styles.subtitle}>Retrop SaaS Control Panel</p>
+          <img src="/logo-corner-rounded.png" alt="Retrop Logo" style={styles.logo} />
+          <div style={styles.logoText}>
+            <h1 style={styles.title}>Retrop</h1>
+            <p style={styles.subtitle}>Management Console</p>
+          </div>
         </div>
 
         {error && (
@@ -132,25 +135,38 @@ const styles = {
   },
   logoContainer: {
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: '14px',
     marginBottom: '30px',
   },
   logo: {
-    height: '40px',
+    height: '46px',
+    width: '46px',
+    borderRadius: '10px',
     objectFit: 'contain',
-    marginBottom: '16px',
+  },
+  logoText: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   title: {
-    fontSize: '22px',
-    fontWeight: '700',
+    fontSize: '20px',
+    fontWeight: '800',
     color: 'var(--color-text)',
-    letterSpacing: '-0.5px',
+    margin: 0,
+    lineHeight: '1.2',
   },
   subtitle: {
-    fontSize: '14px',
+    fontSize: '11px',
     color: 'var(--color-text-muted)',
-    marginTop: '4px',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginTop: '2px',
+    lineHeight: '1.2',
   },
   errorBanner: {
     padding: '12px',
