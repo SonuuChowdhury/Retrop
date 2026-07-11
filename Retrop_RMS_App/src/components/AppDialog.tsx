@@ -143,9 +143,11 @@ export function AppDialog({ visible, config, onDismiss }: AppDialogProps) {
           ]}
         >
           {/* Icon badge */}
-          <View style={[styles.iconBadge, { backgroundColor: accent + '20' }]}>
-            <Text style={[styles.iconText, { color: accent }]}>{TYPE_ICON[type]}</Text>
-          </View>
+          {type !== 'confirm' && (
+            <View style={[styles.iconBadge, { backgroundColor: accent + '20' }]}>
+              <Text style={[styles.iconText, { color: accent }]}>{TYPE_ICON[type]}</Text>
+            </View>
+          )}
 
           {/* Title */}
           <Text style={[styles.title, { color: c.text }]}>{config.title}</Text>

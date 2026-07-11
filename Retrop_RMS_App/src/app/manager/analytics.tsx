@@ -1029,7 +1029,6 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'dishes',    label: 'Dishes',    icon: 'food-outline' },
   { key: 'payments',  label: 'Payments',  icon: 'cash-multiple' },
   { key: 'customers', label: 'Customers', icon: 'account-group-outline' },
-  { key: 'taxes',     label: 'Taxes',     icon: 'percent' },
 ];
 
 const PRESETS: { key: DateFilter; label: string }[] = [

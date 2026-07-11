@@ -130,8 +130,8 @@ function TableDetailModal({
 
   const handleDelete = () => {
     if (!detail) return;
-    if (!detail.isAvailable) {
-      showWarning('Cannot Delete', 'Table has an active order.'); return;
+    if (!detail.isAvailable || detail.currentOrder) {
+      showWarning('Cannot Delete', 'Table is currently occupied or has an active order.'); return;
     }
     showConfirm({
       title: `Delete Table ${detail.tableNo}?`,

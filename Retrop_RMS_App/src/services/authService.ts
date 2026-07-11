@@ -137,7 +137,7 @@ export interface RefreshResponse {
   success: true;
   data: {
     accessToken: string;
-    // Backend refresh endpoint only returns a new accessToken — no new refreshToken
+    refreshToken?: string;
   };
 }
 
@@ -178,7 +178,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<RefreshR
 
     return {
       success: true,
-      data: { accessToken: json.data.accessToken },
+      data: {
+        accessToken: json.data.accessToken,
+        refreshToken: json.data.refreshToken,
+      },
     };
   } catch (error: any) {
     clearTimeout(timer);

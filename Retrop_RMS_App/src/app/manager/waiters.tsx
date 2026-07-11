@@ -128,22 +128,6 @@ function WaiterCard({
           <MaterialCommunityIcons name="lock-reset" size={15} color={colors.primary} />
           <Text style={[styles.actionBtnText, { color: colors.primary }]}>Reset PWD</Text>
         </Pressable>
-
-        {/* DELETE */}
-        <Pressable
-          onPress={onDelete}
-          disabled={toggling || deleting}
-          style={[styles.actionBtn, { backgroundColor: colors.error + '14', borderColor: colors.error + '35' }]}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="delete-outline" size={15} color={colors.error} />
-              <Text style={[styles.actionBtnText, { color: colors.error }]}>Delete</Text>
-            </>
-          )}
-        </Pressable>
       </View>
     </Animated.View>
   );
@@ -424,13 +408,6 @@ export default function WaitersScreen() {
           </Pressable>
           <Text style={[styles.title, { color: c.text }]}>Waiters</Text>
         </View>
-        <Pressable
-          onPress={() => setShowAddModal(true)}
-          style={[styles.addBtn, { backgroundColor: c.primary }]}
-        >
-          <MaterialCommunityIcons name="plus" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>Add</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -448,7 +425,7 @@ export default function WaitersScreen() {
         {waiters.length === 0 && !error ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="account-group-outline" size={48} color={c.textSecondary} />
-            <Text style={[styles.emptyText, { color: c.textSecondary }]}>No waiters yet. Add your first waiter.</Text>
+            <Text style={[styles.emptyText, { color: c.textSecondary }]}>No waiters registered yet. Waiters can be managed from the Owner Web Portal.</Text>
           </View>
         ) : (
           waiters.map((w) => (

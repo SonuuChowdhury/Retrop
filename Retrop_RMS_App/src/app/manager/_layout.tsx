@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { SOCKET_CONFIG, getSocketUrl } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeTransitionView, useTheme } from "@/context/ThemeContext";
+import io from "socket.io-client";
 
 // ============================================================================
 // MANAGER LAYOUT
@@ -37,11 +38,8 @@ export default function ManagerLayout() {
     return () => { disconnectSocket(); };
   }, [isAuthenticated, accessToken]);
 
-  const connectManagerSocket = async (token: string) => {
+  const connectManagerSocket = (token: string) => {
     try {
-      const { io } = await import("socket.io-client").catch(() => ({ io: null }));
-      if (!io) return;
-
       socketRef.current = io(getSocketUrl(), {
         auth: { token },
         ...SOCKET_CONFIG,

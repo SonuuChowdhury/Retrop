@@ -8,7 +8,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  Pressable, ActivityIndicator, Switch,
+  Pressable, ActivityIndicator, Switch, BackHandler,
 } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -52,7 +52,7 @@ export default function ManagerDashboard() {
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     showConfirm({
       title: 'Sign Out',
       message: 'Are you sure you want to sign out from the manager portal?',
@@ -64,7 +64,21 @@ export default function ManagerDashboard() {
         router.replace('/login');
       },
     });
-  };
+  }, [logout, showConfirm]);
+
+  // Intercept hardware back button on Android to prompt for logout confirmation
+  useEffect(() => {
+    const onBackPress = () => {
+      handleLogout();
+      return true; // Return true to prevent default back action (which exits the app)
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleLogout]);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
@@ -132,7 +146,17 @@ export default function ManagerDashboard() {
       if (json?.status === 'success') {
         setSettings({ isRestaurantOpen: isOpen });
       } else {
-        showError('Error', json?.message ?? 'Failed to update status.');
+        if (json?.code === 'active_orders_exist' && Array.isArray(json.activeOrders)) {
+          const orderDetails = json.activeOrders
+            .map((o: any) => `• Table ${o.tableNo} (Status: ${o.orderStatus.toUpperCase()}) - Mobile: ${o.mobile}`)
+            .join('\n');
+          showError(
+            'Active Orders In Progress',
+            `Cannot close the restaurant because there are active orders:\n\n${orderDetails}\n\nPlease have waiters finalize or cancel these orders first.`
+          );
+        } else {
+          showError('Error', json?.message ?? 'Failed to update status.');
+        }
       }
     } catch {
       showError('Error', 'Network error. Please try again.');
@@ -336,11 +360,18 @@ export default function ManagerDashboard() {
               color: '#6366F1',
             },
             {
-              title: 'Restaurant Settings',
-              desc: 'Edit restaurant details, location and tax details',
-              icon: 'storefront-outline',
-              route: '/manager/restaurant-info',
-              color: '#8B5CF6',
+              title: 'Expenses Ledger',
+              desc: 'Log and track restaurant cash expenses',
+              icon: 'cash-register',
+              route: '/manager/expenses',
+              color: '#EC4899',
+            },
+            {
+              title: 'Day Close Register',
+              desc: 'Perform EOD closing and cash variance tracking',
+              icon: 'calendar-check-outline',
+              route: '/manager/day-close',
+              color: '#3B82F6',
             },
           ].map((item) => (
             <Pressable

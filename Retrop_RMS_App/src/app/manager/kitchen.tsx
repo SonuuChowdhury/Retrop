@@ -36,20 +36,23 @@ interface KitchenAccount {
 // ============================================================================
 
 function KitchenCard({
-  account, colors, onToggle, onDelete, toggling, deleting,
+  account, colors, onToggle, onResetPassword, toggling,
 }: {
   account: KitchenAccount; colors: any;
-  onToggle: () => void; onDelete: () => void;
-  toggling: boolean; deleting: boolean;
+  onToggle: () => void; onResetPassword: () => void;
+  toggling: boolean;
 }) {
   return (
     <Animated.View
       entering={FadeInDown.duration(340)}
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
-      <View style={styles.cardRow}>
-        <View style={[styles.iconBg, { backgroundColor: colors.primary + '15' }]}>
-          <MaterialCommunityIcons name="chef-hat" size={22} color={colors.primary} />
+      {/* Top Info */}
+      <View style={styles.cardTop}>
+        <View style={[styles.avatar, { backgroundColor: colors.primary + '18' }]}>
+          <Text style={[styles.initials, { color: colors.primary }]}>
+            {account.kitchenName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+          </Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.accountName, { color: colors.text }]}>{account.kitchenName}</Text>
@@ -60,42 +63,52 @@ function KitchenCard({
             </Text>
           )}
         </View>
-
-        {/* Toggle switch */}
-        {toggling ? (
-          <ActivityIndicator size="small" color={account.isActive ? colors.success : colors.error} />
-        ) : (
-          <Switch
-            value={account.isActive}
-            onValueChange={onToggle}
-            trackColor={{ false: colors.error + '50', true: colors.success + '50' }}
-            thumbColor={account.isActive ? colors.success : colors.error}
-          />
-        )}
-      </View>
-
-      {/* Delete button */}
-      <View style={[styles.deleteRow, { borderTopColor: colors.border }]}>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: account.isActive ? colors.success + '15' : colors.error + '15' },
-        ]}>
+        {/* Active badge */}
+        <View style={[styles.statusBadge, { backgroundColor: account.isActive ? colors.success + '18' : colors.error + '18' }]}>
           <Text style={[styles.statusText, { color: account.isActive ? colors.success : colors.error }]}>
             {account.isActive ? 'Active' : 'Inactive'}
           </Text>
         </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        {/* Toggle active/inactive */}
         <Pressable
-          onPress={onDelete}
-          disabled={deleting}
-          style={[styles.deleteBtn, { backgroundColor: colors.error + '12', borderColor: colors.error + '30' }]}
+          onPress={onToggle}
+          disabled={toggling}
+          style={[
+            styles.actionBtn,
+            {
+              backgroundColor: account.isActive ? colors.error + '12' : colors.success + '12',
+              borderColor: account.isActive ? colors.error + '30' : colors.success + '30',
+            },
+          ]}
         >
-          {deleting
-            ? <ActivityIndicator size="small" color={colors.error} />
-            : <>
-                <MaterialCommunityIcons name="delete-outline" size={14} color={colors.error} />
-                <Text style={[styles.deleteBtnText, { color: colors.error }]}>Delete</Text>
-              </>
-          }
+          {toggling ? (
+            <ActivityIndicator size="small" color={account.isActive ? colors.error : colors.success} />
+          ) : (
+            <>
+              <MaterialCommunityIcons
+                name={account.isActive ? 'account-off-outline' : 'account-check-outline'}
+                size={15}
+                color={account.isActive ? colors.error : colors.success}
+              />
+              <Text style={[styles.actionBtnText, { color: account.isActive ? colors.error : colors.success }]}>
+                {account.isActive ? 'Disable' : 'Enable'}
+              </Text>
+            </>
+          )}
+        </Pressable>
+
+        {/* Reset password */}
+        <Pressable
+          onPress={onResetPassword}
+          disabled={toggling}
+          style={[styles.actionBtn, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '25' }]}
+        >
+          <MaterialCommunityIcons name="lock-reset" size={15} color={colors.primary} />
+          <Text style={[styles.actionBtnText, { color: colors.primary }]}>Reset PWD</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -192,13 +205,85 @@ function AddKitchenModal({
 }
 
 // ============================================================================
+// RESET PASSWORD MODAL
+// ============================================================================
+
+function ResetPasswordModal({
+  visible, onClose, account, colors, getAuthHeaders,
+}: {
+  visible: boolean; onClose: () => void; account: KitchenAccount | null;
+  colors: any; getAuthHeaders: () => Record<string, string>;
+}) {
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { showSuccess } = useDialog();
+
+  const handleReset = async () => {
+    if (!account) return;
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(ENDPOINTS.MANAGER_KITCHEN_RESET_PASSWORD(account.kitchenId), {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ newPassword: password }),
+      });
+      const json = await res.json();
+      if (json?.status === 'success') {
+        showSuccess('Success', 'Password reset successfully.');
+        setPassword(''); onClose();
+      } else {
+        setError(json?.message ?? 'Failed to reset password.');
+      }
+    } catch { setError('Network error.'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => {}}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Reset Password</Text>
+            <Pressable onPress={onClose}><MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} /></Pressable>
+          </View>
+          <Text style={[{ color: colors.textSecondary, marginBottom: 14, fontSize: 14 }]}>
+            Reset password for kitchen account: <Text style={{ fontWeight: '700', color: colors.text }}>{account?.kitchenName}</Text>
+          </Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>New Password</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
+            placeholder="New password (min 6 chars)"
+            placeholderTextColor={colors.textSecondary + '80'}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          {error ? <Text style={[{ color: colors.error, fontSize: 13, marginTop: 6 }]}>{error}</Text> : null}
+          <View style={styles.modalActions}>
+            <Pressable onPress={onClose} style={[styles.modalBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={[{ color: colors.text, fontWeight: '600' }]}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleReset} disabled={loading} style={[styles.modalBtn, { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 }]}>
+              {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Reset</Text>}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ============================================================================
 // MAIN SCREEN
 // ============================================================================
 
 export default function KitchenManagementScreen() {
   const { getAuthHeaders } = useAuth();
   const { theme } = useTheme();
-  const { showError, showConfirm } = useDialog();
+  const { showError } = useDialog();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
 
@@ -206,9 +291,8 @@ export default function KitchenManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<KitchenAccount | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -250,31 +334,6 @@ export default function KitchenManagementScreen() {
     finally { setTogglingId(null); };
   };
 
-  const handleDelete = (account: KitchenAccount) => {
-    showConfirm({
-      title: 'Delete Kitchen Account',
-      message: `Delete "${account.kitchenName}"? This action cannot be undone.`,
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      destructive: true,
-      onConfirm: async () => {
-        setDeletingId(account.kitchenId);
-        try {
-          const res = await fetch(ENDPOINTS.MANAGER_KITCHEN_DELETE(account.kitchenId), {
-            method: 'DELETE', headers: getAuthHeaders(),
-          });
-          const json = await res.json();
-          if (json?.status === 'success') {
-            setAccounts((prev) => prev.filter((a) => a.kitchenId !== account.kitchenId));
-          } else {
-            showError('Error', json?.message ?? 'Deletion failed.');
-          }
-        } catch { showError('Error', 'Network error.'); }
-        finally { setDeletingId(null); }
-      },
-    });
-  };
-
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: c.background }]}>
@@ -296,13 +355,6 @@ export default function KitchenManagementScreen() {
             <Text style={[styles.subtitle, { color: c.textSecondary }]}>Manage kitchen accounts</Text>
           </View>
         </View>
-        <Pressable
-          onPress={() => setShowAddModal(true)}
-          style={[styles.addBtn, { backgroundColor: c.primary }]}
-        >
-          <MaterialCommunityIcons name="plus" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>Add</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -329,18 +381,17 @@ export default function KitchenManagementScreen() {
               account={a}
               colors={c}
               onToggle={() => handleToggle(a)}
-              onDelete={() => handleDelete(a)}
+              onResetPassword={() => setResetTarget(a)}
               toggling={togglingId === a.kitchenId}
-              deleting={deletingId === a.kitchenId}
             />
           ))
         )}
       </ScrollView>
 
-      <AddKitchenModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdded={fetchAccounts}
+      <ResetPasswordModal
+        visible={!!resetTarget}
+        onClose={() => setResetTarget(null)}
+        account={resetTarget}
         colors={c}
         getAuthHeaders={getAuthHeaders}
       />
@@ -361,23 +412,27 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingTop: 8 },
 
   card: { borderRadius: 14, borderWidth: 1.5, padding: 14, marginBottom: 12 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBg: { width: 46, height: 46, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  avatar: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
+  initials: { fontSize: 16, fontWeight: '800' },
   accountName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   mobile: { fontSize: 13, fontWeight: '500' },
   lastLogin: { fontSize: 11, marginTop: 2 },
   statusBadge: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
 
-  deleteRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', borderTopWidth: 1, marginTop: 12, paddingTop: 10,
+  actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  deleteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1,
-  },
-  deleteBtnText: { fontSize: 12, fontWeight: '700' },
+  actionBtnText: { fontSize: 12, fontWeight: '700' },
 
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

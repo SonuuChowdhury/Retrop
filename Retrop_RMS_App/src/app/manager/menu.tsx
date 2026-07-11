@@ -683,16 +683,14 @@ function DishFormModal({
 
 function DishCard({
   item,
-  onEdit,
   onToggle,
-  onDelete,
   colors,
+  toggling,
 }: {
   item: MenuItem;
-  onEdit: () => void;
   onToggle: () => void;
-  onDelete: () => void;
   colors: any;
+  toggling: boolean;
 }) {
   return (
     <View
@@ -771,25 +769,18 @@ function DishCard({
       <View style={styles.dishActions}>
         <Pressable
           onPress={onToggle}
+          disabled={toggling}
           style={[styles.iconBtn, { backgroundColor: colors.inputBackground }]}
         >
-          <MaterialCommunityIcons
-            name={item.isAvailable ? 'eye-off-outline' : 'eye-outline'}
-            size={16}
-            color={colors.textSecondary}
-          />
-        </Pressable>
-        <Pressable
-          onPress={onEdit}
-          style={[styles.iconBtn, { backgroundColor: colors.inputBackground }]}
-        >
-          <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.primary} />
-        </Pressable>
-        <Pressable
-          onPress={onDelete}
-          style={[styles.iconBtn, { backgroundColor: colors.error + '12' }]}
-        >
-          <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+          {toggling ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <MaterialCommunityIcons
+              name={item.isAvailable ? 'eye-off-outline' : 'eye-outline'}
+              size={16}
+              color={colors.textSecondary}
+            />
+          )}
         </Pressable>
       </View>
     </View>
@@ -923,6 +914,7 @@ export default function MenuScreen() {
   const [fetchError,  setFetchError]  = useState('');
   const [showForm,    setShowForm]    = useState(false);
   const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
+  const [togglingId,  setTogglingId]  = useState<string | null>(null);
 
   const buildUrl = useCallback(() => {
     const params = new URLSearchParams();
@@ -966,6 +958,7 @@ export default function MenuScreen() {
   useEffect(() => { fetchMenu(); }, [fetchMenu]);
 
   const handleToggleAvailability = async (item: MenuItem) => {
+    setTogglingId(item.dishId);
     try {
       const res = await fetch(ENDPOINTS.MENU_AVAILABILITY(item.dishId), {
         method:  'PATCH',
@@ -984,6 +977,8 @@ export default function MenuScreen() {
       }
     } catch {
       showError('Error', 'Network error.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -1036,13 +1031,6 @@ export default function MenuScreen() {
           </Pressable>
           <Text style={[styles.pageTitle, { color: c.text }]}>Menu</Text>
         </View>
-        <Pressable
-          onPress={() => { setEditingDish(null); setShowForm(true); }}
-          style={[styles.addBtn, { backgroundColor: c.primary }]}
-        >
-          <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-          <Text style={styles.addBtnText}>Add Dish</Text>
-        </Pressable>
       </View>
 
       {/* ── Filter bar ──────────────────────────────────────────────────────── */}
@@ -1125,10 +1113,9 @@ export default function MenuScreen() {
               <Animated.View key={item.dishId} entering={FadeInDown.delay(i * 40).duration(300)}>
                 <DishCard
                   item={item}
-                  onEdit={() => { setEditingDish(item); setShowForm(true); }}
                   onToggle={() => handleToggleAvailability(item)}
-                  onDelete={() => handleDelete(item)}
                   colors={c}
+                  toggling={togglingId === item.dishId}
                 />
               </Animated.View>
             ))

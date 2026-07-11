@@ -6,7 +6,7 @@
 // Kitchen listens: order:new, order:modified
 // ============================================================================
 
-import { io, Socket } from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
 import { getSocketUrl, NGROK_HEADERS } from '@/config/api';
 
 let socket: Socket | null = null;

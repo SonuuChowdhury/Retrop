@@ -7,11 +7,12 @@
 // ============================================================================
 
 import React, {
-  createContext, useContext, useState, useEffect, useCallback, ReactNode,
+  createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef,
 } from 'react';
 import { TokenStorage } from '@/utils/storage';
 import { loginManager, refreshAccessToken } from '@/services/authService';
 import { ENDPOINTS, NGROK_HEADERS } from '@/config/api';
+import { useDialog } from '@/context/DialogContext';
 
 // ============================================================================
 // TYPES
@@ -50,17 +51,97 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let isInterceptorSetup = false;
+let isRefreshingToken = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { showConfirm } = useDialog();
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
     manager: null,
     accessToken: null,
   });
+
+  const showConfirmRef = useRef(showConfirm);
+  const logoutRef = useRef<() => Promise<void>>(async () => {});
+  const tryRefreshTokenRef = useRef<() => Promise<boolean>>(async () => false);
+
+  useEffect(() => {
+    showConfirmRef.current = showConfirm;
+    logoutRef.current = logout;
+    tryRefreshTokenRef.current = tryRefreshToken;
+  });
+
+  useEffect(() => {
+    if (isInterceptorSetup) return;
+    isInterceptorSetup = true;
+
+    const originalFetch = global.fetch;
+
+    global.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as any).url;
+      const response = await originalFetch(input, init);
+
+      if (response.status === 401 && url && (url.includes('/api/admin') || url.includes('/api/manager') || url.includes('/api/owner'))) {
+        console.log(`[Fetch Interceptor] 401 Unauthorized for ${url}`);
+
+        // Try to refresh token (lock mechanism to prevent duplicate parallel requests)
+        if (!isRefreshingToken) {
+          isRefreshingToken = true;
+          refreshPromise = tryRefreshTokenRef.current();
+        }
+
+        const refreshed = await refreshPromise;
+        isRefreshingToken = false;
+        refreshPromise = null;
+
+        if (refreshed) {
+          console.log('[Fetch Interceptor] Token refreshed successfully. Retrying request...');
+          const newToken = await TokenStorage.getAccessToken();
+          if (init) {
+            const headers = { ...init.headers } as Record<string, string>;
+            headers['Authorization'] = `Bearer ${newToken}`;
+            return originalFetch(input, { ...init, headers });
+          }
+          return originalFetch(input, {
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              ...NGROK_HEADERS,
+            }
+          });
+        } else {
+          console.warn('[Fetch Interceptor] Token refresh failed. Prompting for re-login.');
+
+          showConfirmRef.current({
+            title: 'Session Expired',
+            message: 'Your login session has expired. Please log in again to continue.',
+            confirmText: 'Re-login',
+            cancelText: 'Cancel',
+            destructive: true,
+            onConfirm: async () => {
+              await logoutRef.current();
+            },
+            onCancel: async () => {
+              await logoutRef.current();
+            }
+          });
+        }
+      }
+
+      return response;
+    };
+
+    return () => {
+      global.fetch = originalFetch;
+      isInterceptorSetup = false;
+    };
+  }, []);
 
   useEffect(() => { restoreSession(); }, []);
 
@@ -144,12 +225,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const result = await refreshAccessToken(storedRefreshToken);
       if (!result.success) return false;
 
-      const { accessToken } = result.data;
+      const { accessToken, refreshToken: newRefreshToken } = result.data;
       const profile = await fetchManagerProfile(accessToken);
 
       await TokenStorage.saveSession({
         accessToken,
-        refreshToken: storedRefreshToken,
+        refreshToken: newRefreshToken || storedRefreshToken,
         adminId: storedAdminId,
         role: storedRole,
         name: profile?.name,

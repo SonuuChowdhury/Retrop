@@ -232,6 +232,11 @@ export const ENDPOINTS = {
   // Manager — Restaurant Info
   get MANAGER_RESTAURANT_INFO() { return `${base()}/manager/restaurant-info`; },
 
+  // Manager — Expenses & Day Close
+  get MANAGER_EXPENSES()        { return `${base()}/manager/expenses`; },
+  get MANAGER_DAY_CLOSE()       { return `${base()}/manager/day-close`; },
+  MANAGER_EXPENSE_DELETE: (id: string) => `${base()}/manager/expenses/${id}`,
+
   // Manager — Waiters
   get WAITERS()        { return `${base()}/manager/waiters`; },
   get ACTIVE_WAITERS() { return `${base()}/manager/waiters/active`; },
@@ -245,6 +250,7 @@ export const ENDPOINTS = {
   get MANAGER_KITCHEN_ADD()    { return `${base()}/manager/kitchen`; },
   MANAGER_KITCHEN_DELETE: (kitchenId: string) => `${base()}/manager/kitchen/${kitchenId}`,
   MANAGER_KITCHEN_STATUS: (kitchenId: string) => `${base()}/manager/kitchen/${kitchenId}/status`,
+  MANAGER_KITCHEN_RESET_PASSWORD: (kitchenId: string) => `${base()}/manager/kitchen/${kitchenId}/reset-password`,
 
   // Manager — Analytics
   get ANALYTICS()                { return `${base()}/admins/analytics`; },
