@@ -436,7 +436,7 @@ export default function Restaurants() {
 
   return (
     <Layout>
-      <div style={styles.header}>
+      <div style={styles.header} className="responsive-header">
         <div>
           <h1 style={styles.title}>
             {activeTab === 'restaurants' ? 'Restaurants' : 'Subscriptions & Pricing'}
@@ -499,7 +499,7 @@ export default function Restaurants() {
 
           {/* Restaurants Table */}
           <div style={styles.tableCard}>
-            <div style={styles.tableWrapper}>
+            <div style={styles.tableWrapper} className="responsive-table-container">
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.thRow}>
@@ -1468,7 +1468,7 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: '16px',
   },
   formGroup: {

@@ -112,3 +112,81 @@ button {
   animation: spin 0.8s linear infinite;
   display: inline-block;
 }
+
+/* ============================================================================
+   RESPONSIVENESS UTILITIES & SYSTEM OVERRIDES
+   ============================================================================ */
+
+/* 1. Page & Section Headers: Stack actions on smaller devices */
+.responsive-header {
+  display: flex !important;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .responsive-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .responsive-header > div:last-child {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    margin-top: 8px;
+    gap: 8px !important;
+  }
+  
+  .responsive-header button,
+  .responsive-header a {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* 2. Responsive Grids: Ensure auto-fit grid cards wrap smoothly */
+.responsive-grid-2col {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.responsive-grid-3col {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: 24px !important;
+}
+
+/* 3. Tables Scrollability: Enforce overflow boundaries on small viewport sizes */
+.responsive-table-container {
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 12px;
+  border-radius: 8px;
+}
+
+/* 4. Form Grids: Forms inside modals and cards stack vertically on mobile */
+.responsive-form-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+@media (max-width: 600px) {
+  .responsive-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Make modals fill the screen margin on narrow mobile */
+  div[style*="modalContent"],
+  .modal-content-custom {
+    padding: 20px !important;
+    margin: 10px !important;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+}

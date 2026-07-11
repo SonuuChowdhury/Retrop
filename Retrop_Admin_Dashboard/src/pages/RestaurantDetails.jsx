@@ -609,7 +609,7 @@ export default function RestaurantDetails() {
       ) : restaurant ? (
         <div>
           {/* Page Header */}
-          <div style={styles.header}>
+          <div style={styles.header} className="responsive-header">
             <div>
               <h1 style={styles.title}>{restaurant.businessName}</h1>
               <p style={styles.subtitle}>ID: {restaurant.restaurantId}</p>
@@ -1026,7 +1026,7 @@ export default function RestaurantDetails() {
                 </div>
               </div>
 
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableWrapper} className="responsive-table-container">
                 <table style={styles.table}>
                   <thead>
                     <tr style={styles.thRow}>
@@ -1181,7 +1181,7 @@ export default function RestaurantDetails() {
 
               {/* Transactions Ledger */}
               <h3 style={styles.ledgerSectionTitle}>Invoices & Transaction Ledger</h3>
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableWrapper} className="responsive-table-container">
                 <table style={styles.table}>
                   <thead>
                     <tr style={styles.thRow}>
@@ -1629,7 +1629,7 @@ export default function RestaurantDetails() {
                       <span>This restaurant is on a <strong>Lifetime Plan</strong>. No expiration or renewal dates apply.</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginTop: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '8px' }}>
                       <div style={styles.formGroup}>
                         <span style={styles.infoLabel}>Subscription Plan</span>
                         <span style={styles.infoValue}>{subPlan?.name || 'Lifetime Plan'}</span>
@@ -1670,7 +1670,7 @@ export default function RestaurantDetails() {
 
               return (
                 <form onSubmit={handleSaveSubEdit} style={styles.form}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                     <div style={styles.formGroup}>
                       <label style={styles.label}>Subscription Plan</label>
                       <select

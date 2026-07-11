@@ -64,7 +64,7 @@ export default function Transactions() {
 
   return (
     <Layout>
-      <div style={styles.header}>
+      <div style={styles.header} className="responsive-header">
         <div>
           <h1 style={styles.title}>Transactions Ledger</h1>
           <p style={styles.subtitle}>Audit revenue streams, search invoices, and track cash/UPI ledger records</p>
@@ -110,7 +110,7 @@ export default function Transactions() {
           />
         </div>
 
-        <div style={styles.tableWrapper}>
+        <div style={styles.tableWrapper} className="responsive-table-container">
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>

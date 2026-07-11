@@ -137,7 +137,7 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <div style={styles.tableWrapper}>
+        <div style={styles.tableWrapper} className="responsive-table-container">
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>

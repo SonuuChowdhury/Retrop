@@ -97,7 +97,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div style={styles.header}>
+      <div style={styles.header} className="responsive-header">
         <div>
           <h1 style={styles.title}>Retrop Settings</h1>
           <p style={styles.subtitle}>Configure Retrop legal credentials and tax variables for customer invoicing</p>
