@@ -17,12 +17,25 @@ import { KitchenAuthProvider } from '@/context/KitchenAuthContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { DialogProvider } from '@/context/DialogContext';
 import { initializeApi } from '@/config/api';
+import CustomSplashScreen from '@/components/CustomSplashScreen';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav({ apiReady }: { apiReady: 'setup' | 'ready' | null }) {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   const router = useRouter();
+  const [splashVisible, setSplashVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashVisible(false);
+    }, 2500); // Show splash for 2.5 seconds
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (splashVisible) {
+    return <CustomSplashScreen colors={theme.colors} isDark={isDark} />;
+  }
 
   return (
     <>

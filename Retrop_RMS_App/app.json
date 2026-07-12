@@ -1,22 +1,21 @@
 {
   "expo": {
-    "name": "App",
-    "slug": "App",
+    "name": "Retrop RMS",
+    "slug": "Retrop-RMS",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo-rounded.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/logo-rounded.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/logo-rounded.png"
       },
+      "package": "com.retrop.rms",
       "predictiveBackGestureEnabled": false
     },
     "web": {
