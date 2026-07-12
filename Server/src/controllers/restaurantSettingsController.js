@@ -67,14 +67,23 @@ export const toggleRestaurantOpen = async (req, res) => {
       });
     }
 
-    const { adminId } = req.admin;
+    const { adminId, restaurantId } = req.admin;
 
     const result = await restaurantSettingsService.toggleRestaurantOpen(
       isRestaurantOpen,
       adminId,
+      restaurantId,
     );
 
     if (!result.success) {
+      if (result.code === 'active_orders_exist') {
+        return res.status(400).json({
+          status: 'error',
+          code: 'active_orders_exist',
+          message: result.error,
+          activeOrders: result.activeOrders,
+        });
+      }
       return res.status(500).json({
         status: 'error',
         message: result.error,

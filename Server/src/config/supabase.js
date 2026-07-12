@@ -26,7 +26,8 @@ export const supabase = new Proxy(rawSupabase, {
           'admin', 'admin_session', 'waiter', 'waiter_session', 'waiter_daily_stats',
           'kitchen', 'kitchen_session', 'manager_session', 'login_attempt',
           'restaurant_settings', 'restaurant_info', 'menu', 'restaurant_table',
-          'customer', 'orders', 'vendor', 'inventory_item', 'purchase_entry', 'recipe', 'stock_adjustment'
+          'customer', 'orders', 'vendor', 'inventory_item', 'purchase_entry', 'recipe', 'stock_adjustment',
+          'expense', 'day_close', 'retrop_other_staff', 'loyalty_points', 'customer_feedback'
         ];
         
         if (tenantTables.includes(tableName)) {

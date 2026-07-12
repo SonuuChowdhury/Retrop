@@ -161,9 +161,17 @@ export const getOrderBill = async (req, res) => {
       .eq('restaurantId', order.restaurantId)
       .maybeSingle();
 
+    const { data: feedback } = await supabase
+      .from('customer_feedback')
+      .select('feedbackId')
+      .eq('orderId', orderId)
+      .maybeSingle();
+
+    const hasFeedback = !!feedback;
+
     res.status(200).json({
       status: 'success',
-      data: { order, restaurantInfo },
+      data: { order, restaurantInfo, hasFeedback },
     });
   } catch (err) {
     logger.error('Get order bill error', err.message);
@@ -359,5 +367,48 @@ export const checkCustomerToken = async (req, res) => {
   } catch (err) {
     logger.error('Check customer token controller error', err.message);
     res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+};
+
+// ── POST /api/order/:orderId/feedback ──────────────────────────────────────────
+// Customers submits rating & comment for their completed order
+export const submitFeedback = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { rating, comment, mobile } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ status: 'error', message: 'Valid rating between 1 and 5 is required' });
+    }
+
+    // Resolve restaurantId and default customer mobile from the order
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('restaurantId, mobile')
+      .eq('ordersId', orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ status: 'error', message: 'Order not found' });
+    }
+
+    const { error: insertErr } = await supabase
+      .from('customer_feedback')
+      .insert({
+        restaurantId: order.restaurantId,
+        orderId,
+        mobile: mobile || order.mobile || '9999999999', // fallback default mobile
+        rating: parseInt(rating),
+        comment: comment || null,
+      });
+
+    if (insertErr) {
+      throw insertErr;
+    }
+
+    res.status(200).json({ status: 'success', message: 'Feedback submitted successfully' });
+  } catch (err) {
+    logger.error('Submit customer feedback error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to submit feedback' });
   }
 };

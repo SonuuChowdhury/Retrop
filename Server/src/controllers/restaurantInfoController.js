@@ -5,6 +5,7 @@
 import { restaurantInfoService } from '../services/restaurantInfoService.js';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
+import { nowIST } from '../utils/time.js';
 
 // ── GET /api/manager/restaurant-info ─────────────────────────────────────────
 export const getRestaurantInfo = async (req, res) => {
@@ -23,7 +24,7 @@ export const getRestaurantInfo = async (req, res) => {
       isRestaurantOpen: settings ? settings.isRestaurantOpen : false,
     };
 
-    res.status(200).json({ status: 'success', data });
+    res.status(200).json({ status: 'success', success: true, data });
   } catch (err) {
     logger.error('Get restaurant info error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to fetch restaurant info' });
@@ -33,7 +34,7 @@ export const getRestaurantInfo = async (req, res) => {
 // ── PUT /api/manager/restaurant-info ─────────────────────────────────────────
 export const updateRestaurantInfo = async (req, res) => {
   try {
-    const { restaurantName, address, mobile, isGST, GSTIN, taxes, taxType, discounts } = req.body;
+    const { restaurantName, address, mobile, isGST, GSTIN, taxes, taxType, discounts, googleReviewLink } = req.body;
 
     // Validate
     if (!restaurantName?.trim()) {
@@ -69,6 +70,16 @@ export const updateRestaurantInfo = async (req, res) => {
       }
     }
 
+    // Fetch existing info to detect if isGST has changed
+    const existingInfo = await restaurantInfoService.getInfo();
+    let gstChangedAt = existingInfo.success && existingInfo.data ? existingInfo.data.gstChangedAt : null;
+    const oldIsGST = existingInfo.success && existingInfo.data ? Boolean(existingInfo.data.isGST) : false;
+    if (Boolean(isGST) !== oldIsGST) {
+      gstChangedAt = nowIST();
+    }
+
+    const { logoUrl } = req.body;
+
     const updates = {
       restaurantName: restaurantName.trim(),
       address: address?.trim() || null,
@@ -78,11 +89,14 @@ export const updateRestaurantInfo = async (req, res) => {
       taxes: taxes || [],
       taxType: taxType || 'exclusive',
       discounts: discounts || [],
+      gstChangedAt,
+      logoUrl: logoUrl || (existingInfo.success && existingInfo.data ? existingInfo.data.logoUrl : null),
+      googleReviewLink: googleReviewLink?.trim() || null,
     };
 
     const result = await restaurantInfoService.updateInfo(updates);
     if (!result.success) return res.status(500).json({ status: 'error', message: result.error });
-    res.status(200).json({ status: 'success', data: result.data, message: 'Restaurant info updated' });
+    res.status(200).json({ status: 'success', success: true, data: result.data, message: 'Restaurant info updated' });
   } catch (err) {
     logger.error('Update restaurant info error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to update restaurant info' });

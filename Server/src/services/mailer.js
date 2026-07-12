@@ -60,10 +60,11 @@ export const sendEmail = async ({ to, subject, html, attachments = [] }) => {
  */
 async function getRetropConfig() {
   try {
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from('retrop_business_config')
       .select('*')
-      .maybeSingle();
+      .limit(1);
+    const data = rows && rows.length > 0 ? rows[0] : null;
     if (data) {
       return {
         legalName: data.legalName || 'Retrop Software Solutions',

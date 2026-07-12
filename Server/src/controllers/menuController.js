@@ -86,6 +86,7 @@ export const addMenuItem = async (req, res) => {
       spicyLevel,
       isVegetarian,
       isAvailable,
+      hsnCode,
     } = req.body;
 
     if (!dishName || price === undefined || price === null) {
@@ -105,6 +106,7 @@ export const addMenuItem = async (req, res) => {
       spicyLevel,
       isVegetarian,
       isAvailable,
+      hsnCode,
     });
 
     if (!result.success) {

@@ -46,8 +46,31 @@ export const restaurantSettingsService = {
   // @param {boolean} isOpen    - Desired new state.
   // @param {string}  adminId   - UUID of the admin making the change.
   // --------------------------------------------------------------------------
-  toggleRestaurantOpen: async (isOpen, adminId) => {
+  toggleRestaurantOpen: async (isOpen, adminId, restaurantId) => {
     try {
+      // If closing the restaurant, check for active orders first
+      if (!isOpen && restaurantId) {
+        const { data: activeOrders, error: activeOrdersError } = await supabase
+          .from('orders')
+          .select('ordersId, tableNo, orderStatus, mobile')
+          .eq('restaurantId', restaurantId)
+          .in('orderStatus', ['ordering', 'preparing', 'ready', 'serving']);
+
+        if (activeOrdersError) {
+          logger.error('Failed to query active orders on close', activeOrdersError.message);
+          return { success: false, error: 'Failed to verify active orders. Please try again.' };
+        }
+
+        if (activeOrders && activeOrders.length > 0) {
+          return {
+            success: false,
+            error: 'Cannot close restaurant: active orders are currently in progress.',
+            code: 'active_orders_exist',
+            activeOrders,
+          };
+        }
+      }
+
       // 1. Update the settings row
       const { data: settings, error: settingsError } = await supabase
         .from('restaurant_settings')

@@ -152,8 +152,25 @@ export const ownerController = {
         return sum + amt;
       }, 0);
 
+      const totalCOGS = orders.reduce((sum, order) => sum + parseFloat(order.costOfGoods || 0), 0);
+      const totalProfit = orders.reduce((sum, order) => sum + parseFloat(order.grossProfit || 0), 0);
+      const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
       const ordersCount = orders.length;
       const averageOrderValue = ordersCount > 0 ? totalSales / ordersCount : 0;
+
+      // Get loyalty info
+      let totalLoyaltyPoints = 0;
+      let loyaltyCustomersCount = 0;
+      try {
+        const { data: loyaltyData } = await supabase
+          .from('loyalty_points')
+          .select('totalPoints');
+        if (loyaltyData) {
+          totalLoyaltyPoints = loyaltyData.reduce((sum, item) => sum + item.totalPoints, 0);
+          loyaltyCustomersCount = loyaltyData.length;
+        }
+      } catch (_) {}
 
       // Extract top selling dishes today
       const dishSales = {};
@@ -189,6 +206,11 @@ export const ownerController = {
             totalSales: parseFloat(totalSales.toFixed(2)),
             ordersCount,
             averageOrderValue: parseFloat(averageOrderValue.toFixed(2)),
+            totalCOGS: parseFloat(totalCOGS.toFixed(2)),
+            totalProfit: parseFloat(totalProfit.toFixed(2)),
+            profitMargin: parseFloat(profitMargin.toFixed(2)),
+            totalLoyaltyPoints,
+            loyaltyCustomersCount,
           },
           recentOrders: recentOrders || [],
           topDishes
@@ -373,6 +395,369 @@ export const ownerController = {
     } catch (err) {
       logger.error('ownerController.exportSalesReport error', err.message);
       return res.status(500).json({ success: false, message: 'Failed to generate CSV report' });
+    }
+  },
+
+  // POST /api/owner/restaurant/logo
+  uploadLogo: async (req, res) => {
+    try {
+      const { image, mimeType, fileName } = req.body;
+      if (!image) {
+        return res.status(400).json({ success: false, message: 'Image base64 data is required' });
+      }
+
+      if (!req.restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant linked to owner' });
+      }
+
+      const mime = mimeType || 'image/jpeg';
+      const ext = fileName?.split('.').pop()?.toLowerCase() || 'jpg';
+      const filename = `${req.restaurantId}_${Date.now()}.${ext}`;
+
+      let fileBuffer;
+      try {
+        const base64Data = image.includes(',') ? image.split(',')[1] : image;
+        fileBuffer = Buffer.from(base64Data, 'base64');
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid base64 image data' });
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('restaurant-logos')
+        .upload(filename, fileBuffer, {
+          contentType: mime,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        logger.error('Failed to upload logo to Supabase storage', uploadError.message);
+        return res.status(500).json({ success: false, message: 'Logo upload failed: ' + uploadError.message });
+      }
+
+      const { data: urlData } = supabase.storage.from('restaurant-logos').getPublicUrl(filename);
+      const logoUrl = urlData.publicUrl;
+
+      // Update restaurant_info table
+      const { data: existing } = await supabase
+        .from('restaurant_info')
+        .select('infoId')
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('restaurant_info')
+          .update({ logoUrl, updatedAt: nowIST() })
+          .eq('infoId', existing.infoId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('restaurant_info')
+          .insert([{ logoUrl, restaurantId: req.restaurantId, createdAt: nowIST(), updatedAt: nowIST() }]);
+        if (error) throw error;
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Logo uploaded successfully',
+        data: { logoUrl }
+      });
+    } catch (err) {
+      logger.error('ownerController.uploadLogo error', err.message);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  },
+
+  // GET /api/owner/gst/gstr1
+  getGstr1Report: async (req, res) => {
+    try {
+      if (!req.restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant linked to owner' });
+      }
+
+      const { month, year } = req.query; // e.g. month=07, year=2026
+      if (!month || !year) {
+        return res.status(400).json({ success: false, message: 'month and year are required' });
+      }
+
+      const startDate = `${year}-${month.padStart(2, '0')}-01T00:00:00.000Z`;
+      const endDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month.padStart(2, '0')}-${endDay}T23:59:59.999Z`;
+
+      // Fetch completed orders within date range
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('totalAmount, discountAmount, gstAmount, taxBreakdown, createdAt')
+        .eq('isPaymentCompleted', true)
+        .gte('createdAt', startDate)
+        .lte('createdAt', endDate);
+
+      if (error) throw error;
+
+      // Fetch restaurant info for GSTIN & POS
+      const { data: restaurantInfo } = await supabase
+        .from('restaurant_info')
+        .select('GSTIN, isGST')
+        .maybeSingle();
+
+      const gstin = restaurantInfo?.GSTIN || '';
+      const pos = gstin.substring(0, 2) || '07'; // fallback to '07'
+
+      // Aggregate by tax rate
+      const rateAggregation = {};
+
+      (orders || []).forEach(order => {
+        const subtotal = parseFloat(order.totalAmount || 0) - parseFloat(order.discountAmount || 0);
+
+        // Find rates from taxBreakdown
+        const breakdown = order.taxBreakdown || [];
+        if (breakdown.length > 0) {
+          const totalRate = breakdown.reduce((sum, t) => sum + parseFloat(t.percent || 0), 0);
+          const totalTax = parseFloat(order.gstAmount || 0);
+
+          if (!rateAggregation[totalRate]) {
+            rateAggregation[totalRate] = { txval: 0, tax: 0 };
+          }
+          rateAggregation[totalRate].txval += subtotal;
+          rateAggregation[totalRate].tax += totalTax;
+        } else {
+          // No tax
+          if (!rateAggregation[0]) {
+            rateAggregation[0] = { txval: 0, tax: 0 };
+          }
+          rateAggregation[0].txval += subtotal;
+          rateAggregation[0].tax += 0;
+        }
+      });
+
+      const b2cs = Object.entries(rateAggregation).map(([rateStr, data]) => {
+        const rate = parseFloat(rateStr);
+        const txval = parseFloat(data.txval.toFixed(2));
+        const tax = parseFloat(data.tax.toFixed(2));
+        const halfTax = parseFloat((tax / 2).toFixed(2));
+
+        return {
+          sply_ty: 'INTRA',
+          pos,
+          rt: rate,
+          txval,
+          iamt: 0.0,
+          camt: halfTax, // CGST
+          samt: halfTax, // SGST
+          csamt: 0.0
+        };
+      });
+
+      const gstr1Json = {
+        gstin,
+        fp: `${month.padStart(2, '0')}${year}`,
+        cur_gt: 0.0,
+        gt: 0.0,
+        b2cs
+      };
+
+      return res.status(200).json({ success: true, data: gstr1Json });
+    } catch (err) {
+      logger.error('ownerController.getGstr1Report error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to generate GSTR-1 report' });
+    }
+  },
+
+  // GET /api/owner/gst/gstr3b
+  getGstr3bReport: async (req, res) => {
+    try {
+      if (!req.restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant linked to owner' });
+      }
+
+      const { month, year } = req.query;
+      if (!month || !year) {
+        return res.status(400).json({ success: false, message: 'month and year are required' });
+      }
+
+      const startMonth = month.padStart(2, '0');
+      const endDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      
+      const salesStart = `${year}-${startMonth}-01T00:00:00.000Z`;
+      const salesEnd = `${year}-${startMonth}-${endDay}T23:59:59.999Z`;
+
+      const purchaseStart = `${year}-${startMonth}-01`;
+      const purchaseEnd = `${year}-${startMonth}-${endDay}`;
+
+      // 1. Outward supplies (sales)
+      const { data: sales, error: salesErr } = await supabase
+        .from('orders')
+        .select('finalAmount, gstAmount')
+        .eq('isPaymentCompleted', true)
+        .gte('createdAt', salesStart)
+        .lte('createdAt', salesEnd);
+
+      if (salesErr) throw salesErr;
+
+      // 2. Inward supplies (purchases for ITC)
+      const { data: purchases, error: purchaseErr } = await supabase
+        .from('purchase_entry')
+        .select('totalAmount')
+        .gte('purchaseDate', purchaseStart)
+        .lte('purchaseDate', purchaseEnd);
+
+      if (purchaseErr) throw purchaseErr;
+
+      // Calculations
+      let totalSalesVal = 0;
+      let totalSalesTax = 0;
+      (sales || []).forEach(o => {
+        const amt = parseFloat(o.finalAmount || 0);
+        const tax = parseFloat(o.gstAmount || 0);
+        totalSalesVal += (amt - tax);
+        totalSalesTax += tax;
+      });
+
+      let totalPurchaseVal = 0;
+      (purchases || []).forEach(p => {
+        totalPurchaseVal += parseFloat(p.totalAmount || 0);
+      });
+
+      // Standard restaurant inputs carry standard 5% tax (2.5% CGST + 2.5% SGST)
+      const itcTax = totalPurchaseVal * 0.05;
+      const itcHalfTax = itcTax / 2;
+
+      const salesHalfTax = totalSalesTax / 2;
+
+      const gstr3bJson = {
+        gstin: (await supabase.from('restaurant_info').select('GSTIN').maybeSingle()).data?.GSTIN || '',
+        fp: `${startMonth}${year}`,
+        "3.1_outward_supplies": {
+          "a_outward_taxable_supplies": {
+            taxable_value: parseFloat(totalSalesVal.toFixed(2)),
+            integrated_tax: 0.0,
+            central_tax: parseFloat(salesHalfTax.toFixed(2)),
+            state_ut_tax: parseFloat(salesHalfTax.toFixed(2)),
+            cess: 0.0
+          },
+          "b_outward_zero_rated_supplies": { taxable_value: 0.0, integrated_tax: 0.0, cess: 0.0 },
+          "c_other_outward_supplies": { taxable_value: 0.0, integrated_tax: 0.0, cess: 0.0 },
+          "d_inward_supplies_reverse_charge": { taxable_value: 0.0, integrated_tax: 0.0, central_tax: 0.0, state_ut_tax: 0.0, cess: 0.0 },
+          "e_non_gst_outward_supplies": { taxable_value: 0.0, integrated_tax: 0.0, cess: 0.0 }
+        },
+        "4_eligible_itc": {
+          "A_itc_available": {
+            "1_import_of_goods": { integrated_tax: 0.0, cess: 0.0 },
+            "2_import_of_services": { integrated_tax: 0.0, cess: 0.0 },
+            "3_inward_supplies_liable_reverse_charge": { integrated_tax: 0.0, cess: 0.0 },
+            "4_inward_supplies_isd": { integrated_tax: 0.0, cess: 0.0 },
+            "5_all_other_itc": {
+              integrated_tax: 0.0,
+              central_tax: parseFloat(itcHalfTax.toFixed(2)),
+              state_ut_tax: parseFloat(itcHalfTax.toFixed(2)),
+              cess: 0.0
+            }
+          }
+        }
+      };
+
+      return res.status(200).json({ success: true, data: gstr3bJson });
+    } catch (err) {
+      logger.error('ownerController.getGstr3bReport error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to generate GSTR-3B report' });
+    }
+  },
+
+  // GET /api/owner/orders
+  getOrders: async (req, res) => {
+    try {
+      const restaurantId = req.restaurantId;
+      if (!restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant associated with this owner' });
+      }
+
+      const {
+        from, to, status, waiterId, tableNo, search,
+        limit = '20', offset = '0',
+      } = req.query;
+
+      const lim = Math.min(parseInt(limit) || 20, 100);
+      const off = parseInt(offset) || 0;
+
+      let query = supabase
+        .from('orders')
+        .select(`
+          ordersId, dailyOrderNo, invoiceNo, tableNo, orderStatus, ordersInfo,
+          ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
+          paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
+          customer(name, mobile),
+          waiter:waiterId(waiterName, mobile)
+        `, { count: 'exact' })
+        .eq('restaurantId', restaurantId)
+        .order('createdAt', { ascending: false })
+        .range(off, off + lim - 1);
+
+      if (from)      query = query.gte('createdAt', from);
+      if (to)        query = query.lte('createdAt', to);
+      if (status)    query = query.eq('orderStatus', status);
+      if (waiterId)  query = query.eq('waiterId', waiterId);
+      if (tableNo)   query = query.eq('tableNo', parseInt(tableNo));
+      if (search && search.trim()) {
+        query = query.ilike('invoiceNo', `%${search.trim()}%`);
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      return res.status(200).json({
+        success: true,
+        data,
+        meta: { total: count ?? 0, limit: lim, offset: off, hasMore: (off + lim) < (count ?? 0) },
+      });
+    } catch (err) {
+      logger.error('ownerController.getOrders error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to fetch orders' });
+    }
+  },
+
+  // GET /api/owner/reviews
+  getReviews: async (req, res) => {
+    try {
+      const restaurantId = req.restaurantId;
+      if (!restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant associated with this owner' });
+      }
+
+      const { limit = '20', offset = '0' } = req.query;
+      const lim = Math.min(parseInt(limit) || 20, 100);
+      const off = parseInt(offset) || 0;
+
+      const { data, error, count } = await supabase
+        .from('customer_feedback')
+        .select(`
+          feedbackId,
+          rating,
+          comment,
+          mobile,
+          createdAt,
+          orders:orderId (
+            ordersId,
+            dailyOrderNo,
+            invoiceNo,
+            tableNo,
+            totalAmount,
+            finalAmount,
+            customer(name)
+          )
+        `, { count: 'exact' })
+        .eq('restaurantId', restaurantId)
+        .order('createdAt', { ascending: false })
+        .range(off, off + lim - 1);
+
+      if (error) throw error;
+
+      return res.status(200).json({
+        success: true,
+        data,
+        meta: { total: count ?? 0, limit: lim, offset: off, hasMore: (off + lim) < (count ?? 0) },
+      });
+    } catch (err) {
+      logger.error('ownerController.getReviews error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to fetch customer reviews' });
     }
   }
 };

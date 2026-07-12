@@ -43,6 +43,231 @@ export const generateInvoiceNo = (dailyOrderNo) => {
   return `INV${datePart}${seqPart}`;
 };
 
+// ============================================================================
+// PHASE 5 — Auto-Stock Deduction Helper
+// Called when kitchen marks an order as ready.
+// Fetches recipe BOM for each dish and deducts raw ingredient quantities.
+// Also fires low-stock alerts via socket if any item falls below reorderLevel.
+// ============================================================================
+const deductStockForOrder = async (orderId, restaurantId) => {
+  try {
+    // Fetch the order's items
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('ordersInfo')
+      .eq('ordersId', orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      logger.warn(`deductStockForOrder: order ${orderId} not found, skipping stock deduction`);
+      return;
+    }
+
+    const orderItems = order.ordersInfo || [];
+    if (!orderItems.length) return;
+
+    // For each dish in the order, fetch the recipe
+    const dishIds = [...new Set(orderItems.map(i => i.dishId))];
+
+    const { data: recipes, error: recipeErr } = await supabase
+      .from('recipe')
+      .select('dishId, ingredients, yieldQuantity')
+      .in('dishId', dishIds)
+      .eq('restaurantId', restaurantId);
+
+    if (recipeErr || !recipes || !recipes.length) {
+      logger.info(`deductStockForOrder: no recipes found for order ${orderId}, skipping`);
+      return;
+    }
+
+    // Build map: dishId → recipe
+    const recipeMap = Object.fromEntries(recipes.map(r => [r.dishId, r]));
+
+    // Accumulate deductions: itemId → totalQtyToDeduct
+    const deductions = {};
+    for (const item of orderItems) {
+      const recipe = recipeMap[item.dishId];
+      if (!recipe) continue;
+
+      const orderQty = item.quantity || 1;
+      const yieldQty = parseFloat(recipe.yieldQuantity) || 1;
+      const scaleFactor = orderQty / yieldQty;
+
+      for (const ing of (recipe.ingredients || [])) {
+        const itemId = ing.itemId;
+        const deductQty = parseFloat((parseFloat(ing.quantity) * scaleFactor).toFixed(4));
+        deductions[itemId] = (deductions[itemId] || 0) + deductQty;
+      }
+    }
+
+    // Execute deductions and collect low-stock items
+    const lowStockAlerts = [];
+    for (const [itemId, deductQty] of Object.entries(deductions)) {
+      // Fetch current stock and reorder level
+      const { data: stockItem, error: stockErr } = await supabase
+        .from('inventory_item')
+        .select('name, currentStock, reorderLevel, unit')
+        .eq('itemId', itemId)
+        .maybeSingle();
+
+      if (stockErr || !stockItem) {
+        logger.warn(`deductStockForOrder: inventory_item ${itemId} not found, skipping`);
+        continue;
+      }
+
+      const newStock = parseFloat((parseFloat(stockItem.currentStock) - deductQty).toFixed(4));
+
+      // Update the stock
+      const { error: updateErr } = await supabase
+        .from('inventory_item')
+        .update({ currentStock: newStock, updatedAt: nowIST() })
+        .eq('itemId', itemId);
+
+      if (updateErr) {
+        logger.error(`deductStockForOrder: failed to update stock for ${itemId}`, updateErr.message);
+        continue;
+      }
+
+      // Check if below reorder level
+      if (newStock <= parseFloat(stockItem.reorderLevel)) {
+        lowStockAlerts.push({
+          itemId,
+          name: stockItem.name,
+          currentStock: newStock,
+          reorderLevel: stockItem.reorderLevel,
+          unit: stockItem.unit,
+        });
+      }
+    }
+
+    // Broadcast low-stock alerts via socket
+    if (lowStockAlerts.length > 0) {
+      socketService.emitToAll('stock:low_alert', { restaurantId, items: lowStockAlerts });
+      logger.warn(`Low stock alert for ${lowStockAlerts.length} item(s) after order ${orderId}`);
+    }
+
+    logger.info(`Stock deducted for order ${orderId}: ${Object.keys(deductions).length} ingredient(s) updated`);
+  } catch (err) {
+    logger.error(`deductStockForOrder error for order ${orderId}`, err.message);
+    // Non-fatal — stock deduction failures must not block kitchen flow
+  }
+};
+
+// ============================================================================
+// PHASE 7 — COGS & Profit Calculation Helper
+// Called after concludeOrder billing. Computes cost of goods sold using
+// recipe ingredient costs (costPerUnit from inventory_item).
+// ============================================================================
+const computeAndStoreCOGS = async (orderId, restaurantId, billableItems) => {
+  try {
+    const dishIds = [...new Set(billableItems.map(i => i.dishId))];
+
+    const { data: recipes } = await supabase
+      .from('recipe')
+      .select('dishId, ingredients, yieldQuantity')
+      .in('dishId', dishIds)
+      .eq('restaurantId', restaurantId);
+
+    if (!recipes || !recipes.length) return;
+
+    const recipeMap = Object.fromEntries(recipes.map(r => [r.dishId, r]));
+
+    // Collect all unique itemIds for cost lookup
+    const allItemIds = new Set();
+    for (const recipe of recipes) {
+      for (const ing of (recipe.ingredients || [])) allItemIds.add(ing.itemId);
+    }
+
+    const { data: stockItems } = await supabase
+      .from('inventory_item')
+      .select('itemId, costPerUnit')
+      .in('itemId', [...allItemIds]);
+
+    const costMap = Object.fromEntries((stockItems || []).map(i => [i.itemId, parseFloat(i.costPerUnit || 0)]));
+
+    let totalCOGS = 0;
+    for (const item of billableItems) {
+      const recipe = recipeMap[item.dishId];
+      if (!recipe) continue;
+
+      const orderQty = item.quantity || 1;
+      const yieldQty = parseFloat(recipe.yieldQuantity) || 1;
+      const scaleFactor = orderQty / yieldQty;
+
+      for (const ing of (recipe.ingredients || [])) {
+        const cost = costMap[ing.itemId] || 0;
+        totalCOGS += cost * parseFloat(ing.quantity) * scaleFactor;
+      }
+    }
+
+    totalCOGS = parseFloat(totalCOGS.toFixed(2));
+
+    // Fetch the final amount for profit calculation
+    const { data: orderData } = await supabase
+      .from('orders')
+      .select('finalAmount')
+      .eq('ordersId', orderId)
+      .maybeSingle();
+
+    const grossProfit = parseFloat(((parseFloat(orderData?.finalAmount || 0)) - totalCOGS).toFixed(2));
+
+    await supabase
+      .from('orders')
+      .update({ costOfGoods: totalCOGS, grossProfit, updatedAt: nowIST() })
+      .eq('ordersId', orderId);
+
+    logger.info(`COGS for order ${orderId}: ₹${totalCOGS}, Gross Profit: ₹${grossProfit}`);
+  } catch (err) {
+    logger.error(`computeAndStoreCOGS error for order ${orderId}`, err.message);
+    // Non-fatal
+  }
+};
+
+// ============================================================================
+// PHASE 10 — Loyalty Points Helper
+// Awards 1 loyalty point per ₹100 spent on order completion.
+// ============================================================================
+const awardLoyaltyPoints = async (restaurantId, mobile, finalAmount) => {
+  try {
+    const pointsEarned = Math.floor(parseFloat(finalAmount) / 100);
+    if (pointsEarned <= 0) return;
+
+    const { data: existing } = await supabase
+      .from('loyalty_points')
+      .select('pointId, totalPoints, lifetimeEarned')
+      .eq('restaurantId', restaurantId)
+      .eq('mobile', mobile)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('loyalty_points')
+        .update({
+          totalPoints: existing.totalPoints + pointsEarned,
+          lifetimeEarned: existing.lifetimeEarned + pointsEarned,
+          updatedAt: nowIST(),
+        })
+        .eq('pointId', existing.pointId);
+    } else {
+      await supabase
+        .from('loyalty_points')
+        .insert([{
+          restaurantId,
+          mobile,
+          totalPoints: pointsEarned,
+          lifetimeEarned: pointsEarned,
+          createdAt: nowIST(),
+          updatedAt: nowIST(),
+        }]);
+    }
+
+    logger.info(`Awarded ${pointsEarned} loyalty point(s) to ${mobile} (₹${finalAmount} spent)`);
+  } catch (err) {
+    logger.error(`awardLoyaltyPoints error for ${mobile}`, err.message);
+    // Non-fatal
+  }
+};
+
 export const orderSessionService = {
 
   // ── Step 1: Create order session from QR scan ─────────────────────────
@@ -516,6 +741,9 @@ export const orderSessionService = {
 
       if (updateError) return { success: false, error: 'Failed to update order status.', code: 500 };
 
+      // PHASE 5: Deduct stock ingredients asynchronously (non-blocking)
+      deductStockForOrder(orderId, order.restaurantId).catch(() => {});
+
       // Notify assigned waiter
       if (order.waiterId) {
         await notificationService.notifyWaiter(
@@ -700,6 +928,12 @@ export const orderSessionService = {
           .eq('restaurantId', order.restaurantId);
       } catch (_) { /* non-critical — don't block payment */ }
 
+      // PHASE 7: Compute COGS & gross profit asynchronously (non-blocking)
+      computeAndStoreCOGS(orderId, order.restaurantId, billableItems).catch(() => {});
+
+      // PHASE 10: Award loyalty points (1 point per ₹100) asynchronously
+      awardLoyaltyPoints(order.restaurantId, order.mobile, finalAmount).catch(() => {});
+
       logger.info(`Order ${orderId} completed. Payment: ${paymentMethod}, Amount: ${finalAmount}, Discount: ${discountAmount}, TaxType: ${taxType}`);
 
       return {
@@ -720,6 +954,178 @@ export const orderSessionService = {
     } catch (err) {
       logger.error('Conclude order error', err.message);
       return { success: false, error: 'Failed to conclude order', code: 500 };
+    }
+  },
+
+  // ── Waiter modifies order (add/remove/update items) ───────────────────
+  waiterModifyOrder: async (orderId, waiterId, action, items) => {
+    try {
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('ordersId', orderId)
+        .maybeSingle();
+
+      if (error || !order) {
+        return { success: false, error: 'Order not found.', code: 404 };
+      }
+
+      if (order.waiterId && order.waiterId !== waiterId) {
+        return { success: false, error: 'Access denied. This order belongs to another waiter.', code: 403 };
+      }
+
+      const allowed = ['ordering', 'preparing', 'ready', 'serving'];
+      if (!allowed.includes(order.orderStatus)) {
+        return { success: false, error: 'Order is already finalized.', code: 400 };
+      }
+
+      const lockedItems = order.lockedItems || [];
+      const lockedDishIds = new Set(lockedItems.map(i => i.dishId));
+
+      let newOrdersInfo = [...order.ordersInfo];
+      let totalAmount = 0;
+      let addonBatch = null;
+
+      if (action === 'replace') {
+        const dishIds = items.map(i => i.dishId);
+        const { data: dishes } = await supabase.from('menu').select('dishId, dishName, price, isAvailable').in('dishId', dishIds);
+        const dishMap = Object.fromEntries(dishes.map(d => [d.dishId, d]));
+
+        const newItems = [];
+        for (const item of items) {
+          const dish = dishMap[item.dishId];
+          if (!dish || !dish.isAvailable) {
+            return { success: false, error: `Item unavailable: ${dish?.dishName || item.dishId}`, code: 400 };
+          }
+          newItems.push({
+            dishId: dish.dishId,
+            dishName: dish.dishName,
+            price: dish.price,
+            quantity: parseInt(item.quantity) || 1,
+            remarks: item.remarks || null
+          });
+        }
+
+        // Merge: keep locked items at their locked quantity (or higher if waiter increased),
+        // add any non-locked new items.
+        const mergedItems = lockedItems.map(locked => {
+          const newVersion = newItems.find(i => i.dishId === locked.dishId);
+          const qty = newVersion && newVersion.quantity > locked.quantity
+            ? newVersion.quantity
+            : locked.quantity;
+          return { ...locked, quantity: qty };
+        });
+
+        for (const newItem of newItems) {
+          if (!lockedDishIds.has(newItem.dishId)) {
+            mergedItems.push(newItem);
+          }
+        }
+
+        newOrdersInfo = mergedItems;
+
+        // Compute addon items
+        const addonItems = [];
+        for (const newItem of newOrdersInfo) {
+          const oldItem = order.ordersInfo.find(i => i.dishId === newItem.dishId);
+          const oldQty = oldItem ? oldItem.quantity : 0;
+          if (newItem.quantity > oldQty) {
+            addonItems.push({
+              dishId: newItem.dishId,
+              dishName: newItem.dishName,
+              price: newItem.price,
+              quantity: newItem.quantity - oldQty,
+              remarks: newItem.remarks || null,
+            });
+          }
+        }
+
+        if (addonItems.length > 0) {
+          addonBatch = {
+            type: 'addon',
+            addonId: randomUUID(),
+            addonItems,
+            kitchenAcknowledged: false,
+            timestamp: nowIST(),
+            customer: false,
+          };
+        }
+      }
+
+      if (newOrdersInfo.length === 0) {
+        return { success: false, error: 'Cannot empty the order. Cancel order instead or keep at least 1 item.', code: 400 };
+      }
+
+      newOrdersInfo.forEach(i => { totalAmount += i.price * i.quantity; });
+
+      const updateLog = {
+        timestamp: nowIST(),
+        action,
+        items,
+        customer: false,
+        ...(addonBatch && { addonId: addonBatch.addonId }),
+      };
+
+      const updatedUpdateInfo = [
+        ...(order.ordersUpdateInfo || []),
+        ...(addonBatch ? [addonBatch] : []),
+        updateLog,
+      ];
+
+      let itemsAdded = false;
+      for (const newItem of newOrdersInfo) {
+        const oldItem = order.ordersInfo.find(i => i.dishId === newItem.dishId);
+        const oldQty = oldItem ? oldItem.quantity : 0;
+        if (newItem.quantity > oldQty) {
+          itemsAdded = true;
+          break;
+        }
+      }
+
+      let nextStatus = order.orderStatus;
+      if (itemsAdded && ['ready', 'serving'].includes(order.orderStatus)) {
+        nextStatus = 'preparing';
+      }
+
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+          ordersInfo: newOrdersInfo,
+          ordersUpdateInfo: updatedUpdateInfo,
+          totalAmount,
+          orderStatus: nextStatus,
+          updatedAt: nowIST(),
+        })
+        .eq('ordersId', orderId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      if (addonBatch) {
+        await notificationService.notifyKitchen(
+          `✏️ Order Modified #${order.dailyOrderNo}`,
+          `Table ${order.tableNo} — ${addonBatch.addonItems.length} addon item(s) added`,
+          {
+            type: 'order_modified',
+            orderId,
+            tableNo: String(order.tableNo),
+          }
+        );
+      }
+
+      socketService.emitToAll('order:modified', {
+        orderId,
+        ordersInfo: newOrdersInfo,
+        ordersUpdateInfo: updatedUpdateInfo,
+        totalAmount,
+        orderStatus: nextStatus,
+      });
+
+      return { success: true, data: updatedOrder };
+    } catch (err) {
+      logger.error('Waiter modify order error', err.message);
+      return { success: false, error: 'Failed to modify order', code: 500 };
     }
   },
 

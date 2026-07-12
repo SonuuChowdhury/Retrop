@@ -66,6 +66,9 @@ import {
   getBillPreview,
   getPendingSessions,
   updateWaiterFcmToken,
+  getAvailableTables,
+  createManualOrder,
+  getOrderBillPDF,
 } from '../controllers/waiterController.js';
 import {
   kitchenLogin,
@@ -81,6 +84,7 @@ import {
   deleteKitchen,
   toggleKitchenStatus,
   updateKitchenFcmToken,
+  resetKitchenPassword,
 } from '../controllers/kitchenController.js';
 import {
   createOrderSession,
@@ -92,6 +96,7 @@ import {
   getCustomerOrderStatus,
   customerModifyOrder,
   checkCustomerToken,
+  submitFeedback,
 } from '../controllers/customerOrderController.js';
 import { retropController } from '../controllers/retropController.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
@@ -104,6 +109,8 @@ import { inventoryController } from '../controllers/inventoryController.js';
 import { ownerAuthMiddleware } from '../middleware/ownerAuth.js';
 import { validate, schemas } from '../middleware/validate.js';
 import { RATE_LIMIT_CONFIG } from '../config/constants.js';
+import { staffController } from '../controllers/staffController.js';
+import { expenseController } from '../controllers/expenseController.js';
 
 const router = express.Router();
 
@@ -204,16 +211,19 @@ router.get('/api/manager/waiters',                              productKeyAuth, 
 router.get('/api/manager/waiters/active',                       productKeyAuth, authMiddleware, requireRole(['manager']), getActiveWaiters);
 router.get('/api/manager/waiters/:waiterId',                    productKeyAuth, authMiddleware, requireRole(['manager']), getWaiterProfile);
 router.get('/api/manager/waiters/:waiterId/tables',             productKeyAuth, authMiddleware, requireRole(['manager']), getWaiterCurrentTables);
-router.post('/api/manager/waiters',                             productKeyAuth, authMiddleware, requireRole(['manager']), addWaiter);
-router.delete('/api/manager/waiters/:waiterId',                 productKeyAuth, authMiddleware, requireRole(['manager']), deleteWaiter);
+// Shifting waiter creation and deletion exclusively to Owner Staff Registry
+// router.post('/api/manager/waiters',                             productKeyAuth, authMiddleware, requireRole(['manager']), addWaiter);
+// router.delete('/api/manager/waiters/:waiterId',                 productKeyAuth, authMiddleware, requireRole(['manager']), deleteWaiter);
 router.patch('/api/manager/waiters/:waiterId/reset-password',   productKeyAuth, authMiddleware, requireRole(['manager']), resetWaiterPassword);
 router.patch('/api/manager/waiters/:waiterId/status',           productKeyAuth, authMiddleware, requireRole(['manager']), toggleWaiterStatus);
 
 // ── Kitchen Management (Manager side) ────────────────────────────────────────
 router.get('/api/manager/kitchen',                      productKeyAuth, authMiddleware, requireRole(['manager']), getAllKitchens);
-router.post('/api/manager/kitchen',                     productKeyAuth, authMiddleware, requireRole(['manager']), addKitchen);
-router.delete('/api/manager/kitchen/:kitchenId',        productKeyAuth, authMiddleware, requireRole(['manager']), deleteKitchen);
+// Shifting kitchen account creation and deletion exclusively to Owner Staff Registry
+// router.post('/api/manager/kitchen',                     productKeyAuth, authMiddleware, requireRole(['manager']), addKitchen);
+// router.delete('/api/manager/kitchen/:kitchenId',        productKeyAuth, authMiddleware, requireRole(['manager']), deleteKitchen);
 router.patch('/api/manager/kitchen/:kitchenId/status',  productKeyAuth, authMiddleware, requireRole(['manager']), toggleKitchenStatus);
+router.patch('/api/manager/kitchen/:kitchenId/reset-password', productKeyAuth, authMiddleware, requireRole(['manager']), resetKitchenPassword);
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 router.get('/api/admins/analytics',                         productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), getComprehensiveAnalytics);
@@ -234,19 +244,21 @@ router.get('/api/manager/menu',                                     productKeyAu
 router.get('/api/manager/menu/categories',                          productKeyAuth, authMiddleware, requireRole(['manager']), getMenuCategories);
 router.get('/api/manager/menu/stats',                               productKeyAuth, authMiddleware, requireRole(['manager']), getMenuStats);
 router.get('/api/manager/menu/:dishId',                             productKeyAuth, authMiddleware, requireRole(['manager']), getMenuItemById);
-router.post('/api/manager/menu',                                    productKeyAuth, authMiddleware, requireRole(['manager']), addMenuItem);
-router.put('/api/manager/menu/:dishId',                             productKeyAuth, authMiddleware, requireRole(['manager']), updateMenuItem);
-router.delete('/api/manager/menu/:dishId',                          productKeyAuth, authMiddleware, requireRole(['manager']), deleteMenuItem);
+// Shifting menu item creation, updates, deletions and image uploads exclusively to Owner Portal
+// router.post('/api/manager/menu',                                    productKeyAuth, authMiddleware, requireRole(['manager']), addMenuItem);
+// router.put('/api/manager/menu/:dishId',                             productKeyAuth, authMiddleware, requireRole(['manager']), updateMenuItem);
+// router.delete('/api/manager/menu/:dishId',                          productKeyAuth, authMiddleware, requireRole(['manager']), deleteMenuItem);
 router.patch('/api/manager/menu/:dishId/availability',              productKeyAuth, authMiddleware, requireRole(['manager']), toggleMenuItemAvailability);
 router.patch('/api/manager/menu/category/:category/availability',   productKeyAuth, authMiddleware, requireRole(['manager']), toggleCategoryAvailability);
-router.post('/api/manager/menu/:dishId/image',                      productKeyAuth, authMiddleware, requireRole(['manager']), uploadDishImage);
-router.delete('/api/manager/menu/:dishId/image',                    productKeyAuth, authMiddleware, requireRole(['manager']), deleteDishImage);
+// router.post('/api/manager/menu/:dishId/image',                      productKeyAuth, authMiddleware, requireRole(['manager']), uploadDishImage);
+// router.delete('/api/manager/menu/:dishId/image',                    productKeyAuth, authMiddleware, requireRole(['manager']), deleteDishImage);
 
 // ── Restaurant Settings & Info ────────────────────────────────────────────────
 router.get('/api/manager/settings',           productKeyAuth, authMiddleware, requireRole(['manager']), getRestaurantSettings);
 router.patch('/api/manager/settings/toggle',  productKeyAuth, authMiddleware, requireRole(['manager']), toggleRestaurantOpen);
 router.get('/api/manager/restaurant-info',    productKeyAuth, authMiddleware, requireRole(['manager']), getRestaurantInfo);
-router.put('/api/manager/restaurant-info',    productKeyAuth, authMiddleware, requireRole(['manager']), updateRestaurantInfo);
+// Shifting restaurant info updates exclusively to Owner Settings
+// router.put('/api/manager/restaurant-info',    productKeyAuth, authMiddleware, requireRole(['manager']), updateRestaurantInfo);
 
 // ── Public restaurant info (used by customer web — also needs product key) ────
 router.get('/api/public/restaurant-info', productKeyAuth, publicOrderLimiter, getRestaurantInfo);
@@ -266,6 +278,8 @@ router.patch('/api/waiter/orders/:orderId/modify',    productKeyAuth, waiterAuth
 router.patch('/api/waiter/orders/:orderId/status',    productKeyAuth, waiterAuthMiddleware, updateOrderStatus);
 router.post('/api/waiter/orders/:orderId/conclude',   productKeyAuth, waiterAuthMiddleware, concludeOrder);
 router.get('/api/waiter/orders/:orderId/bill-preview',productKeyAuth, waiterAuthMiddleware, getBillPreview);
+router.get('/api/waiter/tables',                       productKeyAuth, waiterAuthMiddleware, getAvailableTables);
+router.post('/api/waiter/orders/manual',              productKeyAuth, waiterAuthMiddleware, createManualOrder);
 
 // ── Kitchen Auth & Operations ─────────────────────────────────────────────────
 router.post('/api/kitchen/login',                               productKeyAuth, kitchenLoginLimiter, kitchenLogin);
@@ -288,10 +302,12 @@ router.get('/api/order/session/:tableId/status', productKeyAuth, publicOrderLimi
 router.get('/api/order/menu',                    productKeyAuth, publicOrderLimiter, getPublicMenu);
 router.post('/api/order/place',                  productKeyAuth, publicOrderLimiter, requireRestaurantOpen, placeOrder);
 router.get('/api/order/:orderId/bill',           productKeyAuth, publicOrderLimiter, getOrderBill);
+router.get('/api/orders/:orderId/bill-pdf',      publicOrderLimiter, getOrderBillPDF);
 router.get('/api/order/:tableId/order-status',   productKeyAuth, publicOrderLimiter, requireRestaurantOpen, getCustomerOrderStatus);
 router.post('/api/order/:orderId/customer-modify',productKeyAuth, publicOrderLimiter, requireRestaurantOpen, customerModifyOrder);
 // ISSUE 10 FIX: token-check now also requires restaurant to be open
 router.get('/api/order/:tableId/token-check',    productKeyAuth, publicOrderLimiter, requireRestaurantOpen, checkCustomerToken);
+router.post('/api/order/:orderId/feedback',       productKeyAuth, publicOrderLimiter, submitFeedback);
 
 // ── Owner Auth & Dashboard Operations ─────────────────────────────────────────
 router.post('/api/owner/auth/login',          validate(schemas.login), ownerController.login);
@@ -329,5 +345,58 @@ router.delete('/api/owner/inventory/recipes/:dishId',  ownerAuthMiddleware, inve
 
 router.get('/api/owner/inventory/purchases',           ownerAuthMiddleware, inventoryController.getPurchases);
 router.post('/api/owner/inventory/purchases',          ownerAuthMiddleware, validate(schemas.purchase), inventoryController.createPurchase);
+
+// ── Logo Upload Route ────────────────────────────────────────────────────────
+router.post('/api/owner/restaurant/logo',              ownerAuthMiddleware, ownerController.uploadLogo);
+
+// ── GST Compliance GSTR-1 & GSTR-3B Route ────────────────────────────────────
+router.get('/api/owner/gst/gstr1',                     ownerAuthMiddleware, ownerController.getGstr1Report);
+router.get('/api/owner/gst/gstr3b',                    ownerAuthMiddleware, ownerController.getGstr3bReport);
+router.put('/api/owner/menu/:dishId/hsn',              ownerAuthMiddleware, updateMenuItem);
+
+// ── Unified Staff Registry Routes ───────────────────────────────────────────
+router.get('/api/owner/staff',                         ownerAuthMiddleware, staffController.getAllStaff);
+router.post('/api/owner/staff',                        ownerAuthMiddleware, validate(schemas.createStaff), staffController.createStaff);
+router.delete('/api/owner/staff/:type/:id',            ownerAuthMiddleware, staffController.deleteStaff);
+router.put('/api/owner/staff/:type/:id/password',      ownerAuthMiddleware, validate(schemas.resetStaffPassword), staffController.updateStaffPassword);
+
+// ── Expenses & Day Close (Owner Portal side) ───────────────────────────────
+router.get('/api/owner/expenses',                      ownerAuthMiddleware, expenseController.getExpenses);
+router.post('/api/owner/expenses',                     ownerAuthMiddleware, validate(schemas.expense), expenseController.createExpense);
+router.delete('/api/owner/expenses/:expenseId',        ownerAuthMiddleware, expenseController.deleteExpense);
+router.get('/api/owner/day-close',                     ownerAuthMiddleware, expenseController.getDayClose);
+router.post('/api/owner/day-close',                    ownerAuthMiddleware, validate(schemas.dayClose), expenseController.closeDay);
+
+// ── Expenses & Day Close (Manager Portal side) ─────────────────────────────
+router.get('/api/manager/expenses',                    productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), expenseController.getExpenses);
+router.post('/api/manager/expenses',                   productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), validate(schemas.expense), expenseController.createExpense);
+router.delete('/api/manager/expenses/:expenseId',      productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), expenseController.deleteExpense);
+router.get('/api/manager/day-close',                   productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), expenseController.getDayClose);
+router.post('/api/manager/day-close',                  productKeyAuth, authMiddleware, requireRole(['manager', 'owner']), validate(schemas.dayClose), expenseController.closeDay);
+
+
+// ── Owner Menu Management (Owner Portal side) ────────────────────────────────
+router.get('/api/owner/menu-management',                         ownerAuthMiddleware, getAllMenuItems);
+router.get('/api/owner/menu-management/categories',              ownerAuthMiddleware, getMenuCategories);
+router.get('/api/owner/menu-management/stats',                  ownerAuthMiddleware, getMenuStats);
+router.get('/api/owner/menu-management/:dishId',                 ownerAuthMiddleware, getMenuItemById);
+router.post('/api/owner/menu-management',                        ownerAuthMiddleware, addMenuItem);
+router.put('/api/owner/menu-management/:dishId',                 ownerAuthMiddleware, updateMenuItem);
+router.delete('/api/owner/menu-management/:dishId',              ownerAuthMiddleware, deleteMenuItem);
+router.patch('/api/owner/menu-management/:dishId/availability',  ownerAuthMiddleware, toggleMenuItemAvailability);
+router.patch('/api/owner/menu-management/category/:category/availability', ownerAuthMiddleware, toggleCategoryAvailability);
+router.post('/api/owner/menu-management/:dishId/image',          ownerAuthMiddleware, uploadDishImage);
+router.delete('/api/owner/menu-management/:dishId/image',        ownerAuthMiddleware, deleteDishImage);
+
+// ── Owner Restaurant Settings & Info (Owner Portal side) ──────────────────────
+router.get('/api/owner/restaurant-info',    ownerAuthMiddleware, getRestaurantInfo);
+router.put('/api/owner/restaurant-info',    ownerAuthMiddleware, updateRestaurantInfo);
+
+// ── Owner Analytics (Owner Portal side) ──────────────────────────────────────
+router.get('/api/owner/analytics',          ownerAuthMiddleware, getComprehensiveAnalytics);
+
+// ── Owner Order Management & Reviews ──────────────────────────────────────────
+router.get('/api/owner/orders',             ownerAuthMiddleware, ownerController.getOrders);
+router.get('/api/owner/reviews',            ownerAuthMiddleware, ownerController.getReviews);
 
 export default router;

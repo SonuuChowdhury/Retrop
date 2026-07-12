@@ -70,18 +70,21 @@ export const runSubscriptionChecks = async () => {
         }
 
         // Fetch Retrop business config
-        const { data: retropConfig } = await supabase
+        const { data: configRows } = await supabase
           .from('retrop_business_config')
           .select('*')
-          .maybeSingle();
+          .limit(1);
+        const retropConfig = configRows && configRows.length > 0 ? configRows[0] : null;
 
-        const globalConfig = retropConfig || {
-          legalName: 'Retrop Software Solutions',
-          address: '123 Tech Park, Sector 62, Noida, UP, India',
-          gstin: '09AAAAA1111A1Z1',
-          mobile: '9876543210',
-          email: 'billing@retrop.com',
-          bankDetails: {},
+        const globalConfig = {
+          legalName: retropConfig?.legalName || 'Retrop Software Solutions',
+          address: retropConfig?.address || '123 Tech Park, Sector 62, Noida, UP, India',
+          gstin: retropConfig?.gstin || '',
+          mobile: retropConfig?.mobile || '9876543210',
+          email: retropConfig?.email || 'billing@retrop.com',
+          bankDetails: retropConfig?.bankDetails || {},
+          isTaxEnabled: retropConfig?.isTaxEnabled !== false,
+          gstRate: retropConfig?.gstRate !== undefined ? parseFloat(retropConfig.gstRate) : 18.00,
         };
 
         const isTaxEnabled = globalConfig.isTaxEnabled !== false;

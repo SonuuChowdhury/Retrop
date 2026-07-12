@@ -451,6 +451,11 @@ export const getComprehensiveAnalytics = async (req, res) => {
       requestedMetrics = ['sales', 'dishes', 'paymentMethods', 'orderStatus', 'orders', 'customers', 'completionTime', 'taxes'];
     }
 
+    // Restrict taxes metric for manager role
+    if (req.admin && req.admin.role === 'manager') {
+      requestedMetrics = requestedMetrics.filter(m => m !== 'taxes');
+    }
+
     // Validate metrics
     const validMetrics = ['sales', 'dishes', 'paymentMethods', 'orderStatus', 'orders', 'customers', 'completionTime', 'taxes'];
     const invalidMetrics = requestedMetrics.filter(m => !validMetrics.includes(m));

@@ -215,6 +215,28 @@ export const retropController = {
         });
       }
 
+      // Validate ownerMobile format (digits only, 10 to 15 digits)
+      if (!/^[0-9]{10,15}$/.test(ownerMobile.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Owner mobile number must contain only digits (10 to 15 digits)',
+        });
+      }
+
+      // Check if a restaurant with this mobile number already exists
+      const { data: duplicateRes } = await supabase
+        .from('retrop_restaurant')
+        .select('restaurantId')
+        .eq('ownerMobile', ownerMobile.trim())
+        .maybeSingle();
+
+      if (duplicateRes) {
+        return res.status(409).json({
+          success: false,
+          message: 'A restaurant with this owner mobile number already exists',
+        });
+      }
+
       // 1. Check if owner already exists
       let ownerId = null;
       let defaultPassword = null;
@@ -442,7 +464,31 @@ export const retropController = {
       if (businessName !== undefined)  updates.businessName = businessName.trim();
       if (ownerName !== undefined)     updates.ownerName    = ownerName.trim();
       if (gender !== undefined)        updates.gender       = gender;
-      if (ownerMobile !== undefined)   updates.ownerMobile  = ownerMobile.trim();
+      
+      if (ownerMobile !== undefined) {
+        const mob = ownerMobile.trim();
+        if (!/^[0-9]{10,15}$/.test(mob)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Owner mobile number must contain only digits (10 to 15 digits)',
+          });
+        }
+        // Check if another restaurant has this mobile number
+        const { data: duplicate } = await supabase
+          .from('retrop_restaurant')
+          .select('restaurantId')
+          .eq('ownerMobile', mob)
+          .neq('restaurantId', restaurantId)
+          .maybeSingle();
+
+        if (duplicate) {
+          return res.status(409).json({
+            success: false,
+            message: 'A restaurant with this owner mobile number already exists',
+          });
+        }
+        updates.ownerMobile = mob;
+      }
       if (businessTypeId !== undefined) updates.businessTypeId = businessTypeId;
       if (hasGst !== undefined)        updates.hasGst       = Boolean(hasGst);
       if (hasGst !== undefined) {
@@ -634,7 +680,12 @@ export const retropController = {
         'inventory_item',
         'purchase_entry',
         'recipe',
-        'stock_adjustment'
+        'stock_adjustment',
+        'expense',
+        'day_close',
+        'retrop_other_staff',
+        'loyalty_points',
+        'customer_feedback'
       ];
 
       for (const table of tablesToDelete) {
@@ -1092,10 +1143,11 @@ export const retropController = {
       const { data, error } = await supabase
         .from('retrop_business_config')
         .select('*')
-        .maybeSingle();
+        .limit(1);
 
       if (error) throw error;
-      return res.status(200).json({ success: true, data });
+      const config = data && data.length > 0 ? data[0] : null;
+      return res.status(200).json({ success: true, data: config });
     } catch (err) {
       logger.error('retropController.getBusinessConfig error', err.message);
       return res.status(500).json({ success: false, message: 'Failed to fetch business details' });
@@ -1107,10 +1159,12 @@ export const retropController = {
     try {
       const { legalName, address, gstin, mobile, email, bankDetails, gstRate, isTaxEnabled } = req.body;
       
-      const { data: existing } = await supabase
+      const { data: existingRows } = await supabase
         .from('retrop_business_config')
         .select('configId')
-        .maybeSingle();
+        .limit(1);
+
+      const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
       const payload = {
         legalName: legalName?.trim(),
@@ -1358,18 +1412,21 @@ export const retropController = {
       }
 
       // Fetch Retrop business config
-      const { data: retropConfig } = await supabase
+      const { data: configRows } = await supabase
         .from('retrop_business_config')
         .select('*')
-        .maybeSingle();
+        .limit(1);
+      const retropConfig = configRows && configRows.length > 0 ? configRows[0] : null;
 
-      const globalConfig = retropConfig || {
-        legalName: 'Retrop Software Solutions',
-        address: '123 Tech Park, Sector 62, Noida, UP, India',
-        gstin: '09AAAAA1111A1Z1',
-        mobile: '9876543210',
-        email: 'billing@retrop.com',
-        bankDetails: {},
+      const globalConfig = {
+        legalName: retropConfig?.legalName || 'Retrop Software Solutions',
+        address: retropConfig?.address || '123 Tech Park, Sector 62, Noida, UP, India',
+        gstin: retropConfig?.gstin || '',
+        mobile: retropConfig?.mobile || '9876543210',
+        email: retropConfig?.email || 'billing@retrop.com',
+        bankDetails: retropConfig?.bankDetails || {},
+        isTaxEnabled: retropConfig?.isTaxEnabled !== false,
+        gstRate: retropConfig?.gstRate !== undefined ? parseFloat(retropConfig.gstRate) : 18.00,
       };
 
       const isTaxEnabled = globalConfig.isTaxEnabled !== false;
@@ -1534,18 +1591,21 @@ export const retropController = {
           .eq('restaurantId', restaurantId)
           .maybeSingle();
 
-        const { data: retropConfig } = await supabase
+        const { data: configRows } = await supabase
           .from('retrop_business_config')
           .select('*')
-          .maybeSingle();
+          .limit(1);
+        const retropConfig = configRows && configRows.length > 0 ? configRows[0] : null;
 
-        const globalConfig = retropConfig || {
-          legalName: 'Retrop Software Solutions',
-          address: '123 Tech Park, Sector 62, Noida, UP, India',
-          gstin: '09AAAAA1111A1Z1',
-          mobile: '9876543210',
-          email: 'billing@retrop.com',
-          bankDetails: {},
+        const globalConfig = {
+          legalName: retropConfig?.legalName || 'Retrop Software Solutions',
+          address: retropConfig?.address || '123 Tech Park, Sector 62, Noida, UP, India',
+          gstin: retropConfig?.gstin || '',
+          mobile: retropConfig?.mobile || '9876543210',
+          email: retropConfig?.email || 'billing@retrop.com',
+          bankDetails: retropConfig?.bankDetails || {},
+          isTaxEnabled: retropConfig?.isTaxEnabled !== false,
+          gstRate: retropConfig?.gstRate !== undefined ? parseFloat(retropConfig.gstRate) : 18.00,
         };
 
         const isTaxEnabled = globalConfig.isTaxEnabled !== false;
@@ -1721,18 +1781,21 @@ export const retropController = {
       }
 
       // 2. Fetch Retrop business config
-      const { data: retropConfig } = await supabase
+      const { data: configRows } = await supabase
         .from('retrop_business_config')
         .select('*')
-        .maybeSingle();
+        .limit(1);
+      const retropConfig = configRows && configRows.length > 0 ? configRows[0] : null;
 
-      const globalConfig = retropConfig || {
-        legalName: 'Retrop Software Solutions',
-        address: '123 Tech Park, Sector 62, Noida, UP, India',
-        gstin: '09AAAAA1111A1Z1',
-        mobile: '9876543210',
-        email: 'billing@retrop.com',
-        bankDetails: {},
+      const globalConfig = {
+        legalName: retropConfig?.legalName || 'Retrop Software Solutions',
+        address: retropConfig?.address || '123 Tech Park, Sector 62, Noida, UP, India',
+        gstin: retropConfig?.gstin || '',
+        mobile: retropConfig?.mobile || '9876543210',
+        email: retropConfig?.email || 'billing@retrop.com',
+        bankDetails: retropConfig?.bankDetails || {},
+        isTaxEnabled: retropConfig?.isTaxEnabled !== false,
+        gstRate: retropConfig?.gstRate !== undefined ? parseFloat(retropConfig.gstRate) : 18.00,
       };
 
       // 3. Generate dynamic PDF

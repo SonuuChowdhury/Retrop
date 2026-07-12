@@ -3,11 +3,12 @@
 // ============================================================================
 
 import { waiterAuthService } from '../services/waiterAuthService.js';
-import { orderSessionService } from '../services/orderSessionService.js';
+import { orderSessionService, generateDailyOrderNumber, generateInvoiceNo } from '../services/orderSessionService.js';
 import { socketService } from '../services/socketService.js';
 import { logger } from '../utils/logger.js';
 import { supabase } from '../config/supabase.js';
 import { redis, REDIS_KEYS } from '../config/redis.js';
+import crypto from 'crypto';
 import { todayStartIST, tomorrowStartIST, todayDateIST, nowIST } from '../utils/time.js';
 
 // ── POST /api/waiter/login ────────────────────────────────────────────────────
@@ -262,10 +263,25 @@ export const getOrderDetails = async (req, res) => {
 
 // ── PATCH /api/waiter/orders/:orderId/modify ──────────────────────────────────
 export const modifyOrder = async (req, res) => {
-  return res.status(403).json({
-    status: 'error',
-    message: 'Modify order feature is disabled for waiters.',
-  });
+  try {
+    const { orderId } = req.params;
+    const { action, items } = req.body;
+    const waiterId = req.waiter.waiterId;
+
+    if (!action || !items) {
+      return res.status(400).json({ status: 'error', message: 'action and items are required' });
+    }
+
+    const result = await orderSessionService.waiterModifyOrder(orderId, waiterId, action, items);
+    if (!result.success) {
+      return res.status(result.code || 400).json({ status: 'error', message: result.error });
+    }
+
+    res.status(200).json({ status: 'success', success: true, data: result.data });
+  } catch (err) {
+    logger.error('Modify order controller error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to modify order' });
+  }
 };
 
 
@@ -358,7 +374,25 @@ export const concludeOrder = async (req, res) => {
       return res.status(result.code || 400).json({ status: 'error', message: result.error });
     }
 
-    res.status(200).json({ status: 'success', data: result.data });
+    // Resolve dynamic host and protocol for the backend bill URL
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const backendUrl = `${protocol}://${host}`;
+
+    // Generate a secure 10-minute temporary token for the customer QR scan link
+    const tempToken = crypto.randomBytes(16).toString('hex');
+    const redisTokenKey = `temp_bill_token:${orderId}`;
+    await redis.setex(redisTokenKey, 600, tempToken); // Expire in 10 minutes
+
+    const billUrl = `${backendUrl}/api/orders/${orderId}/bill-pdf?token=${tempToken}`;
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        ...result.data,
+        billUrl
+      }
+    });
   } catch (err) {
     logger.error('Conclude order controller error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to conclude order' });
@@ -492,5 +526,267 @@ export const getBillPreview = async (req, res) => {
   } catch (err) {
     logger.error('Bill preview error', err.message);
     res.status(500).json({ status: 'error', message: 'Failed to generate bill preview' });
+  }
+};
+
+// ── GET /api/waiter/tables ────────────────────────────────────────────────────
+export const getAvailableTables = async (req, res) => {
+  try {
+    const restaurantId = req.waiter.restaurantId;
+    const { data: tables, error } = await supabase
+      .from('restaurant_table')
+      .select('tableId, tableNo, capacity, isAvailable')
+      .eq('restaurantId', restaurantId)
+      .eq('isAvailable', true)
+      .order('tableNo', { ascending: true });
+
+    if (error) throw error;
+    res.status(200).json({ status: 'success', success: true, data: tables });
+  } catch (err) {
+    logger.error('Get available tables error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch available tables' });
+  }
+};
+
+// ── POST /api/waiter/orders/manual ──────────────────────────────────────────
+export const createManualOrder = async (req, res) => {
+  try {
+    const { tableNo, customerName, customerMobile, items } = req.body;
+    const waiterId = req.waiter.waiterId;
+    const restaurantId = req.waiter.restaurantId;
+
+    if (!tableNo || !customerName || !customerMobile || !items || !items.length) {
+      return res.status(400).json({ status: 'error', message: 'Table, name, mobile and items are required' });
+    }
+
+    if (!/^\d{10}$/.test(customerMobile.replace(/\D/g, ''))) {
+      return res.status(400).json({ status: 'error', message: 'Invalid mobile number' });
+    }
+
+    // 1. Resolve table
+    const { data: table, error: tableError } = await supabase
+      .from('restaurant_table')
+      .select('tableId, tableNo, isAvailable, restaurantId')
+      .eq('restaurantId', restaurantId)
+      .eq('tableNo', tableNo)
+      .maybeSingle();
+
+    if (tableError || !table) {
+      return res.status(404).json({ status: 'error', message: 'Table not found' });
+    }
+
+    if (!table.isAvailable) {
+      return res.status(400).json({ status: 'error', message: 'This table is already occupied' });
+    }
+
+    // Check if table already has an active order session in Redis
+    const existingSession = await redis.get(REDIS_KEYS.orderSession(table.tableId));
+    if (existingSession && existingSession.status !== 'expired') {
+      return res.status(400).json({ status: 'error', message: 'This table has an active session' });
+    }
+
+    // 2. Validate & price all items
+    const dishIds = items.map(i => i.dishId);
+    const { data: dishes, error: dishError } = await supabase
+      .from('menu')
+      .select('dishId, dishName, price, isAvailable')
+      .in('dishId', dishIds);
+
+    if (dishError) return res.status(500).json({ status: 'error', message: 'Failed to validate menu items' });
+
+    const dishMap = Object.fromEntries(dishes.map(d => [d.dishId, d]));
+    let totalAmount = 0;
+    const ordersInfo = [];
+
+    for (const item of items) {
+      const dish = dishMap[item.dishId];
+      if (!dish) return res.status(400).json({ status: 'error', message: `Dish not found: ${item.dishId}` });
+      if (!dish.isAvailable) return res.status(400).json({ status: 'error', message: `${dish.dishName} is currently unavailable` });
+      const qty = parseInt(item.quantity) || 1;
+      totalAmount += dish.price * qty;
+      ordersInfo.push({
+        dishId: dish.dishId,
+        dishName: dish.dishName,
+        price: dish.price,
+        quantity: qty,
+        remarks: item.remarks || null,
+      });
+    }
+
+    // 3. Upsert customer
+    await supabase.from('customer').upsert({
+      mobile: customerMobile,
+      restaurantId,
+      name: customerName,
+      lastLogIn: nowIST(),
+      updatedAt: nowIST(),
+    }, { onConflict: 'mobile,restaurantId' });
+
+    // 4. Generate billing details
+    const dailyOrderNo = await generateDailyOrderNumber();
+    const invoiceNo = generateInvoiceNo(dailyOrderNo);
+    const customerToken = `tok_manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tokenValidUntil = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+
+    // 5. Create order in Supabase
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert([{
+        mobile: customerMobile,
+        restaurantId,
+        waiterId,
+        tableNo,
+        orderStatus: 'ordering',
+        ordersInfo,
+        ordersUpdateInfo: [],
+        lockedItems: [],
+        totalAmount,
+        discountAmount: 0,
+        discountBreakdown: [],
+        isPaymentCompleted: false,
+        dailyOrderNo,
+        invoiceNo,
+        createdAt: nowIST(),
+        updatedAt: nowIST(),
+        customerToken,
+        tokenValidUntil,
+      }])
+      .select()
+      .single();
+
+    if (orderError) {
+      logger.error('Failed to create manual order', orderError.message);
+      return res.status(500).json({ status: 'error', message: 'Failed to create order' });
+    }
+
+    // 6. Create Redis session
+    const sessionToken = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const ORDER_SESSION_TTL = 24 * 60 * 60; // 24 hours
+    const { data: waiter } = await supabase
+      .from('waiter')
+      .select('waiterName')
+      .eq('waiterId', waiterId)
+      .maybeSingle();
+
+    const sessionData = {
+      sessionToken,
+      customerToken,
+      tokenValidUntil,
+      tableId: table.tableId,
+      tableNo: table.tableNo,
+      restaurantId,
+      status: 'ordered',
+      customerName,
+      customerMobile,
+      waiterId,
+      waiterName: waiter?.waiterName || 'Waiter',
+      orderId: order.ordersId,
+      dailyOrderNo,
+      orderedAt: nowIST(),
+      createdAt: nowIST(),
+      acceptedAt: nowIST(),
+      expiresAt: new Date(Date.now() + ORDER_SESSION_TTL * 1000).toISOString(),
+    };
+    await redis.set(REDIS_KEYS.orderSession(table.tableId), sessionData, ORDER_SESSION_TTL);
+
+    // 7. Update table occupancy status
+    await supabase.from('restaurant_table')
+      .update({ isAvailable: false, currentOrder: order.ordersId, updatedAt: nowIST() })
+      .eq('tableId', table.tableId);
+
+    // 8. Notify kitchen
+    const { notificationService } = await import('../services/notificationService.js');
+    await notificationService.notifyKitchen(
+      `🍳 New Manual Order #${dailyOrderNo}`,
+      `Table ${tableNo} — ${ordersInfo.length} item(s) — ${customerName}`,
+      {
+        type: 'new_order',
+        orderId: order.ordersId,
+        tableNo: String(tableNo),
+        dailyOrderNo: String(dailyOrderNo),
+      }
+    );
+
+    // 9. Emit socket event
+    socketService.emitToAll('order:new', {
+      orderId: order.ordersId,
+      dailyOrderNo,
+      tableNo,
+      customerName,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      success: true,
+      data: {
+        orderId: order.ordersId,
+        dailyOrderNo,
+      }
+    });
+
+  } catch (err) {
+    logger.error('Create manual order error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to place manual order' });
+  }
+};
+
+// ── GET /api/orders/:orderId/bill-pdf ──────────────────────────────────────────
+export const getOrderBillPDF = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized. Token required.' });
+    }
+
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('ordersId', orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ status: 'error', message: 'Order receipt not found.' });
+    }
+
+    // Verify token validity (either active customerToken or temporary 10-min redis token)
+    let isTokenValid = false;
+    if (order.customerToken === token) {
+      isTokenValid = true;
+    } else {
+      const redisTokenKey = `temp_bill_token:${orderId}`;
+      const savedToken = await redis.get(redisTokenKey);
+      if (savedToken && savedToken === token) {
+        isTokenValid = true;
+      }
+    }
+
+    if (!isTokenValid) {
+      return res.status(403).json({ status: 'error', message: 'Access denied. Invalid or expired token.' });
+    }
+
+    const { data: restaurant } = await supabase
+      .from('retrop_restaurant')
+      .select('*')
+      .eq('restaurantId', order.restaurantId)
+      .maybeSingle();
+
+    const { data: settings } = await supabase
+      .from('restaurant_settings')
+      .select('*')
+      .eq('restaurantId', order.restaurantId)
+      .maybeSingle();
+
+    const { generateOrderBillPDF } = await import('../services/billPdfService.js');
+    const pdfBuffer = await generateOrderBillPDF(order, restaurant, settings);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="bill_${order.invoiceNo || orderId}.pdf"`);
+    return res.send(pdfBuffer);
+
+  } catch (err) {
+    logger.error('Get order bill PDF controller error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to generate bill PDF' });
   }
 };

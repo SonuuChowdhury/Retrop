@@ -119,7 +119,7 @@ export const menuService = {
       let query = supabase
         .from('menu')
         .select(
-          'dishId, dishName, price, isAvailable, category, description, imageUrl, preparationTime, spicyLevel, isVegetarian, createdAt, updatedAt'
+          'dishId, dishName, price, isAvailable, category, description, imageUrl, preparationTime, spicyLevel, isVegetarian, hsnCode, createdAt, updatedAt'
         )
         .order('category', { ascending: true })
         .order('dishName', { ascending: true });
@@ -212,6 +212,7 @@ export const menuService = {
         spicyLevel,
         isVegetarian,
         isAvailable,
+        hsnCode,
       } = menuData;
 
       if (!dishName || price === undefined || price === null) {
@@ -235,6 +236,7 @@ export const menuService = {
             spicyLevel: spicyLevel !== undefined && spicyLevel !== null ? String(spicyLevel).trim() || null : null,
             isVegetarian: isVegetarian ?? false,
             isAvailable: isAvailable ?? true,
+            hsnCode: hsnCode?.trim() || null,
             createdAt: nowIST(),
             updatedAt: nowIST(),
           },

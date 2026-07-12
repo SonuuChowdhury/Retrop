@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "server",
   "version": "1.0.0",
-  "description": "Restaurant Automation Backend API",
+  "description": "Retrop server logic",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

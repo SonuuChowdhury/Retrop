@@ -263,6 +263,11 @@ export const addKitchen = async (req, res) => {
     if (!kitchenName || !mobile || !password) {
       return res.status(400).json({ status: 'error', message: 'kitchenName, mobile, and password required' });
     }
+
+    if (!/^[0-9]{10,15}$/.test(mobile.trim())) {
+      return res.status(400).json({ status: 'error', message: 'Mobile must contain only digits (10 to 15 digits)' });
+    }
+
     const { data: existing } = await supabase.from('kitchen').select('mobile').eq('mobile', mobile).maybeSingle();
     if (existing) return res.status(409).json({ status: 'error', message: 'Mobile number already exists' });
     const hash = await bcrypt.hash(password, 10);
@@ -310,3 +315,32 @@ export const toggleKitchenStatus = async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to update kitchen status' });
   }
 };
+
+// ── PATCH reset kitchen password ─────────────────────────────────────────────
+export const resetKitchenPassword = async (req, res) => {
+  try {
+    const { kitchenId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ status: 'error', message: 'New password must be at least 6 characters' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    const { error } = await supabase
+      .from('kitchen')
+      .update({ password: hash, updatedAt: nowIST() })
+      .eq('kitchenId', kitchenId);
+
+    if (error) throw error;
+
+    // Force logout/session clear on password change
+    await redis.del(REDIS_KEYS.kitchenSession(req.admin.restaurantId, kitchenId));
+    await notificationService.unregisterKitchenToken(kitchenId);
+
+    res.status(200).json({ status: 'success', message: 'Kitchen password reset successfully' });
+  } catch (err) {
+    logger.error('Reset kitchen password error', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to reset kitchen password' });
+  }
+};

@@ -132,7 +132,6 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
 
       if (isTaxEnabled) {
         doc
-          .text('SAC CODE', 230, currentHeight + 7, { bold: true, align: 'left', width: 60 })
           .text('TAX RATE', 300, currentHeight + 7, { bold: true, align: 'right', width: 60 })
           .text('BASE PRICE', 370, currentHeight + 7, { bold: true, align: 'right', width: 80 });
       }
@@ -151,7 +150,7 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
       doc
         .fillColor(textColor)
         .fontSize(9)
-        .text(transaction.description, 60, currentHeight + 10, { width: isTaxEnabled ? 160 : 390, bold: true });
+        .text(transaction.description, 60, currentHeight + 10, { width: isTaxEnabled ? 230 : 390, bold: true });
 
       if (plan && plan.planType === 'monthly' && subscription && subscription.startDate && subscription.endDate) {
         const fromDate = new Date(subscription.startDate).toLocaleDateString('en-IN');
@@ -159,7 +158,7 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
         doc
           .fontSize(8)
           .fillColor(mutedTextColor)
-          .text(`Validity Cycle: ${fromDate} to ${toDate}`, 60, currentHeight + 24, { width: 160 });
+          .text(`Validity Cycle: ${fromDate} to ${toDate}`, 60, currentHeight + 24, { width: isTaxEnabled ? 230 : 390 });
       }
 
       if (isTaxEnabled) {
@@ -167,7 +166,6 @@ export const generateInvoicePDF = (transaction, restaurant, retropConfig) => {
           ? ((transaction.gstAmount / transaction.baseAmount) * 100).toFixed(2)
           : (retropConfig.gstRate !== undefined ? parseFloat(retropConfig.gstRate).toFixed(2) : '18.00');
         doc
-          .text('997331', 230, currentHeight + 14, { align: 'left', width: 60 })
           .text(`${rateVal}%`, 300, currentHeight + 14, { align: 'right', width: 60 })
           .text(`INR ${parseFloat(transaction.baseAmount).toFixed(2)}`, 370, currentHeight + 14, { align: 'right', width: 80 });
       }

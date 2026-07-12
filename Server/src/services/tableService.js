@@ -141,12 +141,27 @@ export const tableService = {
     try {
       const { data: table } = await supabase
         .from('restaurant_table')
-        .select('currentOrder')
+        .select('currentOrder, isAvailable')
         .eq('tableNo', tableNo)
         .maybeSingle();
 
-      if (table?.currentOrder) {
-        return { success: false, error: 'Cannot delete table with active order' };
+      if (!table) {
+        return { success: false, error: 'Table not found' };
+      }
+
+      if (table.currentOrder || !table.isAvailable) {
+        return { success: false, error: 'Cannot delete table while it is occupied or serving' };
+      }
+
+      // Also double-check the orders table for any active orders
+      const { data: activeOrders } = await supabase
+        .from('orders')
+        .select('ordersId')
+        .eq('tableNo', tableNo)
+        .not('orderStatus', 'in', '("completed","cancelled")');
+
+      if (activeOrders && activeOrders.length > 0) {
+        return { success: false, error: 'Cannot delete table with active orders in preparation or service' };
       }
 
       const { error } = await supabase
