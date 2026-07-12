@@ -225,6 +225,41 @@
 
 ---
 
+### Secure Concluded PDF Download Flow (Redis Temporary Tokens)
+**Status**: active
+**Trigger**: Waiter concludes order in app; customer scans the printed QR code from an external browser.
+
+**Flow**:
+1. When the waiter concludes an order, the server generates a random temporary token stored in Redis under the key `temp_bill_token:[orderId]` with a 10-minute expiration time.
+2. The server outputs a concluding link format containing this temporary token.
+3. When the customer opens the concluding QR code/link from their phone, the request routes to `GET /api/orders/:orderId/bill-pdf?token=xxx`.
+4. The server checks the token parameter against the key stored in Redis. If verified, it bypasses the strict `X-Product-Key` header authentication.
+5. This allows customers on external personal devices to download or print their A6 thermal invoice PDF seamlessly.
+
+---
+
+### Google Review Redirect Integration
+**Status**: active
+**Trigger**: Owner populates their Google Page Review Link in Settings; customer submits a high rating.
+
+**Flow**:
+1. The Owner saves their business's Google review URL in the Settings Tab of the Owner Dashboard.
+2. On checkout, the customer submits feedback for their order.
+3. If the submitted rating is >= 3 stars, the Thank You page prompts a button below the success notice: "Rate us on Google" with the redirect link.
+
+---
+
+### Owner Order Management & Reviews Dashboard
+**Status**: active
+**Trigger**: Owner navigates to "Orders" or "Reviews" tabs on the Website Dashboard.
+
+**Flow**:
+1. The Dashboard retrieves paginated lists from `/api/owner/orders` (filtering by Invoice #, Table #, Status, or Date range) or `/api/owner/reviews`.
+2. The Orders panel renders a comprehensive database of sales transaction history, with detailed line-item pop-ups showing dish remarks, quantities, tax breakdowns, discounts, and payment statuses.
+3. The Reviews panel lists star ratings and comments left by guests, directly linked to their invoice sheets so the owner can review comments alongside the exact food items served.
+
+---
+
 ## How AI agents should update this file
 
 > **AGENT UPDATE INSTRUCTIONS — read before editing this file**

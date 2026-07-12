@@ -1,7 +1,7 @@
 # Agent Memory Log
 
 ## Last Updated
-2026-07-10 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
+2026-07-12 | Updated by: Antigravity AI Agent (Gemini 1.5 Pro)
 
 ## How to use this file
 - READ this entire file before starting any task
@@ -13,6 +13,24 @@
 
 ## Session Log
 A record of every agent work session. Each entry created at the end of a session.
+
+### 2026-07-12 — Complete Owner Portal Integration & App Polish
+**Agent**: Antigravity (Gemini 1.5 Pro)
+**Task**: Implemented the Owner Dashboard features (Orders and Reviews sections with filters, direct modal reviews/invoice linkages) and Google Review integration (settings input, Thank You page redirects). Bypassed product key header for external customer A6 invoice PDF prints using temporary Redis authentication tokens.
+**Files changed**:
+- Modified: `Context/PROJECT_BLUEPRINT.md`
+- Modified: `Context/FEATURE_FLOWS.md`
+- Modified: `Context/AGENT_MEMORY_LOG.md`
+- Modified: `Retrop_Website/src/pages/Dashboard.jsx`
+- Modified: `Retrop_Website/src/services/api.js` (in previous session)
+- Modified: `Retrop_RMS_Frontend/src/pages/ThankYou/ThankYou.jsx` (in previous session)
+- Modified: `Server/src/controllers/customerOrderController.js` (in previous session)
+- Modified: `Server/src/controllers/waiterController.js` (in previous session)
+- Modified: `Server/src/controllers/ownerController.js` (in previous session)
+- Modified: `Server/src/routes/routes.js` (in previous session)
+- Created: `Server/src/migrations/009_google_review_link.sql` (in previous session)
+**Outcome**: success
+**Notes**: Bypassed product keys on PDF invoice print by storing temporary 10-minute tokens in Redis on order conclusion. Created Google page settings card, customer stars UI refactoring (gold stars), and locked one-time feedback submissions.
 
 ### 2026-07-10 — Update Context Files for Retrop V3 Release
 **Agent**: Antigravity (Gemini 3.5 Flash)
@@ -78,6 +96,11 @@ A record of every agent work session. Each entry created at the end of a session
 
 ## Decisions & Rationale
 Architectural or design decisions made during agent sessions — so future agents don't re-open settled questions.
+
+### 2026-07-12 — Temporary 10-Minute Redis Tokens for Customer PDF Billing
+**Context**: The mobile app prints a QR code containing the billing PDF download URL. When scanned by customers on their own mobile devices, it failed with a JSON error saying `X-Product-Key missing`, as their mobile web browsers do not have the restaurant's private API product key header.
+**Decision**: Remove the product key authorization middleware constraint from `GET /api/orders/:orderId/bill-pdf`. Instead, generate a random temporary token valid for 10 minutes in Redis upon concluding the order (`temp_bill_token:<orderId>`). The customer's mobile browser scans the link `?token=xxx` which is verified directly against Redis. Bypasses the need to embed product keys on client devices.
+**Do not reverse without owner confirmation**: yes
 
 ### 2026-07-10 — Single-Restaurant Binding in Owner Authentication Middleware
 **Context**: In Retrop V3, owners manage their restaurant's back-office operations from the Owner Portal. However, the portal does not use a `X-Product-Key` header, unlike the frontends.

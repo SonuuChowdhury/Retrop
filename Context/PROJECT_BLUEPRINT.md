@@ -528,6 +528,7 @@ Resturant-Automation/
 #### `restaurant_info` (Enhanced with settings columns)
 - `gstChangedAt`: `TIMESTAMP WITH TIME ZONE`
 - `logoUrl`: `VARCHAR(500)` (restaurant logo stored in Supabase)
+- `googleReviewLink`: `TEXT` (URL to redirect customers for Google reviews)
 
 ---
 
@@ -586,6 +587,20 @@ Resturant-Automation/
 | GET | `/api/owner/gst/gstr1` | JWT-Owner | Fetch GSTR-1 compliance JSON |
 | GET | `/api/owner/gst/gstr3b` | JWT-Owner | Fetch GSTR-3B compliance JSON |
 | PUT | `/api/owner/menu/:dishId/hsn` | JWT-Owner | Update HSN/SAC code of a dish |
+
+### Owner Portal Order & Review Management
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/owner/orders` | JWT-Owner | Returns paginated list of restaurant orders with search/filter parameters |
+| GET | `/api/owner/reviews` | JWT-Owner | Returns paginated list of customer reviews joined with order summaries |
+
+### Customer Billing & Reviews
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/api/order/:orderId/feedback` | Open | Submits customer star rating and review comment. Locks the page to one-time submission |
+| GET | `/api/orders/:orderId/bill-pdf` | Open / Redis Token | Returns direct PDF download. Access is validated via a temporary 10-min key generated on conclusion |
 
 ### Unified Staff Aggregator
 
