@@ -18,6 +18,7 @@ import { useWaiterAuth } from '@/context/WaiterAuthContext';
 import { useKitchenAuth } from '@/context/KitchenAuthContext';
 import AppSettingsModal from '@/components/AppSettingsModal';
 import { isSetupViaScan, getRestaurantName } from '@/config/api';
+import { registerForPushNotificationsAsync } from '@/services/notificationService';
 
 export default function HomeScreen() {
   const { theme } = useTheme();
@@ -39,6 +40,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     checkConfig();
+    registerForPushNotificationsAsync().catch(err => {
+      console.warn('Failed to register notifications on startup', err);
+    });
   }, [showSettings]);
 
   // Auto-redirect if a session is already active

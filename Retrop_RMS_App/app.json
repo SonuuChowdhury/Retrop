@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Retrop RMS",
-    "slug": "Retrop-RMS",
+    "slug": "App",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo-rounded.png",
@@ -27,10 +27,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FFFFFF",
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/images/logo-rounded.png",
+            "imageWidth": 120
           }
         }
       ],

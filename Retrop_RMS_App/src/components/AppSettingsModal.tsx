@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useTheme } from '@/context/ThemeContext';
 import {
   getBaseUrl,
@@ -401,7 +402,7 @@ export default function AppSettingsModal({ visible, onClose }: AppSettingsModalP
                     </TouchableOpacity>
 
                     <View style={styles.aboutContainer}>
-                      <Text style={[styles.aboutText, { color: c.textSecondary }]}>Retrop RMS v1.2.0</Text>
+                      <Text style={[styles.aboutText, { color: c.textSecondary }]}>Retrop RMS v{Constants.expoConfig?.version || '1.0.0'}</Text>
                       <Text style={[styles.aboutSubText, { color: c.textSecondary }]}>Secured Restaurant Client</Text>
                     </View>
                   </View>
