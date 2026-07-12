@@ -4,16 +4,16 @@
     "slug": "App",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo-rounded.png",
+    "icon": "./assets/images/logo-corner-rounded.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/logo-rounded.png"
+      "icon": "./assets/images/logo-corner-rounded.png"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/logo-rounded.png"
+        "foregroundImage": "./assets/images/logo-corner-rounded.png"
       },
       "package": "com.retrop.rms",
       "predictiveBackGestureEnabled": false
@@ -29,7 +29,7 @@
         {
           "backgroundColor": "#FFFFFF",
           "android": {
-            "image": "./assets/images/logo-rounded.png",
+            "image": "./assets/images/logo-corner-rounded.png",
             "imageWidth": 120
           }
         }
