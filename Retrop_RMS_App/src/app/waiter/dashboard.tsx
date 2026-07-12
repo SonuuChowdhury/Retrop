@@ -461,6 +461,24 @@ export default function WaiterDashboard() {
           </View>
         </Animated.View>
 
+        {/* Take Manual Order Button */}
+        <Animated.View entering={FadeInUp.duration(350)}>
+          <Pressable
+            onPress={() => router.push('/waiter/create-order')}
+            style={({ pressed }) => [
+              styles.manualOrderBtn,
+              {
+                backgroundColor: c.primary,
+                opacity: pressed ? 0.9 : 1,
+                marginBottom: 16,
+              }
+            ]}
+          >
+            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.manualOrderBtnText}>Take Manual Order</Text>
+          </Pressable>
+        </Animated.View>
+
         {/* Error */}
         {error && (
           <View style={[styles.errorBanner, { backgroundColor: c.error + '12', borderColor: c.error + '30' }]}>
@@ -660,4 +678,19 @@ const styles = StyleSheet.create({
     alignItems: 'center', padding: 36, borderRadius: 16, borderWidth: 1.5, gap: 10,
   },
   emptyText: { fontSize: 14, fontWeight: '500' },
+
+  // ── Take Manual Order Button ──────────────────────────────────────────────
+  manualOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  manualOrderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

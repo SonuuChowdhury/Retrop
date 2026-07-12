@@ -283,6 +283,8 @@ export const ENDPOINTS = {
   get WAITER_MENU()             { return `${base()}/waiter/menu`; },
   get WAITER_ACTIVE_ORDERS()    { return `${base()}/waiter/active-orders`; },
   get WAITER_PENDING_SESSIONS() { return `${base()}/waiter/pending-sessions`; },
+  get WAITER_TABLES()           { return `${base()}/waiter/tables`; },
+  get WAITER_CREATE_MANUAL_ORDER() { return `${base()}/waiter/orders/manual`; },
   WAITER_ACCEPT_ORDER: (tableId: string) => `${base()}/waiter/orders/${tableId}/accept`,
   WAITER_ORDER_DETAIL: (orderId: string) => `${base()}/waiter/orders/${orderId}`,
   WAITER_MODIFY_ORDER: (orderId: string) => `${base()}/waiter/orders/${orderId}/modify`,

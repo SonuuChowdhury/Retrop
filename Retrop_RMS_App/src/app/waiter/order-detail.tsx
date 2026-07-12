@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Modal, FlatList, TextInput, Platform,
+  ActivityIndicator, Modal, FlatList, TextInput, Platform, Image,
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -38,6 +38,7 @@ interface Order {
   lockedItems?: OrderItem[];
   discountAmount?: number;
   discountBreakdown?: { name: string; percent: number; amount: number }[];
+  customerToken?: string;
 }
 interface BillPreview {
   subtotal: number;
@@ -148,6 +149,266 @@ function PaymentModal({
 // MENU PICKER MODAL
 // ============================================================================
 
+interface MenuPickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  orderInfo: OrderItem[];
+  lockedItems: OrderItem[];
+  onSave: (items: { dishId: string; quantity: number; remarks: string }[]) => void;
+  saving: boolean;
+  colors: any;
+  accessToken: string;
+  refreshToken: string;
+  handleDisabled: () => void;
+}
+
+function MenuPickerModal({
+  visible, onClose, orderInfo, lockedItems, onSave, saving, colors, accessToken, refreshToken, handleDisabled
+}: MenuPickerModalProps) {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [editCart, setEditCart] = useState<Record<string, { item: MenuItem; quantity: number; remarks: string }>>({});
+
+  useEffect(() => {
+    if (visible && orderInfo) {
+      const initialCart: Record<string, { item: MenuItem; quantity: number; remarks: string }> = {};
+      orderInfo.forEach(item => {
+        initialCart[item.dishId] = {
+          item: {
+            dishId: item.dishId,
+            dishName: item.dishName,
+            price: item.price,
+            category: '',
+            isAvailable: true
+          },
+          quantity: item.quantity,
+          remarks: item.remarks || '',
+        };
+      });
+      setEditCart(initialCart);
+      fetchMenu();
+    }
+  }, [visible, orderInfo]);
+
+  const fetchMenu = async () => {
+    setLoadingMenu(true);
+    try {
+      const res = await apiCall(
+        ENDPOINTS.WAITER_MENU,
+        { method: 'GET' },
+        async () => accessToken,
+        refreshToken,
+        handleDisabled
+      );
+      if (res.success && Array.isArray(res.data)) {
+        setMenuItems(res.data);
+        setEditCart(prev => {
+          const next = { ...prev };
+          res.data.forEach((mItem: MenuItem) => {
+            if (next[mItem.dishId]) {
+              next[mItem.dishId].item.category = mItem.category;
+            }
+          });
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Menu load error', err);
+    } finally {
+      setLoadingMenu(false);
+    }
+  };
+
+  const addToCart = (item: MenuItem) => {
+    setEditCart(prev => {
+      const existing = prev[item.dishId];
+      return {
+        ...prev,
+        [item.dishId]: {
+          item,
+          quantity: (existing?.quantity || 0) + 1,
+          remarks: existing?.remarks || ''
+        }
+      };
+    });
+  };
+
+  const removeFromCart = (dishId: string) => {
+    const locked = lockedItems?.find(i => i.dishId === dishId);
+    const lockedQty = locked?.quantity || 0;
+
+    setEditCart(prev => {
+      const existing = prev[dishId];
+      if (!existing) return prev;
+      
+      if (existing.quantity <= lockedQty) {
+        return prev;
+      }
+
+      if (existing.quantity <= 1) {
+        const next = { ...prev };
+        delete next[dishId];
+        return next;
+      }
+
+      return {
+        ...prev,
+        [dishId]: { ...existing, quantity: existing.quantity - 1 }
+      };
+    });
+  };
+
+  const updateRemarks = (dishId: string, remarks: string) => {
+    setEditCart(prev => {
+      const existing = prev[dishId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [dishId]: { ...existing, remarks }
+      };
+    });
+  };
+
+  const handleSave = () => {
+    const itemsArray = Object.values(editCart).map(c => ({
+      dishId: c.item.dishId,
+      quantity: c.quantity,
+      remarks: c.remarks
+    }));
+    onSave(itemsArray);
+  };
+
+  const categories = ['All', ...new Set(menuItems.map(i => i.category))];
+  const filteredItems = menuItems.filter(i => {
+    const matchesCat = activeCategory === 'All' || i.category === activeCategory;
+    const matchesSearch = i.dishName.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'ios' ? 48 : 16 }}>
+        <View style={[styles.modalHeader, { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+          <Text style={[styles.modalTitle, { color: colors.text, fontSize: 18 }]}>Modify Items</Text>
+          <Pressable onPress={onClose}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+          <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 12 }]}>
+            <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search dishes..."
+              placeholderTextColor={colors.textSecondary + '70'}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 44 }}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => setActiveCategory(cat)}
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: activeCategory === cat ? colors.primary : colors.card,
+                    borderColor: activeCategory === cat ? colors.primary : colors.border,
+                  }
+                ]}
+              >
+                <Text style={{ color: activeCategory === cat ? '#FFFFFF' : colors.text, fontWeight: '700' }}>
+                  {cat}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {loadingMenu ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          ) : filteredItems.length === 0 ? (
+            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 40 }}>No dishes found.</Text>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {filteredItems.map((item) => {
+                const cartItem = editCart[item.dishId];
+                const locked = lockedItems?.find(i => i.dishId === item.dishId);
+                const lockedQty = locked?.quantity || 0;
+
+                return (
+                  <View key={item.dishId} style={[styles.dishCard, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'column', gap: 10, alignItems: 'stretch' }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[styles.dishName, { color: colors.text }]}>{item.dishName}</Text>
+                        <Text style={[styles.dishPrice, { color: colors.primary }]}>₹{item.price.toFixed(2)}</Text>
+                        {lockedQty > 0 && (
+                          <Text style={{ fontSize: 11, color: colors.warning, fontWeight: '700' }}>
+                            🔒 {lockedQty} already prepared (cannot decrease)
+                          </Text>
+                        )}
+                      </View>
+                      
+                      {cartItem ? (
+                        <View style={styles.qtyRow}>
+                          <Pressable 
+                            onPress={() => removeFromCart(item.dishId)} 
+                            disabled={cartItem.quantity <= lockedQty}
+                            style={[styles.qtyBtn, { backgroundColor: colors.background, opacity: cartItem.quantity <= lockedQty ? 0.3 : 1 }]}
+                          >
+                            <MaterialCommunityIcons name="minus" size={16} color={colors.primary} />
+                          </Pressable>
+                          <Text style={[styles.qtyText, { color: colors.text }]}>{cartItem.quantity}</Text>
+                          <Pressable onPress={() => addToCart(item)} style={[styles.qtyBtn, { backgroundColor: colors.background }]}>
+                            <MaterialCommunityIcons name="plus" size={16} color={colors.primary} />
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <Pressable onPress={() => addToCart(item)} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.addBtnText}>ADD</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {cartItem && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 6, backgroundColor: colors.background }}>
+                        <MaterialCommunityIcons name="pencil-outline" size={14} color={colors.textSecondary} />
+                        <TextInput
+                          value={cartItem.remarks}
+                          onChangeText={(txt) => updateRemarks(item.dishId, txt)}
+                          placeholder="Add instructions (e.g. no onion)"
+                          placeholderTextColor={colors.textSecondary + '70'}
+                          style={{ flex: 1, fontSize: 12, padding: 0, color: colors.text }}
+                        />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <Pressable 
+            onPress={handleSave} 
+            disabled={saving} 
+            style={{ backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 15 }}>Save Modifications</Text>}
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// MAIN SCREEN
+// ============================================================================
+
 
 
 // ============================================================================
@@ -169,11 +430,49 @@ export default function OrderDetailScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [confirming, setConfirming] = useState(false);
-
+ 
   // Cancellation states
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+
+  // Menu Picker & Receipt states
+  const [showMenuPicker, setShowMenuPicker] = useState(false);
+  const [savingMenu, setSavingMenu] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState('');
+  const [receiptBill, setReceiptBill] = useState<{ invoiceNo?: string; totalAmount: number; paymentMethod: string } | null>(null);
+
+  const handleSaveMenuModifications = async (items: { dishId: string; quantity: number; remarks: string }[]) => {
+    setSavingMenu(true);
+    try {
+      const res = await apiCall(
+        ENDPOINTS.WAITER_MODIFY_ORDER(orderId),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            action: 'replace',
+            items
+          })
+        },
+        async () => accessToken,
+        refreshToken,
+        handleDisabled
+      );
+
+      if (res.success) {
+        setShowMenuPicker(false);
+        fetchOrder();
+        fetchBill();
+      } else {
+        showError('Modification Failed', res.message || 'Failed to modify items');
+      }
+    } catch (err) {
+      showError('Error', 'Network error modifying items');
+    } finally {
+      setSavingMenu(false);
+    }
+  };
 
   const handleDisabled = useCallback(() => {
     showDialog({
@@ -271,12 +570,13 @@ export default function OrderDetailScreen() {
     setConfirming(false);
     if (result.success) {
       setShowPayment(false);
-      showDialog({
-        type: 'success',
-        title: 'Payment Confirmed',
-        message: 'Order concluded successfully!',
-        buttons: [{ text: 'OK', style: 'default', onPress: () => router.back() }],
+      setReceiptUrl(result.data?.billUrl || '');
+      setReceiptBill({
+        invoiceNo: result.data?.invoiceNo || `Order #${order.dailyOrderNo}`,
+        totalAmount: result.data?.finalAmount || bill?.finalAmount || order.totalAmount,
+        paymentMethod: paymentMethod.toUpperCase(),
       });
+      setShowReceipt(true);
     } else if (result.message?.includes('Already paid') || result.message?.includes('already')) {
       showError('Already Paid', 'This order has already been paid.');
     } else {
@@ -373,6 +673,15 @@ export default function OrderDetailScreen() {
         {/* Items */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Items</Text>
+          {isEditable && order.customerToken?.startsWith('tok_manual_') && (
+            <Pressable
+              onPress={() => setShowMenuPicker(true)}
+              style={[styles.addItemBtn, { borderColor: c.primary }]}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={14} color={c.primary} />
+              <Text style={[styles.addItemText, { color: c.primary }]}>Add/Edit Items</Text>
+            </Pressable>
+          )}
         </View>
 
         {order.ordersInfo.map((item, i) => {
@@ -509,6 +818,75 @@ export default function OrderDetailScreen() {
         confirming={confirming}
         colors={c}
       />
+
+      <MenuPickerModal
+        visible={showMenuPicker}
+        onClose={() => setShowMenuPicker(false)}
+        orderInfo={order.ordersInfo}
+        lockedItems={order.lockedItems || []}
+        onSave={handleSaveMenuModifications}
+        saving={savingMenu}
+        colors={c}
+        accessToken={accessToken || ''}
+        refreshToken={refreshToken || ''}
+        handleDisabled={handleDisabled}
+      />
+
+      {/* Concluded Receipt Modal (QR Code) */}
+      <Modal visible={showReceipt} transparent={false} animationType="slide" onRequestClose={() => { setShowReceipt(false); router.back(); }}>
+        <View style={{ flex: 1, backgroundColor: c.background, paddingTop: Platform.OS === 'ios' ? 48 : 24, paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', gap: 20 }}>
+          <MaterialCommunityIcons name="check-circle" size={64} color={c.success} />
+          
+          <View style={{ alignItems: 'center', gap: 4 }}>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: c.text }}>Payment Successful</Text>
+            <Text style={{ fontSize: 14, color: c.textSecondary, textAlign: 'center' }}>
+              Order Concluded! Show the QR code below to the customer to scan and view/download their PDF bill receipt.
+            </Text>
+          </View>
+
+          {/* QR Code Container */}
+          {receiptUrl ? (
+            <View style={{ padding: 16, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: c.border }}>
+              <Image
+                source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(receiptUrl)}` }}
+                style={{ width: 220, height: 220 }}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <ActivityIndicator size="large" color={c.primary} />
+          )}
+
+          {/* Transaction details card */}
+          {receiptBill && (
+            <View style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, gap: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: c.textSecondary }}>Bill/Invoice</Text>
+                <Text style={{ color: c.text, fontWeight: '700' }}>{receiptBill.invoiceNo}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: c.textSecondary }}>Payment Method</Text>
+                <Text style={{ color: c.text, fontWeight: '700' }}>{receiptBill.paymentMethod}</Text>
+              </View>
+              <View style={{ height: 1, backgroundColor: c.border }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: c.text, fontWeight: '800' }}>Amount Paid</Text>
+                <Text style={{ color: c.primary, fontWeight: '800', fontSize: 16 }}>₹{Number(receiptBill.totalAmount).toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
+
+          <Pressable
+            onPress={() => {
+              setShowReceipt(false);
+              router.back();
+            }}
+            style={{ width: '100%', backgroundColor: c.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 16 }}>Done & Finish</Text>
+          </Pressable>
+        </View>
+      </Modal>
 
       {/* Cancel Order Modal */}
       <Modal visible={showCancelModal} transparent animationType="slide" onRequestClose={() => setShowCancelModal(false)}>
@@ -674,5 +1052,73 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontWeight: '700' },
   cancelInput: {
     borderRadius: 10, borderWidth: 1.5, padding: 12, fontSize: 15, minHeight: 90, textAlignVertical: 'top',
+  },
+
+  // ── Menu Picker styles ──
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
+  },
+  categoryPill: {
+    borderWidth: 1.5,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
+  dishCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  dishName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dishPrice: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  addBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  addBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  qtyBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyText: {
+    fontSize: 15,
+    fontWeight: '800',
+    minWidth: 16,
+    textAlign: 'center',
   },
 });
