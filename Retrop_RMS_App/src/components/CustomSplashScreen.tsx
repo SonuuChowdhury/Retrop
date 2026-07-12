@@ -16,7 +16,7 @@ export default function CustomSplashScreen({ colors, isDark }: CustomSplashScree
         style={styles.logoContainer}
       >
         <Image
-          source={require('../../assets/images/logo-rounded.png')}
+          source={require('../../assets/images/logo-corner-rounded.png')}
           style={styles.logo}
           resizeMode="contain"
         />
