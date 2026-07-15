@@ -1,7 +1,7 @@
 # Feature Flows
 
 ## Last Updated
-2026-07-10 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
+2026-07-15 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
 
 ---
 
@@ -71,6 +71,9 @@
 | Customer Loyalty Points Engine | active | `Server/src/services/orderSessionService.js` |
 | Customer Review Feedback | active | `Retrop_RMS_Frontend/src/pages/ThankYou/`, `Server/src/routes/routes.js` |
 | Request Validation Layer (Zod) | active | `Server/src/middleware/validate.js` |
+| Owner Menu Management | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/menuController.js` |
+| Owner Restaurant Settings & Info Config | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/restaurantInfoController.js` |
+| Owner Dashboard Analytics | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/managerController.js` |
 
 ---
 
@@ -257,6 +260,40 @@
 1. The Dashboard retrieves paginated lists from `/api/owner/orders` (filtering by Invoice #, Table #, Status, or Date range) or `/api/owner/reviews`.
 2. The Orders panel renders a comprehensive database of sales transaction history, with detailed line-item pop-ups showing dish remarks, quantities, tax breakdowns, discounts, and payment statuses.
 3. The Reviews panel lists star ratings and comments left by guests, directly linked to their invoice sheets so the owner can review comments alongside the exact food items served.
+
+---
+
+### Owner Menu Management
+**Status**: active
+**Trigger**: Owner navigates to "Menu" tab on the Website Dashboard.
+
+**Flow**:
+1. The Dashboard fetches all dishes and categories via `GET /api/owner/menu-management` and `/api/owner/menu-management/categories`.
+2. The Owner can add new dishes (`POST /api/owner/menu-management`), update existing ones (`PUT /api/owner/menu-management/:dishId`), or delete them (`DELETE /api/owner/menu-management/:dishId`).
+3. Individual dishes or entire categories can be toggled on/off for availability dynamically using `/api/owner/menu-management/:dishId/availability` and `/api/owner/menu-management/category/:category/availability`.
+4. The Owner can upload or delete dish images stored in the backend server assets via `/api/owner/menu-management/:dishId/image`.
+
+---
+
+### Owner Restaurant Settings & Info Config
+**Status**: active
+**Trigger**: Owner navigates to "Settings" or "Restaurant Info" tab on the Website Dashboard.
+
+**Flow**:
+1. The Dashboard retrieves the restaurant settings, tax configurations (inclusive/exclusive), and Google Review redirect link via `GET /api/owner/restaurant-info`.
+2. The Owner can update their profile information, tax flags, active discounts, and the Google review redirect URL via `PUT /api/owner/restaurant-info`.
+3. The Owner can also upload or update their custom restaurant logo image (`POST /api/owner/restaurant/logo`), which is uploaded to Supabase storage.
+
+---
+
+### Owner Dashboard Analytics
+**Status**: active
+**Trigger**: Owner views the Main Dashboard landing page.
+
+**Flow**:
+1. The dashboard loads summary statistics including total sales, order count, average order value, total cost of goods sold (COGS), gross profit, profit margin, and customer loyalty totals via `GET /api/owner/dashboard/summary`.
+2. Detailed sales reports can be exported as a CSV spreadsheet using `GET /api/owner/dashboard/export`.
+3. The dashboard retrieves specific operational and tax metrics via `GET /api/owner/analytics?metrics=taxes` to chart tax summaries.
 
 ---
 

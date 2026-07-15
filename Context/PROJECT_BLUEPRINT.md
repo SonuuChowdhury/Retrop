@@ -1,7 +1,7 @@
 # Project Blueprint
 
 ## Last Updated
-2026-07-10 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
+2026-07-15 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
 
 ---
 
@@ -227,7 +227,8 @@ Resturant-Automation/
         │   ├── 005_taxation_flag.sql
         │   ├── 006_owner_system.sql ← Owner portal tables (retrop_owner, retrop_owner_session)
         │   ├── 007_inventory.sql    ← BOM & Inventory tables (vendor, item, recipe, purchase, adjustment)
-        │   └── 008_expense_staff_loyalty_schema.sql ← Expenses, Day close, staff roles, loyalty, customer feedback
+        │   ├── 008_expense_staff_loyalty_schema.sql ← Expenses, Day close, staff roles, loyalty, customer feedback
+        │   └── 009_google_review_link.sql ← Adds googleReviewLink column to restaurant_info
         ├── routes/
         │   └── routes.js            ← Unified backend routes map
         ├── services/
@@ -579,6 +580,35 @@ Resturant-Automation/
 | DELETE | `/api/owner/inventory/recipes/:dishId` | JWT-Owner | Delete recipe |
 | GET | `/api/owner/inventory/purchases` | JWT-Owner | List logged purchases |
 | POST | `/api/owner/inventory/purchases` | JWT-Owner (Zod-validated) | Log new purchase invoice (adds stock) |
+
+### Owner Portal Menu Management
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/owner/menu-management` | JWT-Owner | Retrieve all menu items |
+| GET | `/api/owner/menu-management/categories` | JWT-Owner | List all menu categories |
+| GET | `/api/owner/menu-management/stats` | JWT-Owner | Get menu usage/popularity statistics |
+| GET | `/api/owner/menu-management/:dishId` | JWT-Owner | Retrieve a specific menu item |
+| POST | `/api/owner/menu-management` | JWT-Owner | Add a new menu item |
+| PUT | `/api/owner/menu-management/:dishId` | JWT-Owner | Update a menu item's details |
+| DELETE | `/api/owner/menu-management/:dishId` | JWT-Owner | Delete a menu item |
+| PATCH | `/api/owner/menu-management/:dishId/availability` | JWT-Owner | Toggle availability of a menu item |
+| PATCH | `/api/owner/menu-management/category/:category/availability` | JWT-Owner | Toggle availability of all items in a category |
+| POST | `/api/owner/menu-management/:dishId/image` | JWT-Owner | Upload an image for a menu item |
+| DELETE | `/api/owner/menu-management/:dishId/image` | JWT-Owner | Remove the image from a menu item |
+
+### Owner Portal Restaurant Settings & Info
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/owner/restaurant-info` | JWT-Owner | Retrieve restaurant profile info and custom settings |
+| PUT | `/api/owner/restaurant-info` | JWT-Owner | Update restaurant details, taxes, discounts, and Google Review link |
+
+### Owner Portal Analytics
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/owner/analytics` | JWT-Owner | Retrieve comprehensive sales, operations, and tax analytics |
 
 ### GST Compliance Reports
 
