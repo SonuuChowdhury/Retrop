@@ -21,6 +21,9 @@ const handleResponse = async (response) => {
   if (!response.ok) {
     throw new Error(data.message || 'Something went wrong');
   }
+  if (data && data.status === 'success' && data.success === undefined) {
+    data.success = true;
+  }
   return data;
 };
 
@@ -224,6 +227,250 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  // Logo Upload
+  uploadLogo: async (imageData) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/restaurant/logo`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(imageData),
+    });
+    return handleResponse(response);
+  },
+
+  // GST Compliance (GSTR-1 JSON)
+  getGstr1: async (month, year) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/gst/gstr1?month=${month}&year=${year}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // GST Compliance (GSTR-3B JSON)
+  getGstr3b: async (month, year) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/gst/gstr3b?month=${month}&year=${year}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Unified Staff CRUD
+  getStaff: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/staff`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  createStaff: async (staffData) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/staff`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(staffData),
+    });
+    return handleResponse(response);
+  },
+
+  deleteStaff: async (type, id) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/staff/${type}/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  updateStaffPassword: async (type, id, password) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/staff/${type}/${id}/password`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    return handleResponse(response);
+  },
+
+  // Expenses CRUD
+  getExpenses: async (date = '') => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/expenses${date ? `?date=${date}` : ''}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  createExpense: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/expenses`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  deleteExpense: async (expenseId) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/expenses/${expenseId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Day Close Registers
+  getDayClose: async (date = '') => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/day-close${date ? `?date=${date}` : ''}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  closeDayRegister: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/day-close`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  // Owner Menu Management (Menu management CRUD)
+  getMenuManagement: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getMenuCategories: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/categories`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getMenuItem: async (dishId) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  createMenuItem: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  updateMenuItem: async (dishId, data) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  deleteMenuItem: async (dishId) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  toggleMenuItemAvailability: async (dishId, isAvailable) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}/availability`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ isAvailable }),
+    });
+    return handleResponse(response);
+  },
+
+  toggleCategoryAvailability: async (category, isAvailable) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/category/${encodeURIComponent(category)}/availability`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ isAvailable }),
+    });
+    return handleResponse(response);
+  },
+
+  uploadDishImage: async (dishId, imageInfo) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}/image`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(imageInfo),
+    });
+    return handleResponse(response);
+  },
+
+  deleteDishImage: async (dishId) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/menu-management/${dishId}/image`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Owner Restaurant Settings & Info
+  getRestaurantInfo: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/restaurant-info`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  updateRestaurantInfo: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/restaurant-info`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  // Owner Analytics
+  getOwnerAnalytics: async (metrics = '') => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/analytics${metrics ? `?metrics=${metrics}` : ''}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Owner Order Management & Reviews
+  getOrders: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+        params.append(key, filters[key]);
+      }
+    });
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetch(`${API_BASE_URL}/api/owner/orders${queryString}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  getReviews: async (limit = 20, offset = 0) => {
+    const response = await fetch(`${API_BASE_URL}/api/owner/reviews?limit=${limit}&offset=${offset}`, {
+      method: 'GET',
+      headers: getHeaders(),
     });
     return handleResponse(response);
   },

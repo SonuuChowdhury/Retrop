@@ -174,4 +174,12 @@ export const api = {
    */
   checkCustomerToken: (tableId, token) =>
     get(`/api/order/${tableId}/token-check?token=${encodeURIComponent(token)}`),
+
+  /**
+   * Submit customer feedback / rating for an order.
+   * POST /api/order/:orderId/feedback
+   * Body: { rating, comment, mobile }
+   */
+  submitFeedback: (orderId, { rating, comment, mobile }) =>
+    post(`/api/order/${orderId}/feedback`, { rating, comment, mobile }),
 };

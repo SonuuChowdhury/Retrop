@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Star } from 'lucide-react';
 import { api } from '../../services/api.js';
 import BillView from '../../components/BillView/BillView.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner.jsx';
@@ -36,6 +37,10 @@ export default function ThankYou() {
   const [restaurantInfo, setRestaurantInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -44,12 +49,32 @@ export default function ThankYou() {
       .then((res) => {
         setOrder(res.data.order);
         setRestaurantInfo(res.data.restaurantInfo);
+        if (res.data.hasFeedback) {
+          setFeedbackSubmitted(true);
+        }
       })
       .catch((err) => {
         setError(err);
       })
       .finally(() => setLoading(false));
   }, [orderId]);
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingFeedback(true);
+    try {
+      await api.submitFeedback(orderId, {
+        rating,
+        comment,
+        mobile: order?.mobile,
+      });
+      setFeedbackSubmitted(true);
+    } catch (err) {
+      alert(err.message || 'Failed to submit feedback');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -114,11 +139,71 @@ export default function ThankYou() {
           </p>
         </div>
 
+        {/* Feedback Section */}
+        <div className="card" style={{ padding: '20px', marginBlock: '20px', background: 'var(--color-surface-1)', border: '1.5px solid var(--color-border)', borderRadius: '12px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '800', textAlign: 'center', marginBottom: '12px' }}>Rate Your Experience</h3>
+          
+          {feedbackSubmitted ? (
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: 'var(--color-success)', fontSize: '14px', fontWeight: '700', marginBottom: '12px' }}>
+                Thank you for your valuable feedback!
+              </p>
+              {rating >= 3 && restaurantInfo?.googleReviewLink && (
+                <a
+                  href={restaurantInfo.googleReviewLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn--primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '13px', textDecoration: 'none', marginInline: 'auto', marginTop: '4px' }}
+                >
+                  ⭐ Rate us on Google
+                </a>
+              )}
+            </div>
+          ) : (
+            <form onSubmit={handleFeedbackSubmit}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+                  >
+                    <Star
+                      size={28}
+                      fill={star <= rating ? '#FFD700' : '#FFFFFF'}
+                      color={star <= rating ? '#FFD700' : '#CCCCCC'}
+                    />
+                  </button>
+                ))}
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <textarea
+                  style={{ width: '100%', padding: '10px', fontSize: '13px', borderRadius: '8px', border: '1.5px solid var(--color-border)', outline: 'none' }}
+                  rows="2"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Tell us what you liked or how we can improve..."
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+                disabled={submittingFeedback}
+              >
+                {submittingFeedback ? 'Submitting...' : 'Submit Review'}
+              </button>
+            </form>
+          )}
+        </div>
+
         {/* Bill */}
         <BillView order={order} restaurantInfo={restaurantInfo} />
 
         {/* Save / Print */}
-        <div className="thankyou__actions">
+        <div className="thankyou__actions" style={{ marginTop: '20px' }}>
           <button
             className="btn btn--primary"
             onClick={handleDownloadPDF}
