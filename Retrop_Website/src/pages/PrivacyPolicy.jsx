@@ -1,0 +1,138 @@
+// ============================================================================
+// PRIVACY POLICY (/privacy-policy)
+// ============================================================================
+
+import React from 'react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import PageWrapper from '../components/PageWrapper';
+
+export default function PrivacyPolicy() {
+  return (
+    <PageWrapper title="Privacy Policy">
+      <Navbar />
+      <main style={{ flex: 1 }}>
+        <div className="legal-content">
+          <h1>Privacy Policy</h1>
+          <p className="legal-meta">Last updated: July 2025 · Retrop</p>
+
+          <p>
+            At Retrop ("we", "our", "us"), we are committed to protecting the privacy and security of
+            the personal information we collect from our users. This Privacy Policy explains how we collect,
+            use, store, and share information when you use our website, mobile app, and business tools
+            (collectively, "Services").
+          </p>
+          <p>
+            By using our Services, you agree to the collection and use of information as described in this policy.
+          </p>
+
+          <h2>1. Information We Collect</h2>
+          <h3>1.1 Information you provide directly</h3>
+          <ul>
+            <li><strong>Account Information:</strong> Name, email address, mobile number, business name, address</li>
+            <li><strong>Staff Information:</strong> Names and contact details of staff accounts you create</li>
+            <li><strong>Business Information:</strong> GST number, operating details, inventory data, vendor contacts</li>
+            <li><strong>Financial Data:</strong> Revenue figures, cost data, purchase records (stored within your account)</li>
+            <li><strong>Communications:</strong> Messages sent to our support team</li>
+          </ul>
+
+          <h3>1.2 Information collected automatically</h3>
+          <ul>
+            <li><strong>Usage Data:</strong> Pages visited, features used, session duration, and click patterns</li>
+            <li><strong>Device Information:</strong> Browser type, operating system, device model, IP address</li>
+            <li><strong>Log Data:</strong> Server logs including timestamps, errors, and API calls</li>
+            <li><strong>Cookies:</strong> Session cookies and preference cookies (see our Cookie Policy for details)</li>
+          </ul>
+
+          <h3>1.3 Customer order data</h3>
+          <p>
+            When your customers place orders through our digital ordering system, we collect
+            their order details (items, table/counter reference, special instructions). This data is attributed to
+            your business account and is not used for any purpose beyond operating your ordering system.
+          </p>
+
+          <h2>2. How We Use Your Information</h2>
+          <ul>
+            <li>To provide, maintain, and improve our Services</li>
+            <li>To process and fulfil orders placed through the system</li>
+            <li>To authenticate users and manage account security</li>
+            <li>To send you service-related communications (billing, support, updates)</li>
+            <li>To generate analytics and reports within your account</li>
+            <li>To detect and prevent fraud, abuse, or security incidents</li>
+            <li>To comply with legal obligations</li>
+          </ul>
+          <p>We do <strong>not</strong> sell your personal data to third parties. We do not use your data for advertising.</p>
+
+          <h2>3. Data Storage & Security</h2>
+          <p>
+            Your data is stored on secure servers. We use industry-standard encryption
+            (TLS/SSL) for all data in transit, and AES-256 encryption for data at rest.
+          </p>
+          <p>
+            Access to your data is restricted to authorized Retrop personnel who need it to provide
+            our Services. All access is logged and audited.
+          </p>
+          <p>
+            We perform regular security assessments and maintain security best practices in accordance
+            with applicable data protection standards.
+          </p>
+
+          <h2>4. Data Sharing</h2>
+          <p>We may share your information with:</p>
+          <ul>
+            <li><strong>Service Providers:</strong> Hosting infrastructure, email delivery, and analytics tools used to operate the platform</li>
+            <li><strong>Legal Authorities:</strong> Where required by law, court order, or government regulation</li>
+            <li><strong>Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets, your data may be transferred to the acquiring entity</li>
+          </ul>
+
+          <h2>5. Data Retention</h2>
+          <p>
+            We retain your account data for as long as your account is active. Upon account termination:
+          </p>
+          <ul>
+            <li>Active account data is deactivated immediately</li>
+            <li>Data is retained for 90 days to allow recovery if the termination was accidental</li>
+            <li>After 90 days, data is permanently deleted from our systems</li>
+          </ul>
+          <p>
+            Some data may be retained longer where required by law (e.g., financial transaction records for GST compliance).
+          </p>
+
+          <h2>6. Your Rights</h2>
+          <p>You have the right to:</p>
+          <ul>
+            <li><strong>Access</strong> — Request a copy of the personal data we hold about you</li>
+            <li><strong>Correction</strong> — Request correction of inaccurate data</li>
+            <li><strong>Deletion</strong> — Request deletion of your account and associated data</li>
+            <li><strong>Portability</strong> — Request your data in a machine-readable format</li>
+            <li><strong>Restriction</strong> — Request that we limit how we process your data</li>
+          </ul>
+          <p>To exercise any of these rights, contact us through our <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or email us directly.</p>
+
+          <h2>7. Children's Privacy</h2>
+          <p>
+            Our Services are not directed to individuals under the age of 18. We do not knowingly collect
+            personal information from children. If you believe we have collected information from a minor,
+            please contact us immediately.
+          </p>
+
+          <h2>8. Changes to This Policy</h2>
+          <p>
+            We may update this Privacy Policy periodically. We will notify you of significant changes
+            by email or by displaying a notice in your dashboard. Continued use of the Services
+            after changes take effect constitutes acceptance of the updated policy.
+          </p>
+
+          <h2>9. Contact</h2>
+          <p>
+            For privacy-related questions or requests, contact us through our{' '}
+            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or at:<br />
+            <strong>chowdhurysonu047@gmail.com</strong><br />
+            Retrop, India
+          </p>
+        </div>
+      </main>
+      <Footer />
+    </PageWrapper>
+  );
+}

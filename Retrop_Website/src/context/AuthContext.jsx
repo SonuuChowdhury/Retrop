@@ -11,7 +11,16 @@ export const AuthProvider = ({ children }) => {
   const [owner, setOwner] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState(() => localStorage.getItem('retrop_theme') || 'light');
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('retrop_theme');
+    if (savedTheme) return savedTheme;
+    
+    // Fallback to system preference
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
 
   // Sync theme with HTML attribute
   useEffect(() => {
