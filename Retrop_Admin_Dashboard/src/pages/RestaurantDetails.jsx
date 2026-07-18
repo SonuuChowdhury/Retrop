@@ -97,6 +97,7 @@ export default function RestaurantDetails() {
     paymentMethod: 'UPI',
     upiTransactionId: '',
   });
+  const [isAddBillsDropdownOpen, setIsAddBillsDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!restaurant) {
@@ -174,6 +175,26 @@ export default function RestaurantDetails() {
   useEffect(() => {
     fetchDetails();
   }, [restaurantId]);
+
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      setIsAddBillsDropdownOpen(false);
+      setIsMailDropdownOpen(false);
+    };
+    document.addEventListener('click', handleDocumentClick);
+    return () => document.removeEventListener('click', handleDocumentClick);
+  }, []);
+
+  const handleOpenAddBillModal = (plan) => {
+    setSupportForm({
+      title: plan.name,
+      description: '',
+      cost: parseFloat(plan.basePrice).toFixed(2),
+      paymentMethod: 'UPI',
+      upiTransactionId: '',
+    });
+    setIsSupportModalOpen(true);
+  };
 
   const handleCreateSupportTicket = async (e) => {
     e.preventDefault();
@@ -944,20 +965,20 @@ export default function RestaurantDetails() {
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', position: 'relative' }}>
                   <button
                     onClick={() => setIsMailDropdownOpen(!isMailDropdownOpen)}
-                    disabled={keys.length === 0 || admins.length === 0 || mailLoading}
+                    disabled={mailLoading}
                     style={{
                       ...styles.mailCredentialsBtn,
-                      backgroundColor: (keys.length === 0 || admins.length === 0 || mailLoading) 
+                      backgroundColor: mailLoading 
                         ? 'var(--color-border)' 
                         : 'var(--color-success-light)',
-                      color: (keys.length === 0 || admins.length === 0 || mailLoading) 
+                      color: mailLoading 
                         ? 'var(--color-text-muted)' 
                         : 'var(--color-success)',
-                      border: (keys.length === 0 || admins.length === 0 || mailLoading) 
+                      border: mailLoading 
                         ? '1px solid var(--color-border)' 
                         : '1px solid var(--color-success)',
                       opacity: mailLoading ? 0.7 : 1,
-                      cursor: (keys.length === 0 || admins.length === 0 || mailLoading) ? 'not-allowed' : 'pointer',
+                      cursor: mailLoading ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
@@ -1093,13 +1114,86 @@ export default function RestaurantDetails() {
               <div style={styles.cardHeader}>
                 <h2 style={styles.cardTitle}>Billing & Subscriptions</h2>
                 <div style={styles.cardHeaderActions}>
-                  <button
-                    onClick={() => setIsSupportModalOpen(true)}
-                    style={styles.supportBtn}
-                  >
-                    <LifeBuoy size={16} />
-                    <span>Bill Support Incident</span>
-                  </button>
+                  <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setIsAddBillsDropdownOpen(!isAddBillsDropdownOpen)}
+                      style={{
+                        ...styles.verifyPaymentBtn,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Plus size={16} />
+                      <span>Add Bills</span>
+                      <ChevronDown size={14} style={{ opacity: 0.8 }} />
+                    </button>
+
+                    {isAddBillsDropdownOpen && (
+                      <div style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '36px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                        zIndex: 100,
+                        minWidth: '260px',
+                        padding: '8px',
+                        animation: 'fadeInScale 0.15s ease-out forwards',
+                      }}>
+                        <style>{`
+                          @keyframes fadeInScale {
+                            from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+                            to { opacity: 1; transform: scale(1) translateY(0); }
+                          }
+                        `}</style>
+                        {plans
+                          .filter(p => p.isActive && p.planType !== 'monthly' && p.planType !== 'lifetime' && p.businessTypeId === restaurant.businessTypeId)
+                          .map(plan => (
+                            <button
+                              key={plan.planId}
+                              onClick={() => {
+                                setIsAddBillsDropdownOpen(false);
+                                handleOpenAddBillModal(plan);
+                              }}
+                              style={{
+                                display: 'block',
+                                width: '100%',
+                                padding: '10px 12px',
+                                textAlign: 'left',
+                                background: 'none',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: '#1e293b',
+                                fontSize: '13px',
+                                fontWeight: '550',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s',
+                              }}
+                              onMouseOver={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                              onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {plan.name}
+                                </span>
+                                <span style={{ color: 'var(--color-primary)', fontWeight: 'bold', flexShrink: 0 }}>
+                                  INR {parseFloat(plan.basePrice).toFixed(2)}
+                                </span>
+                              </div>
+                            </button>
+                          ))
+                        }
+                        {plans.filter(p => p.isActive && p.planType !== 'monthly' && p.planType !== 'lifetime' && p.businessTypeId === restaurant.businessTypeId).length === 0 && (
+                          <div style={{ padding: '10px 12px', fontSize: '13px', color: '#64748b', textAlign: 'center' }}>
+                            No support plans configured.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {restaurant.subscription && restaurant.subscription.length > 0 && (
                     <button
                       onClick={handleOpenSubEdit}
@@ -1349,33 +1443,31 @@ export default function RestaurantDetails() {
         </div>
       )}
 
-      {/* Modal: Bill Support Incident */}
+      {/* Modal: Add Bill */}
       {isSupportModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={{ ...styles.modalContent, maxWidth: '480px' }}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Bill Tech Support Incident</h3>
+              <h3 style={styles.modalTitle}>Add Bill</h3>
               <button onClick={() => setIsSupportModalOpen(false)} style={styles.modalCloseBtn}>×</button>
             </div>
 
             <form onSubmit={handleCreateSupportTicket} style={styles.form}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Incident Title</label>
+                <label style={styles.label}>Bill Title</label>
                 <input
                   type="text"
-                  placeholder="e.g. Database Restore, QR Code Printer Setup"
                   value={supportForm.title}
-                  onChange={(e) => setSupportForm(prev => ({ ...prev, title: e.target.value }))}
-                  style={styles.input}
-                  disabled={supportLoading}
+                  style={{ ...styles.input, backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                  disabled
                   required
                 />
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Detailed Description</label>
+                <label style={styles.label}>Description / Reference Note</label>
                 <textarea
-                  placeholder="Describe the technical assistance provided"
+                  placeholder="Enter details of this bill or service provided..."
                   value={supportForm.description}
                   onChange={(e) => setSupportForm(prev => ({ ...prev, description: e.target.value }))}
                   style={styles.textarea}
@@ -1387,13 +1479,12 @@ export default function RestaurantDetails() {
 
               <div style={styles.formRow}>
                 <div style={{ ...styles.formGroup, flex: 1 }}>
-                  <label style={styles.label}>Support Charge (Base INR)</label>
+                  <label style={styles.label}>Plan Fee (Base INR)</label>
                   <input
                     type="number"
                     value={supportForm.cost}
-                    onChange={(e) => setSupportForm(prev => ({ ...prev, cost: e.target.value }))}
-                    style={styles.input}
-                    disabled={supportLoading}
+                    style={{ ...styles.input, backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                    disabled
                     required
                   />
                 </div>
