@@ -43,8 +43,9 @@ app.use(cors({
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'X-Requested-With', 'X-Product-Key', 'x-product-key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'X-Requested-With', 'X-Product-Key', 'x-product-key', 'X-Restaurant-Id', 'x-restaurant-id'],
 }));
+
 
 // ===== Body Parser Middleware =====
 app.use(express.json({ limit: '10mb' }));

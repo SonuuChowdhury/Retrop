@@ -1,4 +1,6 @@
 import { menuService } from '../services/menuService.js';
+import { validateImageBuffer } from '../utils/imageSecurity.js';
+
 import { logger } from '../utils/logger.js';
 
 // ============================================================================
@@ -215,16 +217,17 @@ export const uploadDishImage = async (req, res) => {
       });
     }
 
-    // Validate file size (5MB limit)
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (fileBuffer.length > MAX_SIZE) {
+    // Security validation (Max 2MB, MIME Whitelist, Magic Bytes protection)
+    const securityCheck = validateImageBuffer(fileBuffer, mimeType, 2);
+    if (!securityCheck.valid) {
       return res.status(400).json({
         status: 'error',
-        message: 'Image too large. Maximum size is 5MB.',
+        message: securityCheck.error,
       });
     }
 
-    const result = await menuService.uploadDishImage(dishId, fileBuffer, mimeType, originalName);
+    const result = await menuService.uploadDishImage(dishId, fileBuffer, securityCheck.mimeType, originalName);
+
 
     if (!result.success) {
       const status = result.error === 'Menu item not found' ? 404 : 400;

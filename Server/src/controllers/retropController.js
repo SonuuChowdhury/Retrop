@@ -13,7 +13,7 @@ import { logger } from '../utils/logger.js';
 import { nowIST } from '../utils/time.js';
 import bcrypt from 'bcryptjs';
 import { generateInvoicePDF, uploadInvoiceToStorage } from '../services/invoiceService.js';
-import { sendWelcomeEmail, sendInvoiceEmail, sendCredentialsEmail } from '../services/mailer.js';
+import { sendWelcomeEmail, sendInvoiceEmail, sendCredentialsEmail, sendPortalWelcomeEmail } from '../services/mailer.js';
 import { encryptSetupPayload } from '../utils/crypto.js';
 import QRCode from 'qrcode';
 
@@ -342,6 +342,65 @@ export const retropController = {
       }
 
       logger.info(`New restaurant created: ${businessName} (${restaurant.restaurantId})`);
+
+      // Auto-create portal user if ownerEmail is provided
+      if (ownerEmail && ownerEmail.trim()) {
+        const portalEmail = ownerEmail.trim().toLowerCase();
+        try {
+          // Check if portal user already exists with this email
+          const { data: existingPortalUser } = await supabase
+            .from('portal_user')
+            .select('userId')
+            .eq('email', portalEmail)
+            .maybeSingle();
+
+          let portalUserId;
+          let portalTempPassword = null;
+
+          if (existingPortalUser) {
+            portalUserId = existingPortalUser.userId;
+          } else {
+            // Generate a temporary password
+            portalTempPassword = ownerMobile.trim().substring(0, 4) + '@Portal1';
+            const { bcrypt: bcryptLib } = await import('bcryptjs').catch(() => ({ bcrypt: null }));
+            const passwordHash = await bcrypt.hash(portalTempPassword, 10);
+            const { data: newPortalUser, error: puErr } = await supabase
+              .from('portal_user')
+              .insert([{
+                name: ownerName.trim(),
+                email: portalEmail,
+                mobile: ownerMobile.trim(),
+                passwordHash,
+                emailVerified: true,
+                needsPasswordReset: true,
+              }])
+              .select('userId')
+              .single();
+            if (puErr) {
+              logger.error('Failed to create portal user during restaurant onboarding', puErr.message);
+            } else {
+              portalUserId = newPortalUser.userId;
+            }
+          }
+
+          // Link portal user to this restaurant
+          if (portalUserId) {
+            await supabase.from('portal_user_business').upsert([{
+              userId: portalUserId,
+              restaurantId: restaurant.restaurantId,
+              role: 'owner',
+            }]);
+
+            // Send welcome email with credentials only for new portal users
+            if (portalTempPassword) {
+              sendPortalWelcomeEmail(portalEmail, ownerName.trim(), portalTempPassword)
+                .catch(mailErr => logger.error('Failed to send portal welcome email', mailErr.message));
+            }
+          }
+        } catch (portalErr) {
+          logger.error('Portal user auto-creation failed (non-critical)', portalErr.message);
+        }
+      }
 
       return res.status(201).json({
         success: true,

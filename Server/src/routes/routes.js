@@ -111,6 +111,8 @@ import { validate, schemas } from '../middleware/validate.js';
 import { RATE_LIMIT_CONFIG } from '../config/constants.js';
 import { staffController } from '../controllers/staffController.js';
 import { expenseController } from '../controllers/expenseController.js';
+import { portalAuthController } from '../controllers/portalAuthController.js';
+import { portalAuthMiddleware } from '../middleware/portalAuth.js';
 
 const router = express.Router();
 
@@ -127,11 +129,36 @@ const retropOperationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });                   
+const portalAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true });
 
 // ============================================================================
 // HEALTH CHECK (no auth, no product key)
 // ============================================================================
 router.get('/', getHealth);
+
+// ============================================================================
+// PORTAL AUTH ROUTES — /api/portal/* (self-service user authentication)
+// ============================================================================
+
+// Signup flow
+router.post('/api/portal/auth/signup/request-otp',  portalAuthLimiter, portalAuthController.requestSignupOtp);
+router.post('/api/portal/auth/signup/verify-otp',   portalAuthLimiter, portalAuthController.verifySignupOtp);
+router.post('/api/portal/auth/signup/set-password', portalAuthLimiter, portalAuthController.setSignupPassword);
+
+// Login
+router.post('/api/portal/auth/login',  portalAuthLimiter, portalAuthController.login);
+router.post('/api/portal/auth/google', portalAuthLimiter, portalAuthController.googleAuth);
+
+// Forgot password
+router.post('/api/portal/auth/forgot-password/request-otp', portalAuthLimiter, portalAuthController.requestForgotPasswordOtp);
+router.post('/api/portal/auth/forgot-password/verify-otp',  portalAuthLimiter, portalAuthController.verifyForgotPasswordOtp);
+router.post('/api/portal/auth/forgot-password/reset',       portalAuthLimiter, portalAuthController.resetForgotPassword);
+
+// Protected portal routes
+router.post('/api/portal/auth/logout',        portalAuthMiddleware, portalAuthController.logout);
+router.get('/api/portal/auth/me',             portalAuthMiddleware, portalAuthController.me);
+router.put('/api/portal/profile',             portalAuthMiddleware, portalAuthController.updateProfile);
+router.put('/api/portal/auth/change-password',portalAuthMiddleware, portalAuthController.changePassword);
 
 // ============================================================================
 // RETROP SUPER ADMIN ROUTES — /api/retrop/*
@@ -397,6 +424,7 @@ router.get('/api/owner/analytics',          ownerAuthMiddleware, getComprehensiv
 
 // ── Owner Order Management & Reviews ──────────────────────────────────────────
 router.get('/api/owner/orders',             ownerAuthMiddleware, ownerController.getOrders);
+router.get('/api/owner/orders/:orderId/pdf',      ownerAuthMiddleware, ownerController.getOrderBillPDF);
 router.get('/api/owner/reviews',            ownerAuthMiddleware, ownerController.getReviews);
 
 export default router;

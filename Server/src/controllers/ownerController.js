@@ -5,7 +5,9 @@
 // Protected by ownerAuthMiddleware.
 // ============================================================================
 
+import { validateImageBuffer } from '../utils/imageSecurity.js';
 import { ownerAuthService } from '../services/ownerAuthService.js';
+
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
 import { nowIST } from '../utils/time.js';
@@ -366,6 +368,8 @@ export const ownerController = {
         return res.status(400).json({ success: false, message: 'No restaurant linked to owner' });
       }
 
+      const format = (req.query.format || 'csv').toLowerCase();
+
       const { data: orders, error } = await supabase
         .from('orders')
         .select('ordersId, tableNo, totalAmount, discountAmount, gstAmount, finalAmount, createdAt')
@@ -374,8 +378,9 @@ export const ownerController = {
 
       if (error) throw error;
 
-      // Build CSV
-      let csv = 'Order ID,Date,Table No,Subtotal (INR),Discount (INR),GST Tax (INR),Total Paid (INR)\n';
+      // Build CSV or XLS (TSV formatted for Excel)
+      const delimiter = format === 'xls' ? '\t' : ',';
+      let content = ['Order ID', 'Date', 'Table No', 'Subtotal (INR)', 'Discount (INR)', 'GST Tax (INR)', 'Total Paid (INR)'].join(delimiter) + '\n';
       
       if (orders && orders.length) {
         orders.forEach(o => {
@@ -385,18 +390,28 @@ export const ownerController = {
           const tax = o.gstAmount || 0;
           const total = o.finalAmount || subtotal;
           
-          csv += `"${o.ordersId}","${date}","Table ${o.tableNo}",${subtotal},${discount},${tax},${total}\n`;
+          if (format === 'xls') {
+            content += `${o.ordersId}\t${date}\tTable ${o.tableNo}\t${subtotal}\t${discount}\t${tax}\t${total}\n`;
+          } else {
+            content += `"${o.ordersId}","${date}","Table ${o.tableNo}",${subtotal},${discount},${tax},${total}\n`;
+          }
         });
       }
 
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="sales_report_${req.restaurantId.substring(0, 8)}.csv"`);
-      return res.status(200).send(csv);
+      if (format === 'xls') {
+        res.setHeader('Content-Type', 'application/vnd.ms-excel');
+        res.setHeader('Content-Disposition', `attachment; filename="sales_report_${req.restaurantId.substring(0, 8)}.xls"`);
+      } else {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="sales_report_${req.restaurantId.substring(0, 8)}.csv"`);
+      }
+      return res.status(200).send(content);
     } catch (err) {
       logger.error('ownerController.exportSalesReport error', err.message);
-      return res.status(500).json({ success: false, message: 'Failed to generate CSV report' });
+      return res.status(500).json({ success: false, message: 'Failed to generate report' });
     }
   },
+
 
   // POST /api/owner/restaurant/logo
   uploadLogo: async (req, res) => {
@@ -410,10 +425,6 @@ export const ownerController = {
         return res.status(400).json({ success: false, message: 'No restaurant linked to owner' });
       }
 
-      const mime = mimeType || 'image/jpeg';
-      const ext = fileName?.split('.').pop()?.toLowerCase() || 'jpg';
-      const filename = `${req.restaurantId}_${Date.now()}.${ext}`;
-
       let fileBuffer;
       try {
         const base64Data = image.includes(',') ? image.split(',')[1] : image;
@@ -422,12 +433,21 @@ export const ownerController = {
         return res.status(400).json({ success: false, message: 'Invalid base64 image data' });
       }
 
+      // Security validation (Size limit 2MB + MIME Whitelist + Magic Bytes)
+      const securityCheck = validateImageBuffer(fileBuffer, mimeType, 2);
+      if (!securityCheck.valid) {
+        return res.status(400).json({ success: false, message: securityCheck.error });
+      }
+
+      const filename = `${req.restaurantId}_${Date.now()}.${securityCheck.safeExt}`;
+
       const { error: uploadError } = await supabase.storage
         .from('restaurant-logos')
         .upload(filename, fileBuffer, {
-          contentType: mime,
+          contentType: securityCheck.mimeType,
           upsert: true,
         });
+
 
       if (uploadError) {
         logger.error('Failed to upload logo to Supabase storage', uploadError.message);
@@ -759,5 +779,51 @@ export const ownerController = {
       logger.error('ownerController.getReviews error', err.message);
       return res.status(500).json({ success: false, message: 'Failed to fetch customer reviews' });
     }
+  },
+
+  // GET /api/owner/orders/:orderId/pdf
+  getOrderBillPDF: async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const restaurantId = req.restaurantId;
+
+      if (!restaurantId) {
+        return res.status(400).json({ success: false, message: 'No restaurant associated with this owner' });
+      }
+
+      const { data: order, error: orderErr } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('ordersId', orderId)
+        .eq('restaurantId', restaurantId)
+        .maybeSingle();
+
+      if (orderErr || !order) {
+        return res.status(404).json({ success: false, message: 'Order receipt not found.' });
+      }
+
+      const { data: restaurant } = await supabase
+        .from('retrop_restaurant')
+        .select('*')
+        .eq('restaurantId', restaurantId)
+        .maybeSingle();
+
+      const { data: settings } = await supabase
+        .from('restaurant_settings')
+        .select('*')
+        .eq('restaurantId', restaurantId)
+        .maybeSingle();
+
+      const { generateOrderBillPDF } = await import('../services/billPdfService.js');
+      const pdfBuffer = await generateOrderBillPDF(order, restaurant, settings);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="bill_${order.invoiceNo || orderId}.pdf"`);
+      return res.send(pdfBuffer);
+    } catch (err) {
+      logger.error('ownerController.getOrderBillPDF error', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to generate order bill PDF' });
+    }
   }
 };
+

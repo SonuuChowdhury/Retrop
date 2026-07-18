@@ -387,3 +387,109 @@ export const sendCredentialsEmail = async (clientEmail, businessName, productKey
 
   return sendEmail({ to: clientEmail, subject, html, attachments });
 };
+
+/**
+ * Sends an OTP verification email for signup or password reset.
+ */
+export const sendOtpEmail = async (toEmail, otp, purpose) => {
+  const legalName = await getRetropLegalName();
+  const isPwdReset = purpose === 'forgot_password';
+  const subject = isPwdReset
+    ? `Password Reset OTP — ${legalName}`
+    : `Verify your email — ${legalName}`;
+
+  const purposeLabel = isPwdReset ? 'reset your password' : 'verify your email and complete signup';
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px 24px; border: 1px solid #e5e7eb; border-radius: 12px; color: #1f2937; line-height: 1.6;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; background: #fff7ed; border-radius: 12px; padding: 12px 20px;">
+          <span style="font-size: 28px; font-weight: 800; color: #ea580c; letter-spacing: -1px;">${legalName}</span>
+        </div>
+      </div>
+      <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 8px 0; text-align: center;">Your One-Time Password</h2>
+      <p style="color: #6b7280; font-size: 14px; text-align: center; margin: 0 0 28px 0;">
+        Use the OTP below to ${purposeLabel}. It expires in <strong>10 minutes</strong>.
+      </p>
+      <div style="text-align: center; margin: 0 0 28px 0;">
+        <div style="display: inline-block; background: #fff7ed; border: 2px dashed #ea580c; border-radius: 12px; padding: 20px 40px;">
+          <span style="font-size: 40px; font-weight: 900; letter-spacing: 12px; color: #ea580c; font-family: monospace;">${otp}</span>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
+        If you didn't request this, please ignore this email. Your account is safe.
+      </p>
+      <hr style="border: 0; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+      <p style="font-size: 11px; color: #d1d5db; text-align: center; margin: 0;">${legalName} &copy; 2026. All rights reserved.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject, html });
+};
+
+/**
+ * Sends a welcome email to a newly created portal user (created by admin when adding a restaurant).
+ */
+export const sendPortalWelcomeEmail = async (toEmail, name, temporaryPassword) => {
+  const legalName = await getRetropLegalName();
+  const subject = `Welcome to ${legalName} Partner Portal`;
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: auto; padding: 32px 24px; border: 1px solid #e5e7eb; border-radius: 12px; color: #1f2937; line-height: 1.6;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; background: #fff7ed; border-radius: 12px; padding: 12px 20px;">
+          <span style="font-size: 28px; font-weight: 800; color: #ea580c; letter-spacing: -1px;">${legalName}</span>
+        </div>
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 8px 0;">Welcome, ${name}! 🎉</h2>
+      <p style="color: #4b5563; font-size: 14px; margin: 0 0 24px 0;">
+        Your partner portal account has been created. You can now sign in to manage your business dashboard.
+      </p>
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Your Login Credentials</p>
+        <p style="margin: 0 0 4px 0; font-size: 14px;"><strong>Email:</strong> ${toEmail}</p>
+        <p style="margin: 0; font-size: 14px;"><strong>Temporary Password:</strong> <code style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 6px; font-size: 13px; color: #ea580c;">${temporaryPassword}</code></p>
+      </div>
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px; font-size: 13px; color: #1e40af;">
+        <strong>Important:</strong> You will be asked to set a new password on your first login.
+      </div>
+      <a href="${process.env.PORTAL_URL || 'https://retrop.in/login'}" style="display: inline-block; background: #ea580c; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-bottom: 20px;">Sign In to Partner Portal →</a>
+      <hr style="border: 0; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+      <p style="font-size: 11px; color: #d1d5db; text-align: center; margin: 0;">${legalName} &copy; 2026. All rights reserved.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject, html });
+};
+
+/**
+ * Sends a minimal welcome email to a user who registered on the Retrop website.
+ * (Does NOT contain owner/restaurant details or contact details).
+ */
+export const sendUserRegistrationWelcomeEmail = async (toEmail, name) => {
+  const legalName = await getRetropLegalName();
+  const subject = `Welcome to Retrop!`;
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: auto; padding: 32px 24px; border: 1px solid #e5e7eb; border-radius: 12px; color: #1f2937; line-height: 1.6;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; background: #fff7ed; border-radius: 12px; padding: 12px 20px;">
+          <span style="font-size: 28px; font-weight: 800; color: #ea580c; letter-spacing: -1px;">${legalName}</span>
+        </div>
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Welcome to Retrop, ${name || 'User'}! 🎉</h2>
+      <p style="color: #4b5563; font-size: 14.5px; margin: 0 0 16px 0;">
+        Your account has been created successfully.
+      </p>
+      <p style="color: #4b5563; font-size: 14px; margin: 0 0 24px 0;">
+        You can now log in to your dashboard to access services and manage your connected businesses.
+      </p>
+      <div style="text-align: center; margin-bottom: 24px;">
+        <a href="${process.env.PORTAL_URL || 'http://localhost:5180/login'}" style="display: inline-block; background: #ea580c; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14px;">Go to Dashboard →</a>
+      </div>
+      <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+        If you didn't create this account, you can safely ignore this email.
+      </p>
+      <hr style="border: 0; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+      <p style="font-size: 11px; color: #d1d5db; text-align: center; margin: 0;">${legalName} &copy; 2026. All rights reserved.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject, html });
+};
+
+

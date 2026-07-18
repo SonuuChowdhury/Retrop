@@ -5,9 +5,11 @@
 // Automatically resolves the restaurantId for the owner and attaches it to req.
 // ============================================================================
 
+import jwt from 'jsonwebtoken';
 import { verifyOwnerToken } from '../services/ownerAuthService.js';
 import { supabase, tenantContext } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
+
 
 export const ownerAuthMiddleware = async (req, res, next) => {
   try {
@@ -21,7 +23,74 @@ export const ownerAuthMiddleware = async (req, res, next) => {
 
     const accessToken = authHeader.substring(7);
 
-    // 1. Verify token signature
+    // ── 1. Try Portal User Authentication First ──────────────────────────────
+    const portalSecret = process.env.PORTAL_JWT_SECRET || 'retrop_portal_jwt_secret_key_2026';
+    let portalDecoded = null;
+    try {
+      portalDecoded = jwt.verify(accessToken, portalSecret);
+    } catch {}
+
+    if (portalDecoded && portalDecoded.userId) {
+      // Verify active portal session
+      const { data: portalSession } = await supabase
+        .from('portal_user_session')
+        .select('sessionId, userId, isActive')
+        .eq('accessToken', accessToken)
+        .eq('isActive', true)
+        .maybeSingle();
+
+      if (portalSession) {
+        // Fetch portal user details
+        const { data: portalUser } = await supabase
+          .from('portal_user')
+          .select('*')
+          .eq('userId', portalDecoded.userId)
+          .maybeSingle();
+
+        if (portalUser && portalUser.isActive) {
+          // Resolve selected restaurant ID from X-Restaurant-Id header or portal_user_business
+          let restaurantId = req.headers['x-restaurant-id'] || req.headers['x-product-key'];
+
+          if (!restaurantId) {
+            const { data: userBiz } = await supabase
+              .from('portal_user_business')
+              .select('restaurantId')
+              .eq('userId', portalUser.userId)
+              .limit(1)
+              .maybeSingle();
+            if (userBiz) restaurantId = userBiz.restaurantId;
+          }
+
+          let restaurant = null;
+          if (restaurantId) {
+            const { data: restData } = await supabase
+              .from('retrop_restaurant')
+              .select('restaurantId, businessName')
+              .eq('restaurantId', restaurantId)
+              .maybeSingle();
+            restaurant = restData;
+          }
+
+          if (restaurantId) {
+            tenantContext.enterWith({ restaurantId });
+          }
+
+          req.owner = {
+            ownerId: portalUser.userId,
+            name: portalUser.name,
+            email: portalUser.email,
+            mobile: portalUser.mobile,
+          };
+          req.restaurant = restaurant;
+          req.restaurantId = restaurantId || null;
+          req.accessToken = accessToken;
+
+          return next();
+        }
+      }
+    }
+
+    // ── 2. Fallback to Legacy Owner Authentication ───────────────────────────
     const decoded = verifyOwnerToken(accessToken);
     if (!decoded || decoded.type !== 'retrop_owner') {
       return res.status(401).json({
@@ -30,7 +99,7 @@ export const ownerAuthMiddleware = async (req, res, next) => {
       });
     }
 
-    // 2. Validate session in DB
+    // Validate session in DB
     const { data: session, error: sessionErr } = await supabase
       .from('retrop_owner_session')
       .select('*')
@@ -45,44 +114,45 @@ export const ownerAuthMiddleware = async (req, res, next) => {
       });
     }
 
-    // 3. Fetch owner profile
+    // Fetch owner profile
     const { data: owner, error: ownerErr } = await supabase
       .from('retrop_owner')
       .select('*')
       .eq('ownerId', decoded.ownerId)
       .maybeSingle();
 
-    if (ownerErr || !owner) {
+    if (ownerErr || !owner || !owner.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Owner profile not found',
+        message: 'Owner profile not found or inactive',
       });
     }
 
-    if (!owner.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: 'Owner account is deactivated',
-      });
+    // Resolve owner's restaurant
+    let restaurantId = req.headers['x-restaurant-id'];
+    let restaurant = null;
+
+    if (restaurantId) {
+      const { data: restData } = await supabase
+        .from('retrop_restaurant')
+        .select('restaurantId, businessName')
+        .eq('restaurantId', restaurantId)
+        .maybeSingle();
+      restaurant = restData;
+    } else {
+      const { data: restData } = await supabase
+        .from('retrop_restaurant')
+        .select('restaurantId, businessName')
+        .eq('ownerId', owner.ownerId)
+        .maybeSingle();
+      restaurant = restData;
+      if (restaurant) restaurantId = restaurant.restaurantId;
     }
 
-    // 4. Resolve owner's restaurant (under simplified single-restaurant model)
-    const { data: restaurant, error: restErr } = await supabase
-      .from('retrop_restaurant')
-      .select('restaurantId, businessName')
-      .eq('ownerId', owner.ownerId)
-      .maybeSingle();
-
-    if (restErr) {
-      logger.error(`Error resolving restaurant for owner ${owner.ownerId}:`, restErr.message);
+    if (restaurantId) {
+      tenantContext.enterWith({ restaurantId });
     }
 
-    if (restaurant) {
-      // Bind multi-tenant context for Supabase automatic query scoping
-      tenantContext.enterWith({ restaurantId: restaurant.restaurantId });
-    }
-
-    // Attach to request object
     req.owner = {
       ownerId: owner.ownerId,
       name: owner.name,
@@ -90,10 +160,9 @@ export const ownerAuthMiddleware = async (req, res, next) => {
       mobile: owner.mobile,
     };
     req.restaurant = restaurant || null;
-    req.restaurantId = restaurant ? restaurant.restaurantId : null;
+    req.restaurantId = restaurantId || null;
     req.accessToken = accessToken;
 
-    logger.debug(`Owner auth passed for owner: ${owner.ownerId}, restaurantId: ${req.restaurantId}`);
     next();
   } catch (error) {
     logger.error('Owner auth middleware error', error.message);
@@ -103,3 +172,4 @@ export const ownerAuthMiddleware = async (req, res, next) => {
     });
   }
 };
+
