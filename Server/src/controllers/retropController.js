@@ -1662,7 +1662,7 @@ export const retropController = {
               restaurant.businessName,
               invoiceNo,
               pdfBuffer,
-              sub.pricing_plan.name,
+              title,
               'support',
               null,
               restaurant.ownerName
