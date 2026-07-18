@@ -69,28 +69,19 @@ export default function TermsOfService() {
           </p>
           <h3>2.4 Late Payments</h3>
           <p>
-            If a payment fails, we will retry the charge 3 times over 7 days. After the grace period,
-            access to the Services may be temporarily suspended until payment is received.
+            If a payment fails, we will retry the charge multiple times over the grace period.
+            After the grace period, access to the Services may be temporarily suspended until payment is received.
           </p>
-          <h3>2.5 Taxes</h3>
+          <h3>2.5 Service Charges</h3>
           <p>
-            All fees are exclusive of applicable taxes (including GST). Applicable taxes will be added
-            to your invoice as required by law.
+            We do not charge anything for now. All features and services are currently available free of charge.
           </p>
 
           <h2>3. Refund Policy</h2>
           <p>
-            We offer a <strong>7-day money-back guarantee</strong> for first-time subscribers. If you are
-            not satisfied with Retrop RMS within 7 days of your first payment, contact us through our{' '}
-            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> and we will issue a full refund — no questions asked.
+            Any payment made is non-refundable once the payment has been completed.
           </p>
-          <p>
-            After the initial 7-day period, all subscription fees are non-refundable. Partial refunds
-            for unused subscription periods are not available.
-          </p>
-          <p>
-            Exceptions may be made at our discretion for extended service outages caused by Retrop infrastructure failure.
-          </p>
+
 
           <h2>4. Cancellation Policy</h2>
           <h3>4.1 Cancellation by you</h3>

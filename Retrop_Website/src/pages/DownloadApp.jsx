@@ -2,7 +2,7 @@
 // APP DOWNLOAD & VERSION HISTORY PAGE (/downloads/:appId)
 // ============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -10,7 +10,74 @@ import Footer from '../components/Footer';
 import PageWrapper from '../components/PageWrapper';
 import { DOWNLOADABLE_APPS } from '../data/downloadsData';
 
+function DownloadButton({ url, className, children, iconName = 'DownloadCloud', style = {} }) {
+  const [status, setStatus] = useState('idle'); // 'idle' | 'downloading' | 'done'
+  const IconComp = Icons[iconName] || Icons.Download;
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (status === 'downloading') return;
+
+    setStatus('downloading');
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Show downloading status feedback
+    setTimeout(() => {
+      setStatus('done');
+      setTimeout(() => {
+        setStatus('idle');
+      }, 3000);
+    }, 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={className}
+      disabled={status === 'downloading'}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        cursor: status === 'downloading' ? 'wait' : 'pointer',
+        transition: 'all 0.2s ease',
+        opacity: status === 'downloading' ? 0.85 : 1,
+        ...style,
+      }}
+    >
+      {status === 'downloading' && (
+        <>
+          <Icons.Loader2 size={16} className="animate-spin" />
+          <span>Downloading...</span>
+        </>
+      )}
+      {status === 'done' && (
+        <>
+          <Icons.CheckCircle2 size={16} color="#22c55e" />
+          <span>Download Started!</span>
+        </>
+      )}
+      {status === 'idle' && (
+        <>
+          <IconComp size={16} />
+          <span>{children}</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 export default function DownloadApp() {
+
   const { appId } = useParams();
 
   const app = DOWNLOADABLE_APPS.find((a) => a.id === appId);
@@ -88,10 +155,9 @@ export default function DownloadApp() {
                     </div>
                   </div>
 
-                  <a href={latestVersion.downloadUrl} className="btn btn-primary latest-download-btn">
-                    <Icons.DownloadCloud size={18} />
+                  <DownloadButton url={latestVersion.downloadUrl} className="btn btn-primary latest-download-btn" iconName="DownloadCloud">
                     Download APK Direct Link
-                  </a>
+                  </DownloadButton>
                 </div>
 
                 {/* Changelog */}
@@ -146,10 +212,9 @@ export default function DownloadApp() {
                           <span className="apk-label">APK</span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <a href={v.downloadUrl} className="btn btn-secondary btn-sm table-download-btn">
-                            <Icons.Download size={14} />
+                          <DownloadButton url={v.downloadUrl} className="btn btn-secondary btn-sm table-download-btn" iconName="Download">
                             Download
-                          </a>
+                          </DownloadButton>
                         </td>
                       </tr>
                     ))}
@@ -176,10 +241,9 @@ export default function DownloadApp() {
                         <span>File Size:</span> <strong>{v.fileSize}</strong>
                       </div>
                     </div>
-                    <a href={v.downloadUrl} className="btn btn-secondary history-mobile-btn">
-                      <Icons.Download size={14} />
+                    <DownloadButton url={v.downloadUrl} className="btn btn-secondary history-mobile-btn" iconName="Download">
                       Download APK
-                    </a>
+                    </DownloadButton>
                   </div>
                 ))}
               </div>

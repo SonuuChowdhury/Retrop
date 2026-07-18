@@ -89,6 +89,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -110,6 +111,25 @@ body {
   overflow-x: hidden;
 }
 
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+.btn,
+[role="button"] {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -121,10 +141,6 @@ svg {
   max-width: 100%;
 }
 
-button {
-  font-family: var(--font-sans);
-  cursor: pointer;
-}
 
 ul,
 ol {

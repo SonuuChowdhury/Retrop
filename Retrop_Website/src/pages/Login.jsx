@@ -60,7 +60,8 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const [tab,     setTab]     = useState('login');
-  const { login } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, googleLogin } = useAuth();
   const navigate  = useNavigate();
 
   const handleLogin = async (e) => {
@@ -70,13 +71,27 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
     try {
       const res = await login(id, pwd);
       if (res.success) {
-        if (res.needsReset) { onResetNeeded(res.ownerId); }
-        else { navigate('/dashboard'); }
+        if (res.needsReset) {
+          onResetNeeded(res.userId, pwd);
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError(res.error || 'Invalid credentials. Please try again.');
       }
     } catch { setError('Connection error. Please try again.'); }
     finally { setLoading(false); }
+  };
+
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const res = await googleLogin();
+      if (!res.success) setError(res.error || 'Google sign-in failed');
+      // On success, Supabase redirects the page — no further action needed
+    } catch { setError('Google sign-in failed. Please try again.'); }
+    finally { setGoogleLoading(false); }
   };
 
   return (
@@ -91,19 +106,21 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
         <button
           type="button"
           style={{ flex: 1, padding: '7px', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', background: tab === 'signup' ? 'var(--color-surface)' : 'transparent', color: tab === 'signup' ? 'var(--color-text)' : 'var(--color-text-muted)', boxShadow: tab === 'signup' ? 'var(--shadow-sm)' : 'none', transition: 'all 0.2s ease' }}
-          onClick={() => { setTab('signup'); onShowComingSoon(); }}
+          onClick={() => navigate('/signup')}
         >Sign Up</button>
       </div>
 
       {/* Google */}
       <button
         type="button"
-        onClick={onShowComingSoon}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', borderRadius: '8px', border: '1.5px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease', marginBottom: '16px' }}
-        onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--color-border-strong)'; }}
+        onClick={handleGoogleLogin}
+        disabled={googleLoading}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', borderRadius: '8px', border: '1.5px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease', marginBottom: '16px', opacity: googleLoading ? 0.7 : 1 }}
+        onMouseOver={e => { if (!googleLoading) e.currentTarget.style.borderColor = 'var(--color-border-strong)'; }}
         onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
       >
-        <GoogleIcon /> Continue with Google
+        {googleLoading ? <span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <GoogleIcon />}
+        {googleLoading ? 'Opening Google...' : 'Continue with Google'}
       </button>
 
       {/* Divider */}
@@ -119,8 +136,11 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
           <label htmlFor="login-id" style={{ fontSize: '12px', marginBottom: '6px' }}>Email or Mobile</label>
           <input id="login-id" type="text" className="form-input" placeholder="you@example.com" value={id} onChange={e => setId(e.target.value)} disabled={loading} autoComplete="username" style={{ padding: '10px 12px', fontSize: '13.5px' }} />
         </div>
-        <div className="form-group" style={{ marginBottom: '16px' }}>
-          <label htmlFor="login-pwd" style={{ fontSize: '12px', marginBottom: '6px' }}>Password</label>
+        <div className="form-group" style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label htmlFor="login-pwd" style={{ fontSize: '12px' }}>Password</label>
+            <Link to="/forgot-password" style={{ fontSize: '11px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>Forgot password?</Link>
+          </div>
           <div style={{ position: 'relative' }}>
             <input id="login-pwd" type={showPwd ? 'text' : 'password'} className="form-input" placeholder="Enter your password" value={pwd} onChange={e => setPwd(e.target.value)} disabled={loading} autoComplete="current-password" style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
             <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
@@ -136,7 +156,7 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
   );
 }
 
-function ResetStep({ ownerId, onBack }) {
+function ResetStep({ userId, currentPwd, onBack }) {
   const [newPwd,  setNewPwd]  = useState('');
   const [confPwd, setConfPwd] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -149,13 +169,20 @@ function ResetStep({ ownerId, onBack }) {
   const handleReset = async (e) => {
     e.preventDefault();
     if (!newPwd || !confPwd) { setError('Please fill in both fields.'); return; }
-    if (newPwd.length < 6)   { setError('Password must be at least 6 characters.'); return; }
+    if (newPwd.length < 8)   { setError('Password must be at least 8 characters.'); return; }
     if (newPwd !== confPwd)  { setError('Passwords do not match.'); return; }
     setError(''); setLoading(true);
     try {
-      const res = await api.resetPassword(ownerId, newPwd);
-      if (res.success) { setDone(true); setTimeout(() => navigate('/dashboard'), 1500); }
-      else { setError(res.message || 'Failed to update password.'); }
+      let res = await api.portalChangePassword(currentPwd, newPwd);
+      if (!res.success && userId) {
+        res = await api.portalSetSignupPassword(userId, newPwd);
+      }
+      if (res.success) {
+        setDone(true);
+        setTimeout(() => navigate('/dashboard'), 1200);
+      } else {
+        setError(res.message || 'Failed to update password.');
+      }
     } catch (err) { setError(err.message || 'Connection error.'); }
     finally { setLoading(false); }
   };
@@ -167,7 +194,7 @@ function ResetStep({ ownerId, onBack }) {
           <ShieldCheck size={28} />
         </div>
         <h3 style={{ fontWeight: 800, fontSize: '18px', marginBottom: '6px' }}>Password Updated!</h3>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Taking you to the dashboard…</p>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Taking you to your dashboard…</p>
       </div>
     );
   }
@@ -187,7 +214,7 @@ function ResetStep({ ownerId, onBack }) {
         <div className="form-group" style={{ marginBottom: '12px' }}>
           <label htmlFor="new-pwd" style={{ fontSize: '12px', marginBottom: '6px' }}>New Password</label>
           <div style={{ position: 'relative' }}>
-            <input id="new-pwd" type={showNew ? 'text' : 'password'} className="form-input" placeholder="Minimum 6 characters" value={newPwd} onChange={e => setNewPwd(e.target.value)} disabled={loading} style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
+            <input id="new-pwd" type={showNew ? 'text' : 'password'} className="form-input" placeholder="Minimum 8 characters" value={newPwd} onChange={e => setNewPwd(e.target.value)} disabled={loading} style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
             <button type="button" onClick={() => setShowNew(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
               {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
@@ -212,16 +239,23 @@ function ResetStep({ ownerId, onBack }) {
 
 export default function Login() {
   const location   = useLocation();
+  const navigate   = useNavigate();
   const successMsg = location.state?.message || '';
-  const { theme, toggleTheme } = useAuth();
+  const { user, theme, toggleTheme } = useAuth();
 
   const [step,          setStep]          = useState('login');
-  const [ownerId,       setOwnerId]       = useState(null);
+  const [resetUserId,   setResetUserId]   = useState(null);
+  const [currentPwd,    setCurrentPwd]    = useState('');
+
   const [showComingSoon, setShowComingSoon] = useState(false);
 
   useEffect(() => {
     document.title = 'Sign In — Retrop';
-  }, []);
+    if (user || localStorage.getItem('retrop_portal_token')) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
 
   return (
     <div style={{
@@ -278,14 +312,8 @@ export default function Login() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'clamp(24px, 4vh, 48px) 32px', overflowY: 'auto', position: 'relative' }}>
         {/* Top controls */}
         <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            onClick={toggleTheme}
-            style={{ width: 34, height: 34, borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s ease' }}
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
           <Link to="/" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--color-border)', transition: 'all 0.2s ease' }}
+
             onMouseOver={e => { e.currentTarget.style.color = 'var(--color-text)'; e.currentTarget.style.borderColor = 'var(--color-border-strong)'; }}
             onMouseOut={e => { e.currentTarget.style.color = 'var(--color-text-muted)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
           >
@@ -307,14 +335,23 @@ export default function Login() {
 
           {step === 'login' && (
             <LoginStep
-              onResetNeeded={id => { setOwnerId(id); setStep('reset'); }}
+              onResetNeeded={(uid, currentPassword) => {
+                setResetUserId(uid);
+                setCurrentPwd(currentPassword);
+                setStep('reset');
+              }}
               onShowComingSoon={() => setShowComingSoon(true)}
               successMsg={successMsg}
             />
           )}
           {step === 'reset' && (
-            <ResetStep ownerId={ownerId} onBack={() => setStep('login')} />
+            <ResetStep
+              userId={resetUserId}
+              currentPwd={currentPwd}
+              onBack={() => setStep('login')}
+            />
           )}
+
 
           <p style={{ fontSize: '11px', color: 'var(--color-text-subtle)', textAlign: 'center', marginTop: '16px', lineHeight: 1.5 }}>
             By signing in, you agree to our{' '}

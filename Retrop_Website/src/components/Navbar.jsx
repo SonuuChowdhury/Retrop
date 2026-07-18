@@ -17,10 +17,13 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const [scrolled,  setScrolled]  = useState(false);
-  const [menuOpen,  setMenuOpen]  = useState(false);
-  const [dropOpen,  setDropOpen]  = useState(false);
-  const { owner, logout, theme, toggleTheme } = useAuth();
+  const [scrolled,   setScrolled]   = useState(false);
+  const [menuOpen,   setMenuOpen]   = useState(false);
+
+  const [dropOpen,   setDropOpen]   = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { owner, user, logout, theme, toggleTheme } = useAuth();
+  const currentUser = user || owner || (localStorage.getItem('retrop_portal_token') ? { name: 'User' } : null);
   const location   = useLocation();
   const navigate   = useNavigate();
 
@@ -51,9 +54,15 @@ export default function Navbar() {
   }, [menuOpen]);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+      navigate('/');
+    }
   };
+
 
   return (
     <>
@@ -95,17 +104,20 @@ export default function Navbar() {
           {/* Right Actions */}
           <div className="nav-right-actions">
 
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="nav-theme-btn"
-            >
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
+            {/* Theme Toggle — Homepage only */}
+            {location.pathname === '/' && (
+              <button
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="nav-theme-btn"
+              >
+                {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+              </button>
+            )}
+
 
             {/* Auth — avatar dropdown OR Sign In button */}
-            {owner ? (
+            {currentUser ? (
               <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                 <button
                   onClick={() => setDropOpen(o => !o)}
@@ -114,9 +126,8 @@ export default function Navbar() {
                   aria-expanded={dropOpen}
                 >
                   <div className="nav-avatar-dot">
-                    {(owner.name || owner.email || 'U')[0].toUpperCase()}
+                    {(currentUser.name || currentUser.email || 'U')[0].toUpperCase()}
                   </div>
-                  <span className="nav-avatar-name">{owner.name?.split(' ')[0] || 'Account'}</span>
                 </button>
 
                 {dropOpen && (
@@ -125,13 +136,18 @@ export default function Navbar() {
                       <LayoutDashboard size={15} color="var(--color-primary)" /> Dashboard
                     </Link>
                     <div className="nav-dropdown-divider" />
-                    <button onClick={handleLogout} className="nav-dropdown-item nav-dropdown-danger">
-                      <LogOut size={15} /> Sign Out
+                    <button onClick={handleLogout} disabled={loggingOut} className="nav-dropdown-item nav-dropdown-danger">
+                      {loggingOut ? (
+                        <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#ef4444' }} /> Signing Out...</>
+                      ) : (
+                        <><LogOut size={15} /> Sign Out</>
+                      )}
                     </button>
                   </div>
                 )}
               </div>
             ) : (
+
               <Link to="/login" className="nav-signin-btn">
                 <User size={14} /> Sign In
               </Link>
@@ -172,24 +188,30 @@ export default function Navbar() {
 
             <div className="nav-mobile-divider" />
 
-            {owner ? (
+            {currentUser ? (
               <>
                 <Link
                   to="/dashboard"
                   className="nav-mobile-link"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: 'var(--color-primary)' }}
                 >
                   <LayoutDashboard size={15} color="var(--color-primary)" /> Dashboard
                 </Link>
-                <button onClick={handleLogout} className="nav-mobile-logout">
-                  <LogOut size={15} /> Sign Out
+                <button onClick={handleLogout} disabled={loggingOut} className="nav-mobile-logout">
+                  {loggingOut ? (
+                    <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#ef4444' }} /> Signing Out...</>
+                  ) : (
+                    <><LogOut size={15} /> Sign Out</>
+                  )}
                 </button>
+
               </>
             ) : (
               <Link to="/login" className="nav-mobile-signin">
                 Sign In
               </Link>
             )}
+
           </div>
         </div>
       </div>

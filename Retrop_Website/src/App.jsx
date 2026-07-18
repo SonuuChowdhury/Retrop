@@ -30,10 +30,14 @@ import PrivacyPolicy   from './pages/PrivacyPolicy';
 import TermsOfService  from './pages/TermsOfService';
 import CookiePolicy    from './pages/CookiePolicy';
 
-// ── Auth & Dashboard (existing — do not modify) ───────────────────────────────
+// ── Auth Pages ────────────────────────────────────────────────────────────────
 import Login          from './pages/Login';
-import ResetPassword  from './pages/ResetPassword';
-import Dashboard      from './pages/Dashboard';
+import Signup         from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+import BusinessSelector from './pages/BusinessSelector';
+import Dashboard        from './pages/Dashboard';   // legacy /dashboard/retrop-rms
 
 import './App.css';
 
@@ -41,9 +45,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        {/* Scroll to top on every route change */}
         <ScrollToTop />
-        {/* Cookie consent banner (shown once per visitor) */}
         <CookieConsent />
 
         <Routes>
@@ -68,12 +70,23 @@ export default function App() {
           <Route path="/cookie-policy"    element={<CookiePolicy />}   />
 
           {/* ── Auth ───────────────────────────────────────────────────────── */}
-          <Route path="/login"          element={<Login />}                            />
-          <Route path="/reset-password" element={<Navigate to="/login" replace />}     />
+          <Route path="/login"           element={<Login />}          />
+          <Route path="/signup"          element={<Signup />}         />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Legacy redirect */}
+          <Route path="/reset-password"  element={<Navigate to="/login" replace />} />
 
           {/* ── Protected Dashboard ────────────────────────────────────────── */}
           <Route
             path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <BusinessSelector />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/retrop-rms"
             element={
               <ProtectedRoute>
                 <Dashboard />

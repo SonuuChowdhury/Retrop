@@ -3,7 +3,8 @@
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { 
@@ -31,8 +32,251 @@ import {
   CheckCircle,
   FileSpreadsheet,
   BookOpen,
-  Star
+  Star,
+  Menu as MenuToggleIcon,
+  UploadCloud,
+  Eye,
+  Search,
+  RotateCcw,
+  Filter,
+  LayoutGrid,
+  List,
+  FileText,
+  Printer,
+  Download
 } from 'lucide-react';
+
+
+
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+
+function validateImageFile(file, maxSizeMB = 2) {
+  if (!file) return { valid: false, error: 'No file selected' };
+
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+    return {
+      valid: false,
+      error: `Unsupported file format (.${ext}). Allowed: PNG, JPG, WEBP, GIF, SVG.`
+    };
+  }
+
+  if (file.type && !ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+    return {
+      valid: false,
+      error: `Invalid file type (${file.type}). Security policy allows image files only.`
+    };
+  }
+
+  const maxBytes = maxSizeMB * 1024 * 1024;
+  if (file.size > maxBytes) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      error: `File size (${sizeMB}MB) exceeds maximum limit of ${maxSizeMB}MB.`
+    };
+  }
+
+  return { valid: true };
+}
+
+function CustomFileUpload({ onFileSelect, previewUrl, accept = "image/jpeg,image/jpg,image/png,image/webp,image/svg+xml", maxSizeMB = 2, disabled = false, label = "Upload Image" }) {
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const inputRef = React.useRef(null);
+
+  const handleFile = (file) => {
+    setErrorMsg('');
+    if (!file) return;
+
+    const validation = validateImageFile(file, maxSizeMB);
+    if (!validation.valid) {
+      setErrorMsg(validation.error);
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
+
+    setSelectedFileName(file.name);
+    onFileSelect(file);
+  };
+
+  const handleChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => !disabled && inputRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragActive ? 'var(--color-primary)' : 'var(--color-border)'}`,
+          borderRadius: '16px',
+          padding: '18px 16px',
+          textAlign: 'center',
+          background: dragActive ? 'rgba(255, 107, 53, 0.05)' : 'var(--color-bg-subtle)',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          onChange={handleChange}
+          style={{ display: 'none' }}
+          disabled={disabled}
+        />
+
+        {previewUrl ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', textAlign: 'left', width: '100%' }}>
+            <img src={previewUrl} alt="Preview" style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover', border: '1px solid var(--color-border)', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: '700', margin: '0 0 2px 0', color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedFileName || 'Selected Image'}
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--color-primary)', margin: 0, fontWeight: '700' }}>
+                Click or drag to replace image
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255, 107, 53, 0.1)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UploadCloud size={20} />
+            </div>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: '700', margin: '0 0 2px 0', color: 'var(--color-text)' }}>
+                {selectedFileName ? selectedFileName : label}
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: 0 }}>
+                Click to browse or drag & drop (Max {maxSizeMB}MB · PNG, JPG, WEBP, SVG)
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {errorMsg && (
+        <p style={{ fontSize: '11.5px', color: 'var(--color-danger)', marginTop: '6px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span>⚠️</span> {errorMsg}
+        </p>
+      )}
+    </div>
+  );
+}
+
+
+import '../styles/dashboard.css';
+
+const DASHBOARD_NAV_GROUPS = [
+  {
+    label: 'Snapshot',
+    items: [
+      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Customer Flow',
+    items: [
+      { id: 'menu', label: 'Menu List', icon: BookOpen },
+      { id: 'orders', label: 'Orders', icon: ShoppingBag },
+      { id: 'reviews', label: 'Reviews', icon: Star },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { id: 'staff', label: 'Staff Registry', icon: Users },
+      { id: 'inventory', label: 'Stock Items', icon: Box },
+      { id: 'vendors', label: 'Vendors', icon: Truck },
+      { id: 'recipes', label: 'Recipes / BOM', icon: ChefHat },
+      { id: 'purchases', label: 'Purchases', icon: ClipboardList },
+      { id: 'expenses', label: 'Expenses', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Compliance & Settings',
+    items: [
+      { id: 'day-close', label: 'Day Close', icon: CheckCircle },
+      { id: 'gst', label: 'GST Compliance', icon: FileSpreadsheet },
+      { id: 'restaurant-settings', label: 'Restaurant Settings', icon: Store },
+      { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    ],
+  },
+];
+
+
+function SectionHeader({ title, description, action }) {
+  return (
+    <div className="dashboard-section-header">
+      <div>
+        <h2 className="section-title">{title}</h2>
+        {description && <p className="dashboard-section-description">{description}</p>}
+      </div>
+      {action && <div className="dashboard-section-action">{action}</div>}
+    </div>
+  );
+}
+
+
+function EmptyState({ icon: Icon, title, description, action }) {
+  return (
+    <div className="dashboard-empty-state" role="status">
+      {Icon && (
+        <div className="dashboard-empty-icon">
+          <Icon size={28} />
+        </div>
+      )}
+      <h3>{title}</h3>
+      {description && <p>{description}</p>}
+      {action && <div className="dashboard-empty-action">{action}</div>}
+    </div>
+  );
+}
+
+function LoadingRows({ rows = 3, height = 28 }) {
+  return (
+    <div className="dashboard-loading-stack" aria-busy="true" aria-live="polite">
+      {Array.from({ length: rows }).map((_, idx) => (
+        <div key={idx} className="skeleton" style={{ width: '100%', height, marginBottom: idx < rows - 1 ? '12px' : 0 }} />
+      ))}
+    </div>
+  );
+}
+
 
 export default function Dashboard() {
   const { owner, restaurant, logout, theme, toggleTheme } = useAuth();
@@ -41,6 +285,8 @@ export default function Dashboard() {
   // Tab State: 'overview' | 'managers' | 'settings' | 'inventory' | 'vendors' | 'recipes' | 'purchases'
   // Tab State: 'overview' | 'staff' | 'settings' | 'inventory' | 'vendors' | 'recipes' | 'purchases' | 'expenses' | 'day-close' | 'gst'
   const [activeTab, setActiveTab] = useState('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
 
   // Core Data States
   const [summary, setSummary] = useState(null);
@@ -127,6 +373,10 @@ export default function Dashboard() {
   // Modals & Action Overlays
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showStaffPwd, setShowStaffPwd] = useState(false);
+  const [showResetStaffPwd, setShowResetStaffPwd] = useState(false);
+
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteContext, setDeleteContext] = useState(null);
 
@@ -181,6 +431,10 @@ export default function Dashboard() {
   const [purchasePaymentMethod, setPurchasePaymentMethod] = useState('UPI');
   const [purchaseNotes, setPurchaseNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([{ itemId: '', quantity: '', unitPrice: '' }]);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [ordersViewMode, setOrdersViewMode] = useState('grid');
+
+
 
   // Expense Forms
   const [expenseAmount, setExpenseAmount] = useState('');
@@ -396,6 +650,36 @@ export default function Dashboard() {
     }
   };
 
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const handleViewOrderPdf = async (orderId, invoiceNo) => {
+    if (!orderId) return;
+    setLoadingPdf(true);
+    try {
+      const token = localStorage.getItem('retrop_owner_token') || localStorage.getItem('retrop_portal_token');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const selectedRestId = sessionStorage.getItem('retrop_selected_restaurant') || '';
+      
+      const response = await fetch(`${API_BASE_URL}/api/owner/orders/${orderId}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Restaurant-Id': selectedRestId,
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF bill');
+
+      const blob = await response.blob();
+      const fileUrl = URL.createObjectURL(blob);
+      window.open(fileUrl, '_blank');
+    } catch (err) {
+      notify(err.message || 'Error opening PDF bill', 'error');
+    } finally {
+      setLoadingPdf(false);
+    }
+  };
+
+
   const fetchOwnerReviews = async (offset = 0) => {
     setLoadingReviews(true);
     try {
@@ -473,35 +757,43 @@ export default function Dashboard() {
     ordersFilters.tableNo
   ]);
 
-  const handleExportSales = async () => {
+  const [exportingFormat, setExportingFormat] = useState(null);
+
+  const handleExportSales = async (format = 'csv') => {
+    setExportingFormat(format);
     try {
-      const token = localStorage.getItem('retrop_owner_token');
+      const token = localStorage.getItem('retrop_owner_token') || localStorage.getItem('retrop_portal_token');
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_BASE_URL}/api/owner/dashboard/export`, {
+      const selectedRestId = sessionStorage.getItem('retrop_selected_restaurant') || '';
+      const response = await fetch(`${API_BASE_URL}/api/owner/dashboard/export?format=${format}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'X-Restaurant-Id': selectedRestId,
           'ngrok-skip-browser-warning': 'true'
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to export sales report');
+        throw new Error(`Failed to export sales report (${format.toUpperCase()})`);
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `sales_report_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `sales_report_${new Date().toISOString().split('T')[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      notify('Sales report exported successfully', 'success');
+      notify(`Sales report (${format.toUpperCase()}) exported successfully`, 'success');
     } catch (err) {
       notify(err.message || 'Export failed', 'error');
+    } finally {
+      setExportingFormat(null);
     }
   };
+
 
   const handleLogout = async () => {
     await logout();
@@ -959,9 +1251,13 @@ export default function Dashboard() {
     }
   };
 
+  const DEFAULT_DISH_CATEGORIES = ['Starters', 'Main Course', 'Beverages', 'Desserts', 'Breads & Rice', 'Snacks', 'Combo Meals', 'Soups & Salads'];
+
   const handleOpenMenuModal = (dish = null) => {
     if (dish) {
       setSelectedMenuDish(dish);
+      const isKnown = DEFAULT_DISH_CATEGORIES.includes(dish.category) || menuCategories.includes(dish.category);
+      setIsCustomCategory(!isKnown && Boolean(dish.category));
       setDishForm({
         dishName: dish.dishName || '',
         price: String(dish.price || ''),
@@ -976,10 +1272,11 @@ export default function Dashboard() {
       });
     } else {
       setSelectedMenuDish(null);
+      setIsCustomCategory(false);
       setDishForm({
         dishName: '',
         price: '',
-        category: '',
+        category: 'Main Course',
         isVegetarian: true,
         isAvailable: true,
         spicyLevel: 1,
@@ -992,6 +1289,7 @@ export default function Dashboard() {
     setFormError('');
     setShowMenuModal(true);
   };
+
 
   const handleDishFormChange = (field, value) => {
     setDishForm(prev => ({ ...prev, [field]: value }));
@@ -1259,116 +1557,81 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-layout dashboard-shell" data-dashboard-shell="true">
+      {/* Mobile Backdrop Overlay */}
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(3px)', zIndex: 85
+          }}
+        />
+      )}
+
       {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div>
-          <div className="sidebar-logo">
-            <div className="logo-text">RETROP</div>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-text-muted)', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Owner Portal</p>
+      <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-scroll">
+          <div className="sidebar-logo" style={{ padding: '14px 12px 14px', borderBottom: '1px solid var(--color-border)' }}>
+            {/* Top Retrop Logo with click-to-home */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }} title="Go to Home">
+                <img src="/logo-corner-rounded.png" alt="Retrop" style={{ height: '28px', width: '28px', borderRadius: '8px', objectFit: 'cover' }} />
+                <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-text)', letterSpacing: '-0.4px' }}>Retrop</span>
+              </Link>
+              <button
+                onClick={() => setMobileNavOpen(false)}
+                className="mobile-only-close"
+                style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Shifted Workspace Info */}
+            <div style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '10px 11px' }}>
+              <span style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--color-primary)', display: 'block', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Retrop RMS · Owner workspace
+              </span>
+              <h3 style={{ fontSize: '13px', fontWeight: '800', margin: '0 0 4px 0', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Store size={14} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {restaurant ? restaurant.businessName : 'Retrop Restaurant'}
+                </span>
+              </h3>
+              <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.35 }}>
+                Manage inventory, staff, orders, reviews, and compliance from one place.
+              </p>
+            </div>
           </div>
           
-          <ul className="sidebar-menu">
-            <li className={`sidebar-item ${activeTab === 'overview' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('overview')}>
-                <LayoutDashboard size={18} />
-                Overview
-              </button>
-            </li>
-            
-            <li className={`sidebar-item ${activeTab === 'inventory' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('inventory')}>
-                <Box size={18} />
-                Stock Items
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'vendors' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('vendors')}>
-                <Truck size={18} />
-                Vendors
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'recipes' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('recipes')}>
-                <ChefHat size={18} />
-                Recipes / BOM
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'purchases' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('purchases')}>
-                <ClipboardList size={18} />
-                Purchases
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'expenses' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('expenses')}>
-                <DollarSign size={18} />
-                Expenses
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'day-close' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('day-close')}>
-                <CheckCircle size={18} />
-                Day Close
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'gst' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('gst')}>
-                <FileSpreadsheet size={18} />
-                GST Compliance
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'staff' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('staff')}>
-                <Users size={18} />
-                Staff Registry
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'menu' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('menu')}>
-                <BookOpen size={18} />
-                Menu List
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'orders' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('orders')}>
-                <ShoppingBag size={18} />
-                Orders
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'reviews' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('reviews')}>
-                <Star size={18} fill={activeTab === 'reviews' ? 'currentColor' : 'none'} />
-                Reviews
-              </button>
-            </li>
-
-            <li className={`sidebar-item ${activeTab === 'restaurant-settings' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('restaurant-settings')}>
-                <Store size={18} />
-                Restaurant Settings
-              </button>
-            </li>
-            
-            <li className={`sidebar-item ${activeTab === 'settings' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('settings')}>
-                <SettingsIcon size={18} />
-                Settings
-              </button>
-            </li>
-          </ul>
+          <nav className="sidebar-menu" aria-label="Dashboard sections">
+            {DASHBOARD_NAV_GROUPS.map((group) => (
+              <div key={group.label} className="sidebar-group">
+                <div className="sidebar-group-label">{group.label}</div>
+                <ul className="sidebar-group-list" role="list">
+                  {group.items.map((item) => {
+                    const IconComp = item.icon;
+                    return (
+                      <li key={item.id} className={`sidebar-item ${activeTab === item.id ? 'active' : ''}`}>
+                        <button
+                          type="button"
+                          className="sidebar-link"
+                          onClick={() => { setActiveTab(item.id); setMobileNavOpen(false); }}
+                        >
+                          <span className="sidebar-icon-chip" aria-hidden="true">
+                            <IconComp size={18} fill={item.id === 'reviews' && activeTab === 'reviews' ? 'currentColor' : 'none'} />
+                          </span>
+                          <span className="sidebar-link-text">{item.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
         </div>
-
         <div className="sidebar-footer">
           <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%', gap: '10px' }}>
             <LogOut size={16} />
@@ -1379,46 +1642,109 @@ export default function Dashboard() {
 
       {/* Main Panel Content */}
       <main className="main-panel">
-        <header className="panel-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Store size={20} style={{ color: 'var(--color-primary)' }} />
-            <h1 className="panel-title">{restaurant ? restaurant.businessName : 'Retrop Restaurant'}</h1>
-          </div>
-          
-          <div className="user-badge">
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontWeight: '700', fontSize: '14px' }}>{owner?.name || 'Owner'}</p>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '600' }}>Owner</p>
-            </div>
-            <button 
-              onClick={toggleTheme} 
-              className="btn btn-secondary" 
-              style={{ padding: '8px', borderRadius: '50%', border: 'none' }}
-              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        <header className="panel-header dashboard-panel-header">
+          <div className="dashboard-header-left">
+            <button
+              onClick={() => setMobileNavOpen(v => !v)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer'
+              }}
+              className="mobile-nav-toggle"
+              aria-label="Toggle navigation"
             >
-              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              <MenuToggleIcon size={18} />
+            </button>
+
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="dashboard-back-btn"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', borderRadius: '10px', border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)', color: 'var(--color-text)',
+                cursor: 'pointer', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+              title="Return to Business Selector Dashboard"
+            >
+              ← Dashboard
             </button>
           </div>
+
+          <div className="user-badge dashboard-header-actions">
+            <div className="dashboard-user-meta" style={{ textAlign: 'right' }}>
+              <p style={{ fontWeight: '700', fontSize: '14px', margin: 0 }}>{owner?.name || 'Owner'}</p>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '600', margin: 0 }}>Owner</p>
+            </div>
+          </div>
+
         </header>
+
 
         <div className="panel-content">
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Today's Summary</h2>
-                <button onClick={handleExportSales} className="btn btn-secondary" style={{ gap: '8px' }}>
-                  <FileSpreadsheet size={16} />
-                  Export Sales CSV
-                </button>
-              </div>
-              
+              <SectionHeader
+                title="Today's Summary"
+                description="Revenue, fulfilment, basket size, and top items at a glance."
+                action={(
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleExportSales('csv')}
+                      disabled={exportingFormat === 'csv'}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: '12px',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {exportingFormat === 'csv' ? (
+                        <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-primary)' }} /> Exporting...</>
+                      ) : (
+                        <><FileSpreadsheet size={16} style={{ color: 'var(--color-primary)' }} /> Export Sales CSV</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleExportSales('xls')}
+                      disabled={exportingFormat === 'xls'}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: '12px',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {exportingFormat === 'xls' ? (
+                        <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-success)' }} /> Exporting...</>
+                      ) : (
+                        <><FileSpreadsheet size={16} style={{ color: '#16a34a' }} /> Export Sales XLS</>
+                      )}
+                    </button>
+                  </div>
+                )}
+              />
+
               {loadingSummary ? (
                 <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="card stat-card">
-                      <div className="skeleton" style={{ width: '50%', marginBottom: '12px' }}></div>
-                      <div className="skeleton" style={{ width: '80%', height: '32px' }}></div>
+                      <LoadingRows rows={2} height={24} />
                     </div>
                   ))}
                 </div>
@@ -1465,13 +1791,13 @@ export default function Dashboard() {
                 <div className="card">
                   <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px' }}>Recent Bills</h3>
                   {loadingSummary ? (
-                    <div>
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="skeleton" style={{ width: '100%', height: '24px', marginBottom: '12px' }}></div>
-                      ))}
-                    </div>
+                    <LoadingRows rows={3} height={24} />
                   ) : summary?.recentOrders?.length === 0 ? (
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>No bills settled today yet.</p>
+                    <EmptyState
+                      icon={ShoppingBag}
+                      title="No bills settled yet"
+                      description="Completed bills for today will appear here once service starts."
+                    />
                   ) : (
                     <div style={{ overflowX: 'auto' }}>
                       <table className="custom-table">
@@ -1512,13 +1838,13 @@ export default function Dashboard() {
                 <div className="card">
                   <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px' }}>Top Selling Items</h3>
                   {loadingSummary ? (
-                    <div>
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="skeleton" style={{ width: '100%', height: '24px', marginBottom: '12px' }}></div>
-                      ))}
-                    </div>
+                    <LoadingRows rows={3} height={24} />
                   ) : summary?.topDishes?.length === 0 ? (
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>No dishes sold yet.</p>
+                    <EmptyState
+                      icon={ChefHat}
+                      title="No sales data yet"
+                      description="Top items will populate after orders are closed and sold through the POS flow."
+                    />
                   ) : (
                     <ul style={{ listStyle: 'none' }}>
                       {summary?.topDishes?.map((dish, idx) => (
@@ -1540,92 +1866,162 @@ export default function Dashboard() {
           {/* STOCK ITEMS TAB */}
           {activeTab === 'inventory' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Inventory Stock Items</h2>
-                <button onClick={() => { setSelectedItem(null); setShowItemModal(true); }} className="btn btn-primary">
-                  <Plus size={16} />
-                  Add Stock Item
-                </button>
-              </div>
+              <SectionHeader
+                title="Inventory Stock Items"
+                description="Track stock, reorder thresholds, and unit costs for every ingredient."
+                action={(
+                  <button onClick={() => { setSelectedItem(null); setShowItemModal(true); }} className="btn btn-primary">
+                    <Plus size={16} />
+                    Add Stock Item
+                  </button>
+                )}
+              />
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingItems ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
                 ) : inventoryItems.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No inventory stock items configured.</p>
+                  <EmptyState
+                    icon={Box}
+                    title="No inventory yet"
+                    description="Add your first stock item to begin tracking costs and low-stock alerts."
+                    action={<button onClick={() => { setSelectedItem(null); setShowItemModal(true); }} className="btn btn-primary">Add stock item</button>}
+                  />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>ITEM NAME</th>
-                          <th>CATEGORY</th>
-                          <th>STOCK LEVEL</th>
-                          <th>LAST PURCHASE UNIT PRICE</th>
-                          <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inventoryItems.map((item) => {
-                          const isLowStock = parseFloat(item.currentStock) <= parseFloat(item.reorderLevel);
-                          return (
-                            <tr key={item.itemId}>
-                              <td style={{ fontWeight: '600' }}>{item.name}</td>
-                              <td>{item.category}</td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontWeight: '700', color: isLowStock ? 'var(--color-danger)' : 'var(--color-text)' }}>
-                                    {item.currentStock} {item.unit}
-                                  </span>
-                                  {isLowStock && (
-                                    <span style={{ color: 'var(--color-danger)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', backgroundColor: 'rgba(230, 57, 70, 0.12)', padding: '2px 6px', borderRadius: '4px' }}>
-                                      <AlertTriangle size={12} />
-                                      Low Stock
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="stock-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>ITEM NAME</th>
+                            <th>CATEGORY</th>
+                            <th>STOCK LEVEL</th>
+                            <th>LAST PURCHASE UNIT PRICE</th>
+                            <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inventoryItems.map((item) => {
+                            const isLowStock = parseFloat(item.currentStock) <= parseFloat(item.reorderLevel);
+                            return (
+                              <tr key={item.itemId}>
+                                <td style={{ fontWeight: '600' }}>{item.name}</td>
+                                <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{item.category}</span></td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontWeight: '700', color: isLowStock ? 'var(--color-danger)' : 'var(--color-text)' }}>
+                                      {item.currentStock} {item.unit}
                                     </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td style={{ fontWeight: '600' }}>₹{item.costPerUnit || 0}</td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                  <button 
-                                    onClick={() => {
-                                      setSelectedItem(item);
-                                      setItemName(item.name);
-                                      setItemUnit(item.unit);
-                                      setItemCategory(item.category || 'Vegetables');
-                                      setItemReorderLevel(String(item.reorderLevel));
-                                      setItemCurrentStock(String(item.currentStock));
-                                      setItemCostPerUnit(String(item.costPerUnit));
-                                      setShowItemModal(true);
-                                    }}
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '6px 10px', fontSize: '12px' }}
-                                    title="Edit Item"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button 
-                                    onClick={() => triggerDeleteConfirm('item', item.itemId, item.name)}
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
-                                    title="Delete Item"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                    {isLowStock && (
+                                      <span style={{ color: 'var(--color-danger)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', backgroundColor: 'rgba(230, 57, 70, 0.12)', padding: '2px 6px', borderRadius: '4px' }}>
+                                        <AlertTriangle size={12} />
+                                        Low Stock
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ fontWeight: '600' }}>₹{item.costPerUnit || 0}</td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedItem(item);
+                                        setItemName(item.name);
+                                        setItemUnit(item.unit);
+                                        setItemCategory(item.category || 'Vegetables');
+                                        setItemReorderLevel(String(item.reorderLevel));
+                                        setItemCurrentStock(String(item.currentStock));
+                                        setItemCostPerUnit(String(item.costPerUnit));
+                                        setShowItemModal(true);
+                                      }}
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                                      title="Edit Item"
+                                    >
+                                      Edit Item
+                                    </button>
+                                    <button 
+                                      onClick={() => triggerDeleteConfirm('item', item.itemId, item.name)}
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
+                                      title="Delete Item"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="stock-mobile-view" style={{ padding: '16px' }}>
+                      {inventoryItems.map((item) => {
+                        const isLowStock = parseFloat(item.currentStock) <= parseFloat(item.reorderLevel);
+                        return (
+                          <div key={item.itemId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: '800', fontSize: '14.5px', color: 'var(--color-text)' }}>{item.name}</span>
+                              <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{item.category}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                              <div>
+                                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>CURRENT STOCK</span>
+                                <span style={{ fontWeight: '800', color: isLowStock ? 'var(--color-danger)' : 'var(--color-text)' }}>
+                                  {item.currentStock} {item.unit}
+                                </span>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>UNIT PRICE</span>
+                                <span style={{ fontWeight: '800' }}>₹{item.costPerUnit || 0}</span>
+                              </div>
+                            </div>
+
+                            {isLowStock && (
+                              <div style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', backgroundColor: 'rgba(230, 57, 70, 0.12)', padding: '6px 10px', borderRadius: '8px' }}>
+                                <AlertTriangle size={14} />
+                                Low Stock Alert (Threshold: {item.reorderLevel} {item.unit})
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setItemName(item.name);
+                                  setItemUnit(item.unit);
+                                  setItemCategory(item.category || 'Vegetables');
+                                  setItemReorderLevel(String(item.reorderLevel));
+                                  setItemCurrentStock(String(item.currentStock));
+                                  setItemCostPerUnit(String(item.costPerUnit));
+                                  setShowItemModal(true);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ flex: 1, padding: '8px', fontSize: '12.5px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                              >
+                                Edit Item
+                              </button>
+                              <button
+                                onClick={() => triggerDeleteConfirm('item', item.itemId, item.name)}
+                                className="btn btn-secondary"
+                                style={{ padding: '8px 12px', fontSize: '12.5px', borderRadius: '10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
+
               </div>
             </div>
           )}
@@ -1633,77 +2029,133 @@ export default function Dashboard() {
           {/* VENDORS TAB */}
           {activeTab === 'vendors' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Supplier Registry</h2>
-                <button onClick={() => { setSelectedVendor(null); setShowVendorModal(true); }} className="btn btn-primary">
-                  <Plus size={16} />
-                  Add Supplier
-                </button>
-              </div>
+              <SectionHeader
+                title="Supplier Registry"
+                description="Keep your vendors, contacts, GSTINs, and payment terms organized."
+                action={(
+                  <button onClick={() => { setSelectedVendor(null); setShowVendorModal(true); }} className="btn btn-primary">
+                    <Plus size={16} />
+                    Add Supplier
+                  </button>
+                )}
+              />
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingVendors ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
                 ) : vendors.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No supplier vendors registered.</p>
+                  <EmptyState
+                    icon={Truck}
+                    title="No suppliers registered"
+                    description="Create vendor records so purchase orders and bills can reference them later."
+                    action={<button onClick={() => { setSelectedVendor(null); setShowVendorModal(true); }} className="btn btn-primary">Add supplier</button>}
+                  />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>SUPPLIER NAME</th>
-                          <th>MOBILE</th>
-                          <th>EMAIL</th>
-                          <th>GSTIN</th>
-                          <th>PAYMENT TERMS</th>
-                          <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {vendors.map((v) => (
-                          <tr key={v.vendorId}>
-                            <td style={{ fontWeight: '600' }}>{v.name}</td>
-                            <td>{v.mobile || '-'}</td>
-                            <td>{v.email || '-'}</td>
-                            <td><code style={{ fontSize: '12px', fontWeight: 'bold' }}>{v.gstin || '-'}</code></td>
-                            <td>{v.paymentTerms || '-'}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button 
-                                  onClick={() => {
-                                    setSelectedVendor(v);
-                                    setVendorName(v.name);
-                                    setVendorMobile(v.mobile || '');
-                                    setVendorEmail(v.email || '');
-                                    setVendorGstin(v.gstin || '');
-                                    setVendorAddress(v.address || '');
-                                    setVendorPaymentTerms(v.paymentTerms || '');
-                                    setShowVendorModal(true);
-                                  }}
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '6px 10px', fontSize: '12px' }}
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  onClick={() => triggerDeleteConfirm('vendor', v.vendorId, v.name)}
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>SUPPLIER NAME</th>
+                            <th>MOBILE</th>
+                            <th>EMAIL</th>
+                            <th>GSTIN</th>
+                            <th>PAYMENT TERMS</th>
+                            <th style={{ textAlign: 'right' }}>ACTIONS</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {vendors.map((v) => (
+                            <tr key={v.vendorId}>
+                              <td style={{ fontWeight: '600' }}>{v.name}</td>
+                              <td>{v.mobile || '-'}</td>
+                              <td>{v.email || '-'}</td>
+                              <td><code style={{ fontSize: '12px', fontWeight: 'bold' }}>{v.gstin || '-'}</code></td>
+                              <td>{v.paymentTerms || '-'}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                  <button 
+                                    onClick={() => {
+                                      setSelectedVendor(v);
+                                      setVendorName(v.name);
+                                      setVendorMobile(v.mobile || '');
+                                      setVendorEmail(v.email || '');
+                                      setVendorGstin(v.gstin || '');
+                                      setVendorAddress(v.address || '');
+                                      setVendorPaymentTerms(v.paymentTerms || '');
+                                      setShowVendorModal(true);
+                                    }}
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  >
+                                    Edit Supplier
+                                  </button>
+                                  <button 
+                                    onClick={() => triggerDeleteConfirm('vendor', v.vendorId, v.name)}
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="tab-mobile-view" style={{ padding: '16px' }}>
+                      {vendors.map((v) => (
+                        <div key={v.vendorId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '800', fontSize: '14.5px', color: 'var(--color-text)' }}>{v.name}</span>
+                            {v.gstin && (
+                              <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>GST: {v.gstin}</span>
+                            )}
+                          </div>
+
+                          <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span>📞 Mobile: {v.mobile || 'N/A'}</span>
+                            {v.email && <span>✉️ Email: {v.email}</span>}
+                            {v.paymentTerms && <span>💳 Payment Terms: {v.paymentTerms}</span>}
+                            {v.address && <span>📍 Address: {v.address}</span>}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            <button
+                              onClick={() => {
+                                setSelectedVendor(v);
+                                setVendorName(v.name);
+                                setVendorMobile(v.mobile || '');
+                                setVendorEmail(v.email || '');
+                                setVendorGstin(v.gstin || '');
+                                setVendorAddress(v.address || '');
+                                setVendorPaymentTerms(v.paymentTerms || '');
+                                setShowVendorModal(true);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ flex: 1, padding: '8px', fontSize: '12.5px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                              Edit Supplier
+                            </button>
+                            <button
+                              onClick={() => triggerDeleteConfirm('vendor', v.vendorId, v.name)}
+                              className="btn btn-secondary"
+                              style={{ padding: '8px 12px', fontSize: '12.5px', borderRadius: '10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
+
               </div>
             </div>
           )}
@@ -1711,77 +2163,132 @@ export default function Dashboard() {
           {/* RECIPES / BOM TAB */}
           {activeTab === 'recipes' && (
             <div>
-              <h2 className="section-title">Recipes & Bill of Materials (BOM)</h2>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginBottom: '24px', marginTop: '-12px' }}>
-                Link menu items to raw ingredients to compute plate costs and track ingredient portions.
-              </p>
+              <SectionHeader
+                title="Recipes & Bill of Materials"
+                description="Link menu items to ingredients to calculate plate costs and BOM coverage."
+              />
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingRecipes ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
                 ) : menuItems.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No dishes found in the menu to configure.</p>
+                  <EmptyState
+                    icon={ChefHat}
+                    title="No dishes available for BOM"
+                    description="Menu items need to exist before recipe mappings can be configured."
+                  />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>DISH NAME</th>
-                          <th>CATEGORY</th>
-                          <th>PRICE</th>
-                          <th>BOM MAPPING</th>
-                          <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {menuItems.map((dish) => {
-                          const recipe = recipes.find(r => r.dishId === dish.dishId);
-                          return (
-                            <tr key={dish.dishId}>
-                              <td style={{ fontWeight: '600' }}>{dish.dishName}</td>
-                              <td>{dish.category}</td>
-                              <td style={{ fontWeight: '600' }}>₹{dish.price}</td>
-                              <td>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>DISH NAME</th>
+                            <th>CATEGORY</th>
+                            <th>PRICE</th>
+                            <th>BOM MAPPING</th>
+                            <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menuItems.map((dish) => {
+                            const recipe = recipes.find(r => r.dishId === dish.dishId);
+                            return (
+                              <tr key={dish.dishId}>
+                                <td style={{ fontWeight: '600' }}>{dish.dishName}</td>
+                                <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{dish.category}</span></td>
+                                <td style={{ fontWeight: '600' }}>₹{dish.price}</td>
+                                <td>
+                                  {recipe ? (
+                                    <span style={{ color: 'var(--color-success)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700' }}>
+                                      <CheckCircle size={14} />
+                                      {recipe.ingredients.length} Ingredients mapped
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Not configured</span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button 
+                                      onClick={() => openRecipeEditor(dish)}
+                                      className="btn btn-primary" 
+                                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                                    >
+                                      {recipe ? 'Edit Recipe' : 'Configure BOM'}
+                                    </button>
+                                    {recipe && (
+                                      <button 
+                                        onClick={() => triggerDeleteConfirm('recipe', dish.dishId, dish.dishName)}
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="tab-mobile-view" style={{ padding: '16px' }}>
+                      {menuItems.map((dish) => {
+                        const recipe = recipes.find(r => r.dishId === dish.dishId);
+                        return (
+                          <div key={dish.dishId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: '800', fontSize: '14.5px', color: 'var(--color-text)' }}>{dish.dishName}</span>
+                              <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{dish.category}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                              <div>
+                                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>MENU PRICE</span>
+                                <span style={{ fontWeight: '800' }}>₹{dish.price}</span>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>BOM MAPPING</span>
                                 {recipe ? (
-                                  <span style={{ color: 'var(--color-success)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700' }}>
-                                    <CheckCircle size={14} />
-                                    {recipe.ingredients.length} Ingredients mapped
+                                  <span style={{ color: 'var(--color-success)', fontWeight: '800', fontSize: '12px' }}>
+                                    ✓ {recipe.ingredients.length} Items
                                   </span>
                                 ) : (
-                                  <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Not configured</span>
+                                  <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Not Configured</span>
                                 )}
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                  <button 
-                                    onClick={() => openRecipeEditor(dish)}
-                                    className="btn btn-primary" 
-                                    style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  >
-                                    {recipe ? 'Edit Recipe' : 'Configure BOM'}
-                                  </button>
-                                  {recipe && (
-                                    <button 
-                                      onClick={() => triggerDeleteConfirm('recipe', dish.dishId, dish.dishName)}
-                                      className="btn btn-secondary" 
-                                      style={{ padding: '6px 10px', fontSize: '12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                              <button
+                                onClick={() => openRecipeEditor(dish)}
+                                className="btn btn-primary"
+                                style={{ flex: 1, padding: '8px', fontSize: '12.5px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                              >
+                                {recipe ? 'Edit Recipe' : 'Configure BOM'}
+                              </button>
+                              {recipe && (
+                                <button
+                                  onClick={() => triggerDeleteConfirm('recipe', dish.dishId, dish.dishName)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '8px 12px', fontSize: '12.5px', borderRadius: '10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
+
               </div>
             </div>
           )}
@@ -1789,63 +2296,107 @@ export default function Dashboard() {
           {/* PURCHASES TAB */}
           {activeTab === 'purchases' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Stock Purchase Invoices</h2>
-                <button onClick={() => { setShowPurchaseModal(true); }} className="btn btn-primary">
-                  <Plus size={16} />
-                  Log Purchase Order
-                </button>
-              </div>
+              <SectionHeader
+                title="Stock Purchase Invoices"
+                description="Log supplier invoices and let stock updates flow from the recorded quantities."
+                action={(
+                  <button onClick={() => { setShowPurchaseModal(true); }} className="btn btn-primary">
+                    <Plus size={16} />
+                    Log Purchase Order
+                  </button>
+                )}
+              />
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingPurchases ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
                 ) : purchases.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No purchase invoices logged.</p>
+                  <EmptyState
+                    icon={ClipboardList}
+                    title="No purchases logged"
+                    description="Record the first invoice to start building purchase history and stock traceability."
+                    action={<button onClick={() => { setShowPurchaseModal(true); }} className="btn btn-primary">Log purchase order</button>}
+                  />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>DATE</th>
-                          <th>INVOICE NO</th>
-                          <th>SUPPLIER</th>
-                          <th>TOTAL AMOUNT</th>
-                          <th>PAYMENT</th>
-                          <th>LOGGED ON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {purchases.map((p) => (
-                          <tr key={p.purchaseId}>
-                            <td style={{ fontWeight: '600' }}>{p.purchaseDate}</td>
-                            <td style={{ fontWeight: '700', color: 'var(--color-primary)' }}>{p.invoiceNo || 'N/A'}</td>
-                            <td>{p.vendor?.name || 'Walk-in Vendor'}</td>
-                            <td style={{ fontWeight: '700' }}>₹{p.totalAmount}</td>
-                            <td>
-                              <span style={{ 
-                                padding: '2px 6px', 
-                                borderRadius: '4px', 
-                                fontSize: '10px', 
-                                fontWeight: '700',
-                                backgroundColor: p.paymentStatus === 'paid' ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                color: p.paymentStatus === 'paid' ? 'var(--color-success)' : 'var(--color-danger)',
-                                textTransform: 'uppercase'
-                              }}>
-                                {p.paymentStatus}
-                              </span>
-                            </td>
-                            <td style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>DATE</th>
+                            <th>INVOICE NO</th>
+                            <th>SUPPLIER</th>
+                            <th>TOTAL AMOUNT</th>
+                            <th>PAYMENT</th>
+                            <th>LOGGED ON</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {purchases.map((p) => (
+                            <tr key={p.purchaseId}>
+                              <td style={{ fontWeight: '600' }}>{p.purchaseDate}</td>
+                              <td style={{ fontWeight: '700', color: 'var(--color-primary)' }}>{p.invoiceNo || 'N/A'}</td>
+                              <td>{p.vendor?.name || 'Walk-in Vendor'}</td>
+                              <td style={{ fontWeight: '700' }}>₹{p.totalAmount}</td>
+                              <td>
+                                <span style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: '700',
+                                  backgroundColor: p.paymentStatus === 'paid' ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                  color: p.paymentStatus === 'paid' ? 'var(--color-success)' : 'var(--color-danger)',
+                                  textTransform: 'uppercase'
+                                }}>
+                                  {p.paymentStatus}
+                                </span>
+                              </td>
+                              <td style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="tab-mobile-view" style={{ padding: '16px' }}>
+                      {purchases.map((p) => (
+                        <div key={p.purchaseId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-primary)' }}>Invoice: {p.invoiceNo || 'N/A'}</span>
+                            <span style={{ 
+                              padding: '2px 8px', 
+                              borderRadius: '6px', 
+                              fontSize: '10.5px', 
+                              fontWeight: '800',
+                              backgroundColor: p.paymentStatus === 'paid' ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                              color: p.paymentStatus === 'paid' ? 'var(--color-success)' : 'var(--color-danger)',
+                              textTransform: 'uppercase'
+                            }}>{p.paymentStatus}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>SUPPLIER</span>
+                              <span style={{ fontWeight: '700', color: 'var(--color-text)' }}>{p.vendor?.name || 'Walk-in Vendor'}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', fontWeight: '700' }}>TOTAL AMOUNT</span>
+                              <span style={{ fontWeight: '800', color: 'var(--color-primary)', fontSize: '15px' }}>₹{p.totalAmount}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Purchase Date: {p.purchaseDate}</span>
+                            <span>Logged: {new Date(p.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
+
               </div>
             </div>
           )}
@@ -1853,187 +2404,308 @@ export default function Dashboard() {
           {/* STAFF REGISTRY TAB */}
           {activeTab === 'staff' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Staff Registry</h2>
-                <button onClick={() => { setSelectedStaff(null); setShowAddStaffModal(true); }} className="btn btn-primary">
-                  <Plus size={16} />
-                  Add Staff Member
-                </button>
-              </div>
+              <SectionHeader
+                title="Staff Registry"
+                description="Create and manage manager, waiter, chef, and custom-role accounts."
+                action={(
+                  <button onClick={() => { setSelectedStaff(null); setShowAddStaffModal(true); }} className="btn btn-primary">
+                    <Plus size={16} />
+                    Add Staff Member
+                  </button>
+                )}
+              />
 
               {loadingStaff ? (
-                <div className="card" style={{ padding: '24px' }}>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                  ))}
-                </div>
+                <div className="card" style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   {/* Managers section */}
                   <div className="card" style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Restaurant Managers</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '14px' }}>Restaurant Managers</h3>
                     {staff.managers.length === 0 ? (
                       <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No managers registered.</p>
                     ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="custom-table">
-                          <thead>
-                            <tr>
-                              <th>NAME</th>
-                              <th>MOBILE NUMBER</th>
-                              <th>EMAIL</th>
-                              <th>ROLE</th>
-                              <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {staff.managers.map((m) => (
-                              <tr key={m.adminId}>
-                                <td style={{ fontWeight: '600' }}>{m.name}</td>
-                                <td>{m.mobile}</td>
-                                <td>{m.email || '-'}</td>
-                                <td><span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>{m.role}</span></td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    <button onClick={() => { setSelectedStaff({ type: 'manager', id: m.adminId, name: m.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 10px' }}><Key size={14} /></button>
-                                    {m.role !== 'owner' && (
-                                      <button onClick={() => triggerDeleteConfirm('manager', m.adminId, m.name)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}><Trash2 size={14} /></button>
-                                    )}
-                                  </div>
-                                </td>
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="staff-desktop-view" style={{ overflowX: 'auto' }}>
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>NAME</th>
+                                <th>MOBILE NUMBER</th>
+                                <th>EMAIL</th>
+                                <th>ROLE</th>
+                                <th style={{ textAlign: 'right' }}>ACTIONS</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody>
+                              {staff.managers.map((m) => (
+                                <tr key={m.adminId}>
+                                  <td style={{ fontWeight: '600' }}>{m.name}</td>
+                                  <td>{m.mobile}</td>
+                                  <td>{m.email || '-'}</td>
+                                  <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>{m.role}</span></td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                      <button onClick={() => { setSelectedStaff({ type: 'manager', id: m.adminId, name: m.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Change Password"><Key size={14} /> Password</button>
+                                      {m.role !== 'owner' && (
+                                        <button onClick={() => triggerDeleteConfirm('manager', m.adminId, m.name)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="staff-mobile-view">
+                          {staff.managers.map((m) => (
+                            <div key={m.adminId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>{m.name}</span>
+                                <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', textTransform: 'uppercase' }}>{m.role}</span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span>Mobile: {m.mobile}</span>
+                                {m.email && <span>Email: {m.email}</span>}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button onClick={() => { setSelectedStaff({ type: 'manager', id: m.adminId, name: m.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ flex: 1, padding: '8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px' }}>
+                                  <Key size={14} /> Password
+                                </button>
+                                {m.role !== 'owner' && (
+                                  <button onClick={() => triggerDeleteConfirm('manager', m.adminId, m.name)} className="btn btn-secondary" style={{ padding: '8px 12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 
                   {/* Waiters section */}
                   <div className="card" style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Waiters</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '14px' }}>Waiters</h3>
                     {staff.waiters.length === 0 ? (
                       <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No waiters registered.</p>
                     ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="custom-table">
-                          <thead>
-                            <tr>
-                              <th>NAME</th>
-                              <th>MOBILE NUMBER</th>
-                              <th>STATUS</th>
-                              <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {staff.waiters.map((w) => (
-                              <tr key={w.waiterId}>
-                                <td style={{ fontWeight: '600' }}>{w.waiterName}</td>
-                                <td>{w.mobile}</td>
-                                <td>
-                                  <span style={{ 
-                                    padding: '2px 6px', 
-                                    borderRadius: '4px', 
-                                    fontSize: '10px', 
-                                    fontWeight: '700',
-                                    backgroundColor: w.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                    color: w.isActive ? 'var(--color-success)' : 'var(--color-danger)'
-                                  }}>{w.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    <button onClick={() => { setSelectedStaff({ type: 'waiter', id: w.waiterId, name: w.waiterName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 10px' }}><Key size={14} /></button>
-                                    <button onClick={() => triggerDeleteConfirm('waiter', w.waiterId, w.waiterName)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}><Trash2 size={14} /></button>
-                                  </div>
-                                </td>
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="staff-desktop-view" style={{ overflowX: 'auto' }}>
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>NAME</th>
+                                <th>MOBILE NUMBER</th>
+                                <th>STATUS</th>
+                                <th style={{ textAlign: 'right' }}>ACTIONS</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody>
+                              {staff.waiters.map((w) => (
+                                <tr key={w.waiterId}>
+                                  <td style={{ fontWeight: '600' }}>{w.waiterName}</td>
+                                  <td>{w.mobile}</td>
+                                  <td>
+                                    <span style={{ 
+                                      padding: '2px 8px', 
+                                      borderRadius: '6px', 
+                                      fontSize: '11px', 
+                                      fontWeight: '700',
+                                      backgroundColor: w.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                      color: w.isActive ? 'var(--color-success)' : 'var(--color-danger)'
+                                    }}>{w.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                      <button onClick={() => { setSelectedStaff({ type: 'waiter', id: w.waiterId, name: w.waiterName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Change Password"><Key size={14} /> Password</button>
+                                      <button onClick={() => triggerDeleteConfirm('waiter', w.waiterId, w.waiterName)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="staff-mobile-view">
+                          {staff.waiters.map((w) => (
+                            <div key={w.waiterId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>{w.waiterName}</span>
+                                <span style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '10px', 
+                                  fontWeight: '800',
+                                  backgroundColor: w.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                  color: w.isActive ? 'var(--color-success)' : 'var(--color-danger)'
+                                }}>{w.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                                Mobile: {w.mobile}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button onClick={() => { setSelectedStaff({ type: 'waiter', id: w.waiterId, name: w.waiterName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ flex: 1, padding: '8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px' }}>
+                                  <Key size={14} /> Password
+                                </button>
+                                <button onClick={() => triggerDeleteConfirm('waiter', w.waiterId, w.waiterName)} className="btn btn-secondary" style={{ padding: '8px 12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 
                   {/* Chefs section */}
                   <div className="card" style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Kitchen Chefs</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '14px' }}>Kitchen Chefs</h3>
                     {staff.chefs.length === 0 ? (
                       <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No chefs registered.</p>
                     ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="custom-table">
-                          <thead>
-                            <tr>
-                              <th>KITCHEN / CHEF NAME</th>
-                              <th>MOBILE NUMBER</th>
-                              <th>STATUS</th>
-                              <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {staff.chefs.map((c) => (
-                              <tr key={c.kitchenId}>
-                                <td style={{ fontWeight: '600' }}>{c.kitchenName}</td>
-                                <td>{c.mobile}</td>
-                                <td>
-                                  <span style={{ 
-                                    padding: '2px 6px', 
-                                    borderRadius: '4px', 
-                                    fontSize: '10px', 
-                                    fontWeight: '700',
-                                    backgroundColor: c.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                    color: c.isActive ? 'var(--color-success)' : 'var(--color-danger)'
-                                  }}>{c.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    <button onClick={() => { setSelectedStaff({ type: 'chef', id: c.kitchenId, name: c.kitchenName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 10px' }}><Key size={14} /></button>
-                                    <button onClick={() => triggerDeleteConfirm('chef', c.kitchenId, c.kitchenName)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}><Trash2 size={14} /></button>
-                                  </div>
-                                </td>
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="staff-desktop-view" style={{ overflowX: 'auto' }}>
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>KITCHEN / CHEF NAME</th>
+                                <th>MOBILE NUMBER</th>
+                                <th>STATUS</th>
+                                <th style={{ textAlign: 'right' }}>ACTIONS</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody>
+                              {staff.chefs.map((c) => (
+                                <tr key={c.kitchenId}>
+                                  <td style={{ fontWeight: '600' }}>{c.kitchenName}</td>
+                                  <td>{c.mobile}</td>
+                                  <td>
+                                    <span style={{ 
+                                      padding: '2px 8px', 
+                                      borderRadius: '6px', 
+                                      fontSize: '11px', 
+                                      fontWeight: '700',
+                                      backgroundColor: c.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                      color: c.isActive ? 'var(--color-success)' : 'var(--color-danger)'
+                                    }}>{c.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                      <button onClick={() => { setSelectedStaff({ type: 'chef', id: c.kitchenId, name: c.kitchenName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Change Password"><Key size={14} /> Password</button>
+                                      <button onClick={() => triggerDeleteConfirm('chef', c.kitchenId, c.kitchenName)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="staff-mobile-view">
+                          {staff.chefs.map((c) => (
+                            <div key={c.kitchenId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>{c.kitchenName}</span>
+                                <span style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '10px', 
+                                  fontWeight: '800',
+                                  backgroundColor: c.isActive ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                  color: c.isActive ? 'var(--color-success)' : 'var(--color-danger)'
+                                }}>{c.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                                Mobile: {c.mobile}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button onClick={() => { setSelectedStaff({ type: 'chef', id: c.kitchenId, name: c.kitchenName }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ flex: 1, padding: '8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px' }}>
+                                  <Key size={14} /> Password
+                                </button>
+                                <button onClick={() => triggerDeleteConfirm('chef', c.kitchenId, c.kitchenName)} className="btn btn-secondary" style={{ padding: '8px 12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
 
                   {/* Other Staff roles section */}
                   <div className="card" style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Other Custom Roles</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '14px' }}>Other Custom Roles</h3>
                     {staff.others.length === 0 ? (
                       <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No custom role staff registered.</p>
                     ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="custom-table">
-                          <thead>
-                            <tr>
-                              <th>NAME</th>
-                              <th>MOBILE NUMBER</th>
-                              <th>ROLE</th>
-                              <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {staff.others.map((o) => (
-                              <tr key={o.staffId}>
-                                <td style={{ fontWeight: '600' }}>{o.name}</td>
-                                <td>{o.mobile}</td>
-                                <td><span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', backgroundColor: '#e2e8f0', color: '#475569' }}>{o.role}</span></td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    <button onClick={() => { setSelectedStaff({ type: 'other', id: o.staffId, name: o.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 10px' }}><Key size={14} /></button>
-                                    <button onClick={() => triggerDeleteConfirm('other', o.staffId, o.name)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}><Trash2 size={14} /></button>
-                                  </div>
-                                </td>
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="staff-desktop-view" style={{ overflowX: 'auto' }}>
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>NAME</th>
+                                <th>MOBILE NUMBER</th>
+                                <th>ROLE</th>
+                                <th style={{ textAlign: 'right' }}>ACTIONS</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody>
+                              {staff.others.map((o) => (
+                                <tr key={o.staffId}>
+                                  <td style={{ fontWeight: '600' }}>{o.name}</td>
+                                  <td>{o.mobile}</td>
+                                  <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{o.role}</span></td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                      <button onClick={() => { setSelectedStaff({ type: 'other', id: o.staffId, name: o.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Change Password"><Key size={14} /> Password</button>
+                                      <button onClick={() => triggerDeleteConfirm('other', o.staffId, o.name)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="staff-mobile-view">
+                          {staff.others.map((o) => (
+                            <div key={o.staffId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>{o.name}</span>
+                                <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{o.role}</span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                                Mobile: {o.mobile}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                <button onClick={() => { setSelectedStaff({ type: 'other', id: o.staffId, name: o.name }); setShowResetPasswordModal(true); }} className="btn btn-secondary" style={{ flex: 1, padding: '8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px' }}>
+                                  <Key size={14} /> Password
+                                </button>
+                                <button onClick={() => triggerDeleteConfirm('other', o.staffId, o.name)} className="btn btn-secondary" style={{ padding: '8px 12px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
+
                 </div>
               )}
             </div>
@@ -2042,58 +2714,100 @@ export default function Dashboard() {
           {/* EXPENSES TAB */}
           {activeTab === 'expenses' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <h2 className="section-title" style={{ margin: 0 }}>Expense Ledger</h2>
-                  <input type="date" className="form-input" style={{ width: '160px', padding: '6px 12px' }} value={expenseFilterDate} onChange={(e) => setExpenseFilterDate(e.target.value)} />
-                </div>
-                <button onClick={() => { setShowExpenseModal(true); }} className="btn btn-primary">
-                  <Plus size={16} />
-                  Log Expense
-                </button>
+              <SectionHeader
+                title="Expense Ledger"
+                description="Record operating expenses by date and category."
+                action={(
+                  <button onClick={() => { setShowExpenseModal(true); }} className="btn btn-primary">
+                    <Plus size={16} />
+                    Log Expense
+                  </button>
+                )}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '24px' }}>
+                <input type="date" className="form-input" style={{ width: '180px', padding: '6px 12px' }} value={expenseFilterDate} onChange={(e) => setExpenseFilterDate(e.target.value)} />
               </div>
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingExpenses ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '28px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={28} /></div>
                 ) : expenses.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No expense records found for this date.</p>
+                  <EmptyState
+                    icon={DollarSign}
+                    title="No expenses on this date"
+                    description="Try another date range or add the first expense entry for the selected day."
+                    action={<button onClick={() => { setShowExpenseModal(true); }} className="btn btn-primary">Log expense</button>}
+                  />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>CATEGORY</th>
-                          <th>DESCRIPTION</th>
-                          <th>PAYMENT MODE</th>
-                          <th>LOGGED BY</th>
-                          <th>AMOUNT</th>
-                          <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expenses.map((e) => (
-                          <tr key={e.expenseId}>
-                            <td style={{ fontWeight: '600', color: 'var(--color-primary)' }}>{e.category}</td>
-                            <td>{e.description || '-'}</td>
-                            <td>{e.paymentMode}</td>
-                            <td>{e.admin?.name || 'System'}</td>
-                            <td style={{ fontWeight: '700' }}>₹{e.amount}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button onClick={() => triggerDeleteConfirm('expense', e.expenseId, `${e.category} (₹${e.amount})`)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}>
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>CATEGORY</th>
+                            <th>DESCRIPTION</th>
+                            <th>PAYMENT MODE</th>
+                            <th>LOGGED BY</th>
+                            <th>AMOUNT</th>
+                            <th style={{ textAlign: 'right' }}>ACTIONS</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {expenses.map((e) => (
+                            <tr key={e.expenseId}>
+                              <td style={{ fontWeight: '600', color: 'var(--color-primary)' }}>{e.category}</td>
+                              <td>{e.description || '-'}</td>
+                              <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{e.paymentMode}</span></td>
+                              <td>{e.admin?.name || 'System'}</td>
+                              <td style={{ fontWeight: '700', color: 'var(--color-text)' }}>₹{e.amount}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                <button onClick={() => triggerDeleteConfirm('expense', e.expenseId, `${e.category} (₹${e.amount})`)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete expense">
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="tab-mobile-view" style={{ padding: '16px' }}>
+                      {expenses.map((e) => (
+                        <div key={e.expenseId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-primary)' }}>{e.category}</span>
+                            <span style={{ fontWeight: '800', fontSize: '16px', color: 'var(--color-text)' }}>₹{e.amount}</span>
+                          </div>
+
+                          {e.description && (
+                            <p style={{ fontSize: '12.5px', color: 'var(--color-text)', margin: 0, background: 'var(--color-surface)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                              {e.description}
+                            </p>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                            <span>Mode: {e.paymentMode}</span>
+                            <span>By: {e.admin?.name || 'System'}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                            <button
+                              onClick={() => triggerDeleteConfirm('expense', e.expenseId, `${e.category} (₹${e.amount})`)}
+                              className="btn btn-secondary"
+                              style={{ width: '100%', padding: '8px', fontSize: '12.5px', borderRadius: '10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                              <Trash2 size={14} />
+                              Delete Expense
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
+
               </div>
             </div>
           )}
@@ -2101,17 +2815,17 @@ export default function Dashboard() {
           {/* DAY CLOSE REGISTER TAB */}
           {activeTab === 'day-close' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <h2 className="section-title" style={{ margin: 0 }}>End of Day Cash Close</h2>
-                  <input type="date" className="form-input" style={{ width: '160px', padding: '6px 12px' }} value={dayCloseFilterDate} onChange={(e) => setDayCloseFilterDate(e.target.value)} />
-                </div>
+              <SectionHeader
+                title="End of Day Cash Close"
+                description="Compare expected cash against actual counted cash for a selected date."
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '24px' }}>
+                <input type="date" className="form-input" style={{ width: '180px', padding: '6px 12px' }} value={dayCloseFilterDate} onChange={(e) => setDayCloseFilterDate(e.target.value)} />
               </div>
 
               {loadingDayClose ? (
                 <div className="card" style={{ padding: '24px' }}>
-                  <div className="skeleton" style={{ width: '50%', marginBottom: '12px' }}></div>
-                  <div className="skeleton" style={{ width: '80%', height: '32px' }}></div>
+                  <LoadingRows rows={2} height={32} />
                 </div>
               ) : dayCloseInfo?.isClosed ? (
                 <div className="card" style={{ maxWidth: '600px', padding: '24px' }}>
@@ -2120,7 +2834,7 @@ export default function Dashboard() {
                     <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Day Closed for {dayCloseFilterDate}</h3>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '20px' }}>
                     <div>
                       <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>OPENING CASH</p>
                       <p style={{ fontSize: '15px', fontWeight: '700' }}>₹{dayCloseInfo.closeRecord.openingCash}</p>
@@ -2174,7 +2888,7 @@ export default function Dashboard() {
                       <input type="number" step="0.01" className="form-input" value={dayCloseOpening} onChange={(e) => setDayCloseOpening(e.target.value)} required />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', padding: '16px', backgroundColor: 'var(--color-bg-muted)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '20px', padding: '16px', backgroundColor: 'var(--color-bg-muted)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
                       <div>
                         <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>CASH SALES TODAY</span>
                         <p style={{ fontSize: '16px', fontWeight: '700', margin: '4px 0 0 0' }}>₹{dayCloseInfo?.computed?.cashSales || 0}</p>
@@ -2195,27 +2909,29 @@ export default function Dashboard() {
                       <textarea className="form-input" rows="3" value={dayCloseNotes} onChange={(e) => setDayCloseNotes(e.target.value)} placeholder="Explain any cash discrepancy if variance occurs..." />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }} disabled={actionLoading}>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', borderRadius: '12px' }} disabled={actionLoading}>
                       Submit EOD Closing
                     </button>
                   </form>
                 </div>
               )}
+
             </div>
           )}
 
           {/* GST COMPLIANCE TAB */}
           {activeTab === 'gst' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>GST Compliance Engine</h2>
-              </div>
+              <SectionHeader
+                title="GST Compliance Engine"
+                description="Generate statutory JSON exports and map HSN/SAC codes for your dishes."
+              />
 
               {/* Taxes Analytics Display */}
               {taxAnalyticsLoading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="skeleton" style={{ height: '80px', borderRadius: '8px' }}></div>
+                    <div key={i} className="card" style={{ height: '80px', padding: '16px' }}><LoadingRows rows={2} height={18} /></div>
                   ))}
                 </div>
               ) : taxAnalytics ? (
@@ -2258,7 +2974,7 @@ export default function Dashboard() {
                 </div>
               ) : null}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {/* GSTR-1 Generator */}
                   <div className="card" style={{ padding: '20px' }}>
@@ -2285,7 +3001,7 @@ export default function Dashboard() {
                         <label>YEAR</label>
                         <input type="number" className="form-input" value={gstReportYear} onChange={(e) => setGstReportYear(e.target.value)} required />
                       </div>
-                      <button type="submit" className="btn btn-primary" style={{ width: '100%', gap: '8px' }} disabled={actionLoading}>
+                      <button type="submit" className="btn btn-primary" style={{ width: '100%', gap: '8px', borderRadius: '12px', padding: '10px' }} disabled={actionLoading}>
                         <FileSpreadsheet size={16} />
                         Export GSTR-1 JSON
                       </button>
@@ -2317,7 +3033,7 @@ export default function Dashboard() {
                         <label>YEAR</label>
                         <input type="number" className="form-input" value={gstReportYear} onChange={(e) => setGstReportYear(e.target.value)} required />
                       </div>
-                      <button type="submit" className="btn btn-primary" style={{ width: '100%', gap: '8px', background: '#3B82F6' }} disabled={actionLoading}>
+                      <button type="submit" className="btn btn-primary" style={{ width: '100%', gap: '8px', background: '#3B82F6', borderRadius: '12px', padding: '10px' }} disabled={actionLoading}>
                         <FileSpreadsheet size={16} />
                         Export GSTR-3B JSON
                       </button>
@@ -2327,8 +3043,10 @@ export default function Dashboard() {
 
                 {/* HSN/SAC Configurer */}
                 <div className="card" style={{ padding: '20px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>HSN/SAC Mapping</h3>
-                  <div style={{ overflowX: 'auto' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '14px' }}>HSN/SAC Mapping</h3>
+                  
+                  {/* Desktop Table View */}
+                  <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
                     <table className="custom-table">
                       <thead>
                         <tr>
@@ -2342,8 +3060,8 @@ export default function Dashboard() {
                         {menuItems.map((dish) => (
                           <tr key={dish.dishId}>
                             <td style={{ fontWeight: '600' }}>{dish.dishName}</td>
-                            <td>{dish.category}</td>
-                            <td><code style={{ fontSize: '13px', fontWeight: 'bold' }}>{dish.hsnCode || 'N/A'}</code></td>
+                            <td><span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{dish.category}</span></td>
+                            <td><code style={{ fontSize: '12px', fontWeight: 'bold' }}>{dish.hsnCode || 'N/A'}</code></td>
                             <td style={{ textAlign: 'right' }}>
                               <button onClick={() => { setSelectedDish(dish); setMenuItemHsn(dish.hsnCode || ''); setShowHsnModal(true); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                                 Edit HSN
@@ -2354,28 +3072,54 @@ export default function Dashboard() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="tab-mobile-view">
+                    {menuItems.map((dish) => (
+                      <div key={dish.dishId} style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>{dish.dishName}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{dish.category}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: '700' }}>HSN / SAC CODE</span>
+                          <code style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-primary)' }}>{dish.hsnCode || 'N/A'}</code>
+                        </div>
+
+                        <button
+                          onClick={() => { setSelectedDish(dish); setMenuItemHsn(dish.hsnCode || ''); setShowHsnModal(true); }}
+                          className="btn btn-secondary"
+                          style={{ width: '100%', padding: '8px', fontSize: '12.5px', borderRadius: '10px', textAlign: 'center' }}
+                        >
+                          Edit HSN Code
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
+
           {/* MENU MANAGEMENT TAB */}
           {activeTab === 'menu' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div>
-                  <h2 className="section-title" style={{ margin: 0 }}>Menu Management</h2>
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginTop: '4px' }}>Manage restaurant dishes, pricing, details, and photos.</p>
-                </div>
-                <button onClick={() => handleOpenMenuModal()} className="btn btn-primary" style={{ gap: '8px', display: 'flex', alignItems: 'center' }}>
-                  <Plus size={16} />
-                  Add New Dish
-                </button>
-              </div>
+              <SectionHeader
+                title="Menu Management"
+                description="Manage dishes, pricing, images, availability, and HSN mapping."
+                action={(
+                  <button onClick={() => handleOpenMenuModal()} className="btn btn-primary" style={{ gap: '8px', display: 'flex', alignItems: 'center' }}>
+                    <Plus size={16} />
+                    Add New Dish
+                  </button>
+                )}
+              />
 
               {/* Filters & Search */}
-              <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '240px' }}>
+              <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 240px', width: '100%' }}>
                   <input
                     type="text"
                     className="form-input"
@@ -2384,13 +3128,13 @@ export default function Dashboard() {
                     onChange={(e) => setMenuSearch(e.target.value)}
                   />
                 </div>
-                <div style={{ width: '200px' }}>
+                <div style={{ flex: '1 1 180px', width: '100%' }}>
                   <select
                     className="form-input"
                     value={menuCategoryFilter}
                     onChange={(e) => setMenuCategoryFilter(e.target.value)}
                   >
-                    <option value="">All Categories</option>
+                    <option value="">All Categories ({menuCategories.length})</option>
                     {menuCategories.map((cat, idx) => (
                       <option key={idx} value={cat}>{cat}</option>
                     ))}
@@ -2398,16 +3142,18 @@ export default function Dashboard() {
                 </div>
               </div>
 
+
               {/* Dishes Table */}
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {loadingMenu ? (
-                  <div style={{ padding: '24px' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton" style={{ width: '100%', height: '32px', marginBottom: '12px' }}></div>
-                    ))}
-                  </div>
+                  <div style={{ padding: '24px' }}><LoadingRows rows={3} height={32} /></div>
                 ) : menuItems.length === 0 ? (
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>No menu items found.</p>
+                  <EmptyState
+                    icon={BookOpen}
+                    title="No menu items yet"
+                    description="Add your first dish to start building the portal menu and recipe mappings."
+                    action={<button onClick={() => handleOpenMenuModal()} className="btn btn-primary">Add new dish</button>}
+                  />
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="custom-table">
@@ -2697,201 +3443,589 @@ export default function Dashboard() {
 
           {/* ORDERS TAB */}
           {activeTab === 'orders' && (
+
             <div>
-              <h2 className="section-title">Order Management</h2>
+              <SectionHeader
+                title="Order Management Hub"
+                description="Live status tracking, order search, invoice lookup, and audit trail."
+              />
 
-              {/* Filters */}
-              <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ flex: '1 1 200px', margin: 0 }}>
-                  <label style={{ fontSize: '11px', fontWeight: '800', marginBottom: '6px' }}>SEARCH BY INVOICE NO</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Search invoice..."
-                    value={ordersFilters.search}
-                    onChange={(e) => setOrdersFilters(prev => ({ ...prev, search: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') fetchOwnerOrders(0);
-                    }}
-                    style={{ padding: '8px 12px', fontSize: '13px' }}
-                  />
+              {/* Summary Stats Strip */}
+              <div className="orders-summary-strip">
+                <div className="card orders-summary-card">
+                  <span className="orders-summary-label">Total Filtered Orders</span>
+                  <span className="orders-summary-val">{ordersTotal}</span>
                 </div>
-
-                <div className="form-group" style={{ width: '120px', margin: 0 }}>
-                  <label style={{ fontSize: '11px', fontWeight: '800', marginBottom: '6px' }}>TABLE NO</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="All"
-                    value={ordersFilters.tableNo}
-                    onChange={(e) => setOrdersFilters(prev => ({ ...prev, tableNo: e.target.value }))}
-                    style={{ padding: '8px 12px', fontSize: '13px' }}
-                  />
+                <div className="card orders-summary-card">
+                  <span className="orders-summary-label">Total Revenue (Paid)</span>
+                  <span className="orders-summary-val" style={{ color: 'var(--color-success)' }}>
+                    ₹{orders.filter(o => o.isPaymentCompleted).reduce((sum, o) => sum + (o.finalAmount || o.totalAmount || 0), 0).toFixed(2)}
+                  </span>
                 </div>
-
-                <div className="form-group" style={{ width: '150px', margin: 0 }}>
-                  <label style={{ fontSize: '11px', fontWeight: '800', marginBottom: '6px' }}>ORDER STATUS</label>
-                  <select
-                    className="form-input"
-                    value={ordersFilters.status}
-                    onChange={(e) => setOrdersFilters(prev => ({ ...prev, status: e.target.value }))}
-                    style={{ padding: '8px 12px', fontSize: '13px', height: '36px' }}
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="accepted">Accepted</option>
-                    <option value="preparing">Preparing</option>
-                    <option value="ready">Ready</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                <div className="card orders-summary-card">
+                  <span className="orders-summary-label">Active Kitchen Orders</span>
+                  <span className="orders-summary-val" style={{ color: 'var(--color-primary)' }}>
+                    {orders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.orderStatus?.toLowerCase())).length}
+                  </span>
                 </div>
-
-                <div className="form-group" style={{ width: '140px', margin: 0 }}>
-                  <label style={{ fontSize: '11px', fontWeight: '800', marginBottom: '6px' }}>FROM DATE</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={ordersFilters.from}
-                    onChange={(e) => setOrdersFilters(prev => ({ ...prev, from: e.target.value }))}
-                    style={{ padding: '6px 12px', fontSize: '13px', height: '36px' }}
-                  />
-                </div>
-
-                <div className="form-group" style={{ width: '140px', margin: 0 }}>
-                  <label style={{ fontSize: '11px', fontWeight: '800', marginBottom: '6px' }}>TO DATE</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={ordersFilters.to}
-                    onChange={(e) => setOrdersFilters(prev => ({ ...prev, to: e.target.value }))}
-                    style={{ padding: '6px 12px', fontSize: '13px', height: '36px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => fetchOwnerOrders(0)} className="btn btn-primary" style={{ height: '36px', paddingInline: '16px', fontSize: '13px' }}>
-                    Filter
-                  </button>
-                  <button
-                    onClick={() => {
-                      setOrdersFilters({ status: '', search: '', from: '', to: '', tableNo: '' });
-                      setTimeout(() => fetchOwnerOrders(0), 0);
-                    }}
-                    className="btn btn-secondary"
-                    style={{ height: '36px', paddingInline: '12px', fontSize: '13px' }}
-                  >
-                    Reset
-                  </button>
+                <div className="card orders-summary-card">
+                  <span className="orders-summary-label">Completed Orders</span>
+                  <span className="orders-summary-val" style={{ color: 'var(--color-text-muted)' }}>
+                    {orders.filter(o => o.orderStatus?.toLowerCase() === 'completed').length}
+                  </span>
                 </div>
               </div>
 
-              {/* Table */}
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
-                    <thead>
-                      <tr>
-                        <th>Date/Time</th>
-                        <th>Invoice No</th>
-                        <th>Table</th>
-                        <th>Customer</th>
-                        <th>Waiter</th>
-                        <th>Order Status</th>
-                        <th>Payment</th>
-                        <th style={{ textAlign: 'right' }}>Amount</th>
-                        <th style={{ textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loadingOrders && orders.length === 0 ? (
-                        <tr>
-                          <td colSpan="9" style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)' }}>
-                            Loading orders...
-                          </td>
-                        </tr>
-                      ) : orders.length === 0 ? (
-                        <tr>
-                          <td colSpan="9" style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)' }}>
-                            No orders found.
-                          </td>
-                        </tr>
-                      ) : (
-                        orders.map((o) => (
-                          <tr key={o.ordersId}>
-                            <td>{new Date(o.createdAt).toLocaleString()}</td>
-                            <td style={{ fontWeight: '600' }}>{o.invoiceNo || 'N/A'}</td>
-                            <td>T-{o.tableNo}</td>
-                            <td>
-                              <div style={{ fontSize: '13px', fontWeight: '600' }}>{o.customer?.name || 'Walk-in'}</div>
-                              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{o.customer?.mobile || ''}</div>
-                            </td>
-                            <td>{o.waiter?.waiterName || 'Self-Order'}</td>
-                            <td>
-                              <span className={`badge badge-${
-                                o.orderStatus === 'completed' ? 'success' :
-                                o.orderStatus === 'cancelled' ? 'danger' :
-                                o.orderStatus === 'ready' ? 'warning' : 'primary'
-                              }`}>
-                                {o.orderStatus.toUpperCase()}
+              {/* Modern Filters Card */}
+
+              <div className="card orders-filter-container">
+                {/* Status Pills Bar */}
+                <div className="orders-status-pills">
+                  {[
+                    { id: '', label: 'All Orders' },
+                    { id: 'pending', label: 'Pending' },
+                    { id: 'accepted', label: 'Accepted' },
+                    { id: 'preparing', label: 'Preparing' },
+                    { id: 'ready', label: 'Ready' },
+                    { id: 'completed', label: 'Completed' },
+                    { id: 'cancelled', label: 'Cancelled' },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => {
+                        setOrdersFilters(prev => ({ ...prev, status: st.id }));
+                        setTimeout(() => fetchOwnerOrders(0), 0);
+                      }}
+                      className={`orders-status-pill ${ordersFilters.status === st.id ? 'active' : ''}`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Inputs & Actions Row */}
+                <div className="orders-inputs-row">
+                  <div className="orders-search-input" style={{ position: 'relative' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Search invoice or customer..."
+                      value={ordersFilters.search}
+                      onChange={(e) => setOrdersFilters(prev => ({ ...prev, search: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') fetchOwnerOrders(0);
+                      }}
+                      style={{ paddingLeft: '36px', height: '40px', fontSize: '13px' }}
+                    />
+                  </div>
+
+                  <div className="orders-table-input">
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="Table No"
+                      value={ordersFilters.tableNo}
+                      onChange={(e) => setOrdersFilters(prev => ({ ...prev, tableNo: e.target.value }))}
+                      style={{ height: '40px', fontSize: '13px' }}
+                    />
+                  </div>
+
+                  <div className="orders-date-input">
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={ordersFilters.from}
+                      onChange={(e) => setOrdersFilters(prev => ({ ...prev, from: e.target.value }))}
+                      style={{ height: '40px', fontSize: '12.5px' }}
+                      title="From Date"
+                    />
+                  </div>
+
+                  <div className="orders-date-input">
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={ordersFilters.to}
+                      onChange={(e) => setOrdersFilters(prev => ({ ...prev, to: e.target.value }))}
+                      style={{ height: '40px', fontSize: '12.5px' }}
+                      title="To Date"
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* View Mode Switcher */}
+                    <div style={{ display: 'flex', gap: '2px', background: 'var(--color-bg-subtle)', padding: '3px', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setOrdersViewMode('grid')}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: ordersViewMode === 'grid' ? 'var(--color-surface)' : 'transparent',
+                          color: ordersViewMode === 'grid' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                          fontWeight: '700',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: ordersViewMode === 'grid' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
+                        }}
+                      >
+                        <LayoutGrid size={14} />
+                        Cards
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrdersViewMode('table')}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: ordersViewMode === 'table' ? 'var(--color-surface)' : 'transparent',
+                          color: ordersViewMode === 'table' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                          fontWeight: '700',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: ordersViewMode === 'table' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
+                        }}
+                      >
+                        <List size={14} />
+                        Table
+                      </button>
+                    </div>
+
+                    <button onClick={() => fetchOwnerOrders(0)} className="btn btn-primary" style={{ height: '40px', paddingInline: '16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Filter size={14} />
+                      Filter
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOrdersFilters({ status: '', search: '', from: '', to: '', tableNo: '' });
+                        setTimeout(() => fetchOwnerOrders(0), 0);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ height: '40px', paddingInline: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      title="Reset Filters"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* DESKTOP VIEW */}
+              <div className="orders-desktop-view">
+                {loadingOrders && orders.length === 0 ? (
+                  <div className="card" style={{ padding: '30px' }}><LoadingRows rows={4} height={32} /></div>
+                ) : orders.length === 0 ? (
+                  <div className="card">
+                    <EmptyState
+                      icon={ShoppingBag}
+                      title="No orders found"
+                      description="Try adjusting your date range, invoice search, or status filter."
+                    />
+                  </div>
+                ) : ordersViewMode === 'grid' ? (
+                  /* PC CARDS GRID VIEW */
+                  <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                      {orders.map((o) => {
+                        const dateObj = new Date(o.createdAt);
+                        const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+                        const status = (o.orderStatus || 'pending').toLowerCase();
+                        let badgeClass = 'order-status-pending';
+                        let labelStr = 'PENDING';
+
+                        if (status === 'completed') {
+                          badgeClass = 'order-status-completed';
+                          labelStr = 'COMPLETED';
+                        } else if (status === 'preparing') {
+                          badgeClass = 'order-status-preparing';
+                          labelStr = 'PREPARING';
+                        } else if (status === 'ready') {
+                          badgeClass = 'order-status-ready';
+                          labelStr = 'READY';
+                        } else if (status === 'accepted') {
+                          badgeClass = 'order-status-preparing';
+                          labelStr = 'ACCEPTED';
+                        } else if (status === 'cancelled') {
+                          badgeClass = 'order-status-cancelled';
+                          labelStr = 'CANCELLED';
+                        }
+
+                        const itemsPreview = Array.isArray(o.ordersInfo) ? o.ordersInfo : [];
+                        const displayItems = itemsPreview.slice(0, 3);
+                        const remainingCount = itemsPreview.length - displayItems.length;
+
+                        return (
+                          <div
+                            key={o.ordersId}
+                            className="card pc-order-card"
+                            style={{
+                              padding: '20px',
+                              borderRadius: '20px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '16px',
+                              position: 'relative',
+                              transition: 'all 0.25s ease',
+                              border: '1px solid var(--color-border)',
+                              background: 'var(--color-surface)',
+                              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)'
+                            }}
+                          >
+                            {/* Header Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-primary)' }}>
+                                  #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
+                                </span>
+                                <span style={{ padding: '3px 9px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+                                  Table {o.tableNo}
+                                </span>
+                              </div>
+                              <span className={`order-badge-status ${badgeClass}`}>
+                                {labelStr}
                               </span>
-                            </td>
-                            <td>
-                              <span className={`badge badge-${o.isPaymentCompleted ? 'success' : 'danger'}`}>
-                                {o.isPaymentCompleted ? 'PAID' : 'PENDING'}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: '700' }}>
-                              ₹{(o.finalAmount || o.totalAmount || 0).toFixed(2)}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
+                            </div>
+
+                            {/* Customer & Staff Info */}
+                            <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+                                <span style={{ fontWeight: '700', color: 'var(--color-text)' }}>
+                                  {o.customer?.name || 'Walk-in Customer'}
+                                </span>
+                                {o.customer?.mobile && (
+                                  <span style={{ fontSize: '11.5px', color: 'var(--color-text-muted)' }}>
+                                    {o.customer.mobile}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: 'var(--color-text-muted)' }}>
+                                <span>{formattedTime} ({formattedDate})</span>
+                                <span>{o.waiter?.waiterName ? `Waiter: ${o.waiter.waiterName}` : 'Self-Order'}</span>
+                              </div>
+                            </div>
+
+                            {/* Dishes Preview */}
+                            {displayItems.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ fontSize: '10.5px', fontWeight: '800', color: 'var(--color-text-muted)', letterSpacing: '0.5px' }}>ORDERED ITEMS ({itemsPreview.length})</span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                                  {displayItems.map((item, i) => (
+                                    <span key={i} style={{ padding: '3px 8px', borderRadius: '6px', background: 'var(--color-bg-muted)', fontSize: '11.5px', fontWeight: '600', color: 'var(--color-text)' }}>
+                                      {item.quantity || 1}x {item.dishName || item.name || 'Dish'}
+                                    </span>
+                                  ))}
+                                  {remainingCount > 0 && (
+                                    <span style={{ padding: '3px 8px', borderRadius: '6px', background: 'rgba(255, 107, 53, 0.1)', fontSize: '11.5px', fontWeight: '700', color: 'var(--color-primary)' }}>
+                                      +{remainingCount} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Footer Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--color-border)', marginTop: 'auto' }}>
+                              <div>
+                                <span style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '10.5px',
+                                  fontWeight: '800',
+                                  background: o.isPaymentCompleted ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                  color: o.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)'
+                                }}>
+                                  {o.isPaymentCompleted ? `PAID (${o.paymentMethod || 'Online'})` : 'UNPAID'}
+                                </span>
+                                <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-text)', marginTop: '4px' }}>
+                                  ₹{(o.finalAmount || o.totalAmount || 0).toFixed(2)}
+                                </div>
+                              </div>
+
                               <button
                                 onClick={() => {
                                   setSelectedOrder(o);
                                   setShowOrderModal(true);
                                 }}
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                                className="btn btn-primary"
+                                style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                               >
-                                View
+                                <Eye size={14} />
+                                Details
                               </button>
-                            </td>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {orders.length < ordersTotal && (
+                      <div style={{ textAlign: 'center', marginTop: '24px' }}>
+                        <button
+                          onClick={() => fetchOwnerOrders(ordersOffset + ordersLimit)}
+                          className="btn btn-secondary"
+                          disabled={loadingOrders}
+                          style={{ padding: '10px 24px', fontSize: '13px', borderRadius: '12px' }}
+                        >
+                          {loadingOrders ? 'Loading Orders...' : `Load More Orders (${orders.length} of ${ordersTotal})`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* PC TABLE VIEW */
+                  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="custom-table" style={{ width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th>INVOICE / TIME</th>
+                            <th>TABLE</th>
+                            <th>CUSTOMER</th>
+                            <th>WAITER / ASSIGNED</th>
+                            <th>ORDER STATUS</th>
+                            <th>PAYMENT STATUS</th>
+                            <th style={{ textAlign: 'right' }}>TOTAL AMOUNT</th>
+                            <th style={{ textAlign: 'center' }}>ACTION</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {orders.map((o) => {
+                            const dateObj = new Date(o.createdAt);
+                            const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+                            const status = (o.orderStatus || 'pending').toLowerCase();
+                            let badgeClass = 'order-status-pending';
+                            let labelStr = 'PENDING';
+
+                            if (status === 'completed') {
+                              badgeClass = 'order-status-completed';
+                              labelStr = 'COMPLETED';
+                            } else if (status === 'preparing') {
+                              badgeClass = 'order-status-preparing';
+                              labelStr = 'PREPARING';
+                            } else if (status === 'ready') {
+                              badgeClass = 'order-status-ready';
+                              labelStr = 'READY';
+                            } else if (status === 'accepted') {
+                              badgeClass = 'order-status-preparing';
+                              labelStr = 'ACCEPTED';
+                            } else if (status === 'cancelled') {
+                              badgeClass = 'order-status-cancelled';
+                              labelStr = 'CANCELLED';
+                            }
+
+                            return (
+                              <tr key={o.ordersId}>
+                                <td>
+                                  <div style={{ fontWeight: '800', color: 'var(--color-primary)', fontSize: '13.5px' }}>
+                                    #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                    {formattedTime} · {formattedDate}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span style={{ padding: '4px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    T-{o.tableNo}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: '700', fontSize: '13px' }}>{o.customer?.name || 'Walk-in Customer'}</div>
+                                  {o.customer?.mobile && (
+                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{o.customer.mobile}</div>
+                                  )}
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)' }}>
+                                    {o.waiter?.waiterName ? `Waiter: ${o.waiter.waiterName}` : 'Self-Order'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`order-badge-status ${badgeClass}`}>
+                                    {labelStr}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    background: o.isPaymentCompleted ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                    color: o.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)',
+                                    border: `1px solid ${o.isPaymentCompleted ? 'rgba(46, 196, 182, 0.3)' : 'rgba(230, 57, 70, 0.3)'}`
+                                  }}>
+                                    {o.isPaymentCompleted ? `PAID (${o.paymentMethod || 'Online'})` : 'UNPAID'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right', fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>
+                                  ₹{(o.finalAmount || o.totalAmount || 0).toFixed(2)}
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedOrder(o);
+                                      setShowOrderModal(true);
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                  >
+                                    <Eye size={14} />
+                                    Details
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {orders.length < ordersTotal && (
+                      <div style={{ textAlign: 'center', padding: '16px', borderTop: '1px solid var(--color-border)' }}>
+                        <button
+                          onClick={() => fetchOwnerOrders(ordersOffset + ordersLimit)}
+                          className="btn btn-secondary"
+                          disabled={loadingOrders}
+                          style={{ padding: '10px 24px', fontSize: '13px' }}
+                        >
+                          {loadingOrders ? 'Loading Orders...' : `Load More Orders (${orders.length} of ${ordersTotal})`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* MOBILE CARDS VIEW */}
+              <div className="orders-mobile-view">
+                {loadingOrders && orders.length === 0 ? (
+                  <div className="card" style={{ padding: '24px' }}><LoadingRows rows={3} height={36} /></div>
+                ) : orders.length === 0 ? (
+                  <EmptyState
+                    icon={ShoppingBag}
+                    title="No orders found"
+                    description="Try adjusting your search or filters."
+                  />
+                ) : (
+                  orders.map((o) => {
+                    const dateObj = new Date(o.createdAt);
+                    const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    const status = (o.orderStatus || 'pending').toLowerCase();
+                    let badgeClass = 'order-status-pending';
+                    let labelStr = 'PENDING';
+
+                    if (status === 'completed') {
+                      badgeClass = 'order-status-completed';
+                      labelStr = 'COMPLETED';
+                    } else if (status === 'preparing') {
+                      badgeClass = 'order-status-preparing';
+                      labelStr = 'PREPARING';
+                    } else if (status === 'ready') {
+                      badgeClass = 'order-status-ready';
+                      labelStr = 'READY';
+                    } else if (status === 'accepted') {
+                      badgeClass = 'order-status-preparing';
+                      labelStr = 'ACCEPTED';
+                    } else if (status === 'cancelled') {
+                      badgeClass = 'order-status-cancelled';
+                      labelStr = 'CANCELLED';
+                    }
+
+                    return (
+                      <div key={o.ordersId} className="card order-card-item">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ padding: '4px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+                            Table {o.tableNo}
+                          </span>
+                          <span className={`order-badge-status ${badgeClass}`}>
+                            {labelStr}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--color-primary)' }}>
+                              #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
+                            </span>
+                            <p style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
+                              {formattedTime} · {o.customer?.name || 'Walk-in Customer'}
+                            </p>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-text)' }}>
+                              ₹{(o.finalAmount || o.totalAmount || 0).toFixed(2)}
+                            </span>
+                            <div style={{ marginTop: '2px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: '800', color: o.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                {o.isPaymentCompleted ? 'PAID' : 'UNPAID'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(o);
+                            setShowOrderModal(true);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ width: '100%', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '12px' }}
+                        >
+                          <Eye size={15} />
+                          View Full Bill & Order Details
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
 
                 {orders.length < ordersTotal && (
-                  <div style={{ textAlign: 'center', padding: '16px', borderTop: '1px solid var(--color-border)' }}>
-                    <button
-                      onClick={() => fetchOwnerOrders(ordersOffset + ordersLimit)}
-                      className="btn btn-secondary"
-                      disabled={loadingOrders}
-                      style={{ fontSize: '13px', padding: '6px 16px' }}
-                    >
-                      {loadingOrders ? 'Loading...' : 'Load More'}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => fetchOwnerOrders(ordersOffset + ordersLimit)}
+                    className="btn btn-secondary"
+                    disabled={loadingOrders}
+                    style={{ width: '100%', padding: '12px', fontSize: '13px', borderRadius: '14px', marginTop: '8px' }}
+                  >
+                    {loadingOrders ? 'Loading Orders...' : `Load More (${orders.length} of ${ordersTotal})`}
+                  </button>
                 )}
               </div>
             </div>
           )}
 
           {/* REVIEWS TAB */}
+
           {activeTab === 'reviews' && (
             <div>
-              <h2 className="section-title">Customer Feedback & Reviews</h2>
+              <SectionHeader
+                title="Customer Feedback & Reviews"
+                description="Read customer ratings, comments, and linked bills."
+              />
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
                 {loadingReviews && reviews.length === 0 ? (
-                  <div className="card" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    Loading reviews...
-                  </div>
+                  <div className="card" style={{ gridColumn: '1 / -1', padding: '40px' }}><LoadingRows rows={3} height={24} /></div>
                 ) : reviews.length === 0 ? (
-                  <div className="card" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    No reviews received yet.
+                  <div className="card" style={{ gridColumn: '1 / -1' }}>
+                    <EmptyState
+                      icon={Star}
+                      title="No reviews yet"
+                      description="Customer ratings will appear here after feedback is submitted from the checkout flow."
+                    />
                   </div>
                 ) : (
                   reviews.map((r) => (
@@ -2972,7 +4106,10 @@ export default function Dashboard() {
           {/* SETTINGS TAB */}
           {activeTab === 'settings' && (
             <div>
-              <h2 className="section-title">System Settings</h2>
+              <SectionHeader
+                title="System Settings"
+                description="Review account details, theme controls, and restaurant logo settings."
+              />
               
               <div className="card" style={{ maxWidth: '600px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
@@ -3022,16 +4159,19 @@ export default function Dashboard() {
                   <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Restaurant Logo</h3>
                 </div>
 
-                <div className="settings-option" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  {restaurant?.logoUrl && (
-                    <img src={restaurant.logoUrl} alt="Logo" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--color-border)' }} />
-                  )}
-                  <div>
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>Upload Logo Icon</p>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginBottom: '8px' }}>Select an image file (Max 2MB)</p>
-                    <input type="file" accept="image/*" onChange={handleLogoSelect} style={{ fontSize: '12px' }} disabled={actionLoading} />
-                  </div>
+                <div style={{ marginTop: '16px' }}>
+                  <CustomFileUpload
+                    label="Upload Restaurant Logo"
+                    previewUrl={restaurant?.logoUrl}
+                    maxSizeMB={2}
+                    disabled={actionLoading}
+                    onFileSelect={(file) => {
+                      const syntheticEvent = { target: { files: [file] } };
+                      handleLogoSelect(syntheticEvent);
+                    }}
+                  />
                 </div>
+
               </div>
             </div>
           )}
@@ -3054,8 +4194,8 @@ export default function Dashboard() {
             </div>
             {formError && <div className="auth-error">{formError}</div>}
             
-            <form onSubmit={handleSaveMenuDish}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <form onSubmit={handleSaveMenuDish} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                 <div className="form-group">
                   <label>DISH NAME *</label>
                   <input
@@ -3063,6 +4203,7 @@ export default function Dashboard() {
                     className="form-input"
                     value={dishForm.dishName}
                     onChange={(e) => handleDishFormChange('dishName', e.target.value)}
+                    placeholder="e.g. Paneer Butter Masala"
                     required
                   />
                 </div>
@@ -3074,26 +4215,50 @@ export default function Dashboard() {
                     className="form-input"
                     value={dishForm.price}
                     onChange={(e) => handleDishFormChange('price', e.target.value)}
+                    placeholder="0.00"
                     required
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                 <div className="form-group">
                   <label>CATEGORY *</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={dishForm.category}
-                    onChange={(e) => handleDishFormChange('category', e.target.value)}
-                    placeholder="e.g. Starter, Main Course"
-                    list="categories-list"
-                    required
-                  />
-                  <datalist id="categories-list">
-                    {menuCategories.map((c, i) => <option key={i} value={c} />)}
-                  </datalist>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <select
+                      className="form-input"
+                      value={isCustomCategory ? '__CUSTOM__' : dishForm.category}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '__CUSTOM__') {
+                          setIsCustomCategory(true);
+                          handleDishFormChange('category', '');
+                        } else {
+                          setIsCustomCategory(false);
+                          handleDishFormChange('category', val);
+                        }
+                      }}
+                      required={!isCustomCategory}
+                    >
+                      <option value="" disabled>-- Select Category --</option>
+                      {Array.from(new Set([...DEFAULT_DISH_CATEGORIES, ...menuCategories, ...(dishForm.category && !isCustomCategory ? [dishForm.category] : [])])).filter(Boolean).map((c, i) => (
+                        <option key={i} value={c}>{c}</option>
+                      ))}
+                      <option value="__CUSTOM__">+ Add Custom Category...</option>
+                    </select>
+
+                    {isCustomCategory && (
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={dishForm.category}
+                        onChange={(e) => handleDishFormChange('category', e.target.value)}
+                        placeholder="Type new category name..."
+                        autoFocus
+                        required
+                      />
+                    )}
+                  </div>
                 </div>
                 
                 <div className="form-group">
@@ -3111,7 +4276,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                 <div className="form-group">
                   <label>PREPARATION TIME (MINS)</label>
                   <input
@@ -3119,28 +4285,29 @@ export default function Dashboard() {
                     className="form-input"
                     value={dishForm.preparationTime}
                     onChange={(e) => handleDishFormChange('preparationTime', e.target.value)}
+                    placeholder="15"
                   />
                 </div>
 
-                <div className="form-group" style={{ display: 'flex', gap: '16px', alignItems: 'center', height: '100%', paddingTop: '20px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: 'var(--color-text)' }}>
+                <div className="form-group" style={{ display: 'flex', gap: '10px', alignItems: 'center', height: '100%', paddingTop: '14px', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '700', color: 'var(--color-text)', padding: '9px 12px', background: 'var(--color-bg-subtle)', borderRadius: '10px', border: '1px solid var(--color-border)', flex: '1 1 auto' }}>
                     <input
                       type="checkbox"
                       checked={dishForm.isVegetarian}
                       onChange={(e) => handleDishFormChange('isVegetarian', e.target.checked)}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{ width: '16px', height: '16px', accentColor: 'var(--color-success)', cursor: 'pointer' }}
                     />
-                    VEGETARIAN
+                    <span>🟢 VEGETARIAN</span>
                   </label>
                   
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: 'var(--color-text)' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '700', color: 'var(--color-text)', padding: '9px 12px', background: 'var(--color-bg-subtle)', borderRadius: '10px', border: '1px solid var(--color-border)', flex: '1 1 auto' }}>
                     <input
                       type="checkbox"
                       checked={dishForm.isAvailable}
                       onChange={(e) => handleDishFormChange('isAvailable', e.target.checked)}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)', cursor: 'pointer' }}
                     />
-                    AVAILABLE
+                    <span>✅ AVAILABLE</span>
                   </label>
                 </div>
               </div>
@@ -3158,16 +4325,21 @@ export default function Dashboard() {
 
               <div className="form-group">
                 <label>DISH PHOTO</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px' }}>
-                  {dishForm.imagePreview && (
-                    <img src={dishForm.imagePreview} alt="Preview" style={{ width: '64px', height: '64px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--color-border)' }} />
-                  )}
-                  <div>
-                    <input type="file" accept="image/*" onChange={handleDishImageSelect} style={{ fontSize: '12px' }} />
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '4px' }}>Max file size 2MB</p>
-                  </div>
+                <div style={{ marginTop: '6px' }}>
+                  <CustomFileUpload
+                    label="Upload Dish Photo"
+                    previewUrl={dishForm.imagePreview}
+                    maxSizeMB={2}
+                    disabled={actionLoading}
+                    onFileSelect={(file) => {
+                      const syntheticEvent = { target: { files: [file] } };
+                      handleDishImageSelect(syntheticEvent);
+                    }}
+                  />
                 </div>
               </div>
+
+
 
               <div className="dialog-actions" style={{ marginTop: '24px' }}>
                 <button type="button" onClick={() => { setShowMenuModal(false); setFormError(''); }} className="btn btn-secondary">Cancel</button>
@@ -3223,8 +4395,14 @@ export default function Dashboard() {
               )}
               <div className="form-group">
                 <label>PASSWORD *</label>
-                <input type="password" className="form-input" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)} required />
+                <div style={{ position: 'relative' }}>
+                  <input type={showStaffPwd ? 'text' : 'password'} className="form-input" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)} required style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowStaffPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+                    {showStaffPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
+
               <div className="dialog-actions">
                 <button type="button" onClick={() => setShowAddStaffModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={actionLoading}>Save Staff</button>
@@ -3248,8 +4426,14 @@ export default function Dashboard() {
             <form onSubmit={handleResetStaffPassword}>
               <div className="form-group">
                 <label>NEW PASSWORD *</label>
-                <input type="password" className="form-input" value={resetPasswordVal} onChange={(e) => setResetPasswordVal(e.target.value)} required />
+                <div style={{ position: 'relative' }}>
+                  <input type={showResetStaffPwd ? 'text' : 'password'} className="form-input" value={resetPasswordVal} onChange={(e) => setResetPasswordVal(e.target.value)} required style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowResetStaffPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+                    {showResetStaffPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
+
               <div className="dialog-actions">
                 <button type="button" onClick={() => setShowResetPasswordModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={actionLoading}>Update Password</button>
@@ -3262,46 +4446,54 @@ export default function Dashboard() {
       {/* Expense Modal */}
       {showExpenseModal && (
         <div className="dialog-overlay">
-          <div className="dialog">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="dialog" style={{ maxWidth: '500px', width: '92vw', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 className="dialog-title" style={{ margin: 0 }}>Log New Expense</h3>
-              <button onClick={() => setShowExpenseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+              <button onClick={() => setShowExpenseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
-            {formError && <div className="auth-error">{formError}</div>}
-            <form onSubmit={handleSaveExpense}>
-              <div className="form-group">
+
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
+
+            <form onSubmit={handleSaveExpense} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>AMOUNT * (₹)</label>
-                <input type="number" step="0.01" className="form-input" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} required />
+                <input type="number" step="0.01" className="form-input" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" required />
               </div>
-              <div className="form-group">
-                <label>CATEGORY *</label>
-                <select className="form-input" value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
-                  <option value="Ingredients">Ingredients & Supplies</option>
-                  <option value="Rent">Rent</option>
-                  <option value="Utilities">Utilities (Water, Power, Net)</option>
-                  <option value="Salaries">Salaries & Wages</option>
-                  <option value="Maintenance">Maintenance & Repairs</option>
-                  <option value="Other">Other Expenses</option>
-                </select>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>CATEGORY *</label>
+                  <select className="form-input" value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
+                    <option value="Ingredients">Ingredients & Supplies</option>
+                    <option value="Rent">Rent</option>
+                    <option value="Utilities">Utilities (Water, Power, Net)</option>
+                    <option value="Salaries">Salaries & Wages</option>
+                    <option value="Maintenance">Maintenance & Repairs</option>
+                    <option value="Other">Other Expenses</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>PAYMENT MODE</label>
+                  <select className="form-input" value={expensePaymentMode} onChange={(e) => setExpensePaymentMode(e.target.value)}>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI / QR Code</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>PAYMENT MODE</label>
-                <select className="form-input" value={expensePaymentMode} onChange={(e) => setExpensePaymentMode(e.target.value)}>
-                  <option value="Cash">Cash</option>
-                  <option value="UPI">UPI / QR Code</option>
-                  <option value="Card">Card</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                </select>
-              </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>DESCRIPTION / REMARKS</label>
-                <textarea className="form-input" rows="2" value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} placeholder="Enter details..." />
+                <textarea className="form-input" rows="2" value={expenseDescription} onChange={(e) => setExpenseDescription(e.target.value)} placeholder="Enter details or notes..." />
               </div>
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setShowExpenseModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>Log Expense</button>
+
+              <div className="dialog-actions" style={{ marginTop: '8px' }}>
+                <button type="button" onClick={() => setShowExpenseModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Log Expense</button>
               </div>
             </form>
           </div>
@@ -3311,131 +4503,153 @@ export default function Dashboard() {
       {/* HSN Modal */}
       {showHsnModal && (
         <div className="dialog-overlay">
-          <div className="dialog">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 className="dialog-title" style={{ margin: 0 }}>Configure HSN Code: {selectedDish?.dishName}</h3>
-              <button onClick={() => setShowHsnModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+          <div className="dialog" style={{ maxWidth: '480px', width: '92vw', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 className="dialog-title" style={{ margin: 0 }}>Configure HSN: {selectedDish?.dishName}</h3>
+              <button onClick={() => setShowHsnModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
-            {formError && <div className="auth-error">{formError}</div>}
-            <form onSubmit={handleSaveHsnCode}>
-              <div className="form-group">
+
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
+
+            <form onSubmit={handleSaveHsnCode} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>HSN / SAC CODE *</label>
                 <input type="text" className="form-input" value={menuItemHsn} onChange={(e) => setMenuItemHsn(e.target.value)} placeholder="e.g. 996311" required />
               </div>
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setShowHsnModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>Update HSN</button>
+
+              <div className="dialog-actions" style={{ marginTop: '8px' }}>
+                <button type="button" onClick={() => setShowHsnModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Update HSN</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+
       {/* Vendor Add/Edit Modal */}
       {showVendorModal && (
         <div className="dialog-overlay">
-          <div className="dialog">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="dialog" style={{ maxWidth: '560px', width: '92vw', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 className="dialog-title" style={{ margin: 0 }}>{selectedVendor ? 'Edit Supplier' : 'Add Supplier Vendor'}</h3>
-              <button onClick={() => setShowVendorModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+              <button onClick={() => setShowVendorModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
-            {formError && <div className="auth-error">{formError}</div>}
-            <form onSubmit={handleSaveVendor}>
-              <div className="form-group">
+
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
+
+            <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>SUPPLIER NAME *</label>
-                <input type="text" className="form-input" value={vendorName} onChange={(e) => setVendorName(e.target.value)} required />
+                <input type="text" className="form-input" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="e.g. Fresh Foods Wholesalers" required />
               </div>
-              <div className="form-group">
-                <label>MOBILE NUMBER</label>
-                <input type="text" className="form-input" value={vendorMobile} onChange={(e) => setVendorMobile(e.target.value)} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>MOBILE NUMBER</label>
+                  <input type="text" className="form-input" value={vendorMobile} onChange={(e) => setVendorMobile(e.target.value)} placeholder="e.g. 9876543210" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>EMAIL ADDRESS</label>
+                  <input type="email" className="form-input" value={vendorEmail} onChange={(e) => setVendorEmail(e.target.value)} placeholder="e.g. vendor@supplier.com" />
+                </div>
               </div>
-              <div className="form-group">
-                <label>EMAIL ADDRESS</label>
-                <input type="email" className="form-input" value={vendorEmail} onChange={(e) => setVendorEmail(e.target.value)} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>GSTIN</label>
+                  <input type="text" className="form-input" placeholder="e.g. 07AAAAA1111A1Z1" value={vendorGstin} onChange={(e) => setVendorGstin(e.target.value)} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>PAYMENT TERMS</label>
+                  <input type="text" className="form-input" placeholder="e.g. Net 30, COD" value={vendorPaymentTerms} onChange={(e) => setVendorPaymentTerms(e.target.value)} />
+                </div>
               </div>
-              <div className="form-group">
-                <label>GSTIN</label>
-                <input type="text" className="form-input" placeholder="e.g. 07AAAAA1111A1Z1" value={vendorGstin} onChange={(e) => setVendorGstin(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>PAYMENT TERMS</label>
-                <input type="text" className="form-input" placeholder="e.g. Net 30, COD" value={vendorPaymentTerms} onChange={(e) => setVendorPaymentTerms(e.target.value)} />
-              </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>STREET ADDRESS</label>
-                <textarea className="form-input" rows="2" value={vendorAddress} onChange={(e) => setVendorAddress(e.target.value)} />
+                <textarea className="form-input" rows="2" value={vendorAddress} onChange={(e) => setVendorAddress(e.target.value)} placeholder="Enter business address..." />
               </div>
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setShowVendorModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>Save Supplier</button>
+
+              <div className="dialog-actions" style={{ marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowVendorModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Save Supplier</button>
               </div>
             </form>
           </div>
         </div>
+
       )}
 
       {/* Stock Item Add/Edit Modal */}
       {showItemModal && (
         <div className="dialog-overlay">
-          <div className="dialog">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="dialog" style={{ maxWidth: '540px', width: '92vw', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 className="dialog-title" style={{ margin: 0 }}>{selectedItem ? 'Edit Stock Item' : 'Add Stock Item'}</h3>
-              <button onClick={() => setShowItemModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+              <button onClick={() => setShowItemModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
-            {formError && <div className="auth-error">{formError}</div>}
-            <form onSubmit={handleSaveItem}>
-              <div className="form-group">
+
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
+
+            <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>STOCK ITEM NAME *</label>
-                <input type="text" className="form-input" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Milk, Raw Chicken" required />
+                <input type="text" className="form-input" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Milk, Raw Chicken, Basmati Rice" required />
               </div>
-              <div className="form-group">
-                <label>MEASUREMENT UNIT *</label>
-                <select className="form-input" value={itemUnit} onChange={(e) => setItemUnit(e.target.value)}>
-                  <option value="kg">kg (Kilogram)</option>
-                  <option value="litre">litre (Litre)</option>
-                  <option value="piece">piece (Piece)</option>
-                  <option value="packet">packet (Packet)</option>
-                  <option value="dozen">dozen (Dozen)</option>
-                </select>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>MEASUREMENT UNIT *</label>
+                  <select className="form-input" value={itemUnit} onChange={(e) => setItemUnit(e.target.value)}>
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="litre">litre (Litre)</option>
+                    <option value="piece">piece (Piece)</option>
+                    <option value="packet">packet (Packet)</option>
+                    <option value="dozen">dozen (Dozen)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>CATEGORY</label>
+                  <select className="form-input" value={itemCategory} onChange={(e) => setItemCategory(e.target.value)}>
+                    <option value="Vegetables">Vegetables</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Spices">Spices</option>
+                    <option value="Meat">Meat & Seafood</option>
+                    <option value="Dry Goods">Dry Goods / Grocery</option>
+                    <option value="Beverages">Beverages</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>CATEGORY</label>
-                <select className="form-input" value={itemCategory} onChange={(e) => setItemCategory(e.target.value)}>
-                  <option value="Vegetables">Vegetables</option>
-                  <option value="Dairy">Dairy</option>
-                  <option value="Spices">Spices</option>
-                  <option value="Meat">Meat & Seafood</option>
-                  <option value="Dry Goods">Dry Goods / Grocery</option>
-                  <option value="Beverages">Beverages</option>
-                </select>
-              </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>REORDER ALERT LEVEL *</label>
-                <input type="number" step="0.01" className="form-input" value={itemReorderLevel} onChange={(e) => setItemReorderLevel(e.target.value)} required />
+                <input type="number" step="0.01" className="form-input" value={itemReorderLevel} onChange={(e) => setItemReorderLevel(e.target.value)} placeholder="Threshold quantity to trigger warning" required />
               </div>
               
               {!selectedItem && (
-                <>
-                  <div className="form-group">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>INITIAL STOCK *</label>
                     <input type="number" step="0.01" className="form-input" value={itemCurrentStock} onChange={(e) => setItemCurrentStock(e.target.value)} required />
                   </div>
-                  <div className="form-group">
-                    <label>COST PER UNIT *</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>COST PER UNIT * (₹)</label>
                     <input type="number" step="0.01" className="form-input" value={itemCostPerUnit} onChange={(e) => setItemCostPerUnit(e.target.value)} required />
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setShowItemModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>Save Item</button>
+              <div className="dialog-actions" style={{ marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowItemModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Save Stock Item</button>
               </div>
             </form>
           </div>
@@ -3445,27 +4659,27 @@ export default function Dashboard() {
       {/* Recipe / BOM mapping Editor Modal */}
       {showRecipeModal && (
         <div className="dialog-overlay">
-          <div className="dialog" style={{ maxWidth: '600px' }}>
+          <div className="dialog" style={{ maxWidth: '580px', width: '92vw', borderRadius: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 className="dialog-title" style={{ margin: 0 }}>Recipe BOM: {selectedDish?.dishName}</h3>
-              <button onClick={() => setShowRecipeModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+              <button onClick={() => setShowRecipeModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
             
-            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
+            <p style={{ fontSize: '12.5px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
               Map the ingredients and standard consumption portions for 1 yield portion of this dish.
             </p>
 
-            {formError && <div className="auth-error">{formError}</div>}
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
             
-            <form onSubmit={handleSaveRecipe}>
-              <div className="form-group" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <form onSubmit={handleSaveRecipe} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 0 }}>
                 <label style={{ margin: 0 }}>RECIPE YIELD PORTION(S):</label>
                 <input 
                   type="number" 
                   className="form-input" 
-                  style={{ width: '80px' }} 
+                  style={{ width: '90px' }} 
                   value={recipeYield} 
                   onChange={(e) => setRecipeYield(e.target.value)} 
                   min="1" 
@@ -3473,23 +4687,23 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
+              <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <label style={{ fontWeight: '700', fontSize: '13px' }}>INGREDIENT LIST</label>
-                  <button type="button" onClick={handleAddRecipeIngredient} className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }}>
+                  <button type="button" onClick={handleAddRecipeIngredient} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }}>
                     + Add Ingredient
                   </button>
                 </div>
 
-                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '12px' }}>
+                <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--color-bg-subtle)' }}>
                   {recipeIngredients.length === 0 ? (
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', textAlign: 'center', padding: '16px' }}>No ingredients mapped yet.</p>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', textAlign: 'center', padding: '16px', margin: 0 }}>No ingredients mapped yet.</p>
                   ) : (
                     recipeIngredients.map((ing, idx) => (
-                      <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '8px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
                         <select 
                           className="form-input" 
-                          style={{ flexGrow: 2 }}
+                          style={{ flex: '1 1 180px', minWidth: '150px' }}
                           value={ing.itemId} 
                           onChange={(e) => handleRecipeIngChange(idx, 'itemId', e.target.value)}
                           required
@@ -3500,33 +4714,35 @@ export default function Dashboard() {
                           ))}
                         </select>
 
-                        <input 
-                          type="number" 
-                          step="0.001" 
-                          placeholder="Qty" 
-                          className="form-input" 
-                          style={{ width: '80px' }}
-                          value={ing.quantity}
-                          onChange={(e) => handleRecipeIngChange(idx, 'quantity', e.target.value)}
-                          required
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 0 auto' }}>
+                          <input 
+                            type="number" 
+                            step="0.001" 
+                            placeholder="Qty" 
+                            className="form-input" 
+                            style={{ width: '85px' }}
+                            value={ing.quantity}
+                            onChange={(e) => handleRecipeIngChange(idx, 'quantity', e.target.value)}
+                            required
+                          />
 
-                        <span style={{ fontSize: '13px', minWidth: '40px', color: 'var(--color-text-muted)' }}>
-                          {ing.unit || '-'}
-                        </span>
+                          <span style={{ fontSize: '12.5px', minWidth: '40px', fontWeight: '600', color: 'var(--color-text-muted)' }}>
+                            {ing.unit || '-'}
+                          </span>
 
-                        <button type="button" onClick={() => handleRemoveRecipeIngredient(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}>
-                          <X size={16} />
-                        </button>
+                          <button type="button" onClick={() => handleRemoveRecipeIngredient(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '6px' }} title="Remove ingredient">
+                            <X size={18} />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
 
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setShowRecipeModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>Save BOM Recipe</button>
+              <div className="dialog-actions" style={{ marginTop: '8px' }}>
+                <button type="button" onClick={() => setShowRecipeModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Save Recipe BOM</button>
               </div>
             </form>
           </div>
@@ -3536,19 +4752,19 @@ export default function Dashboard() {
       {/* Purchase Invoice Logging Modal */}
       {showPurchaseModal && (
         <div className="dialog-overlay">
-          <div className="dialog" style={{ maxWidth: '700px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="dialog" style={{ maxWidth: '680px', width: '92vw', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 className="dialog-title" style={{ margin: 0 }}>Log Supplier Purchase Invoice</h3>
-              <button onClick={() => setShowPurchaseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
+              <button onClick={() => setShowPurchaseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
+                <X size={20} />
               </button>
             </div>
             
-            {formError && <div className="auth-error">{formError}</div>}
+            {formError && <div className="auth-error" style={{ marginBottom: '16px' }}>{formError}</div>}
             
-            <form onSubmit={handleSavePurchase}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
+            <form onSubmit={handleSavePurchase} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>SUPPLIER VENDOR</label>
                   <select className="form-input" value={purchaseVendorId} onChange={(e) => setPurchaseVendorId(e.target.value)}>
                     <option value="">-- Select Vendor --</option>
@@ -3557,18 +4773,18 @@ export default function Dashboard() {
                     ))}
                   </select>
                 </div>
-                <div className="form-group">
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>INVOICE NO / REF</label>
                   <input type="text" className="form-input" placeholder="e.g. INV-2026-981" value={purchaseInvoiceNo} onChange={(e) => setPurchaseInvoiceNo(e.target.value)} />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>PURCHASE DATE *</label>
                   <input type="date" className="form-input" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
                 </div>
-                <div className="form-group">
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>PAYMENT STATUS</label>
                   <select className="form-input" value={purchasePaymentStatus} onChange={(e) => setPurchasePaymentStatus(e.target.value)}>
                     <option value="unpaid">Unpaid</option>
@@ -3579,20 +4795,20 @@ export default function Dashboard() {
               </div>
 
               {/* Purchase items list */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <label style={{ fontWeight: '700', fontSize: '13px' }}>PURCHASED ITEMS</label>
-                  <button type="button" onClick={handleAddPurchaseRow} className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }}>
+                  <button type="button" onClick={handleAddPurchaseRow} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }}>
                     + Add Row
                   </button>
                 </div>
 
-                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '12px' }}>
+                <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--color-bg-subtle)' }}>
                   {purchaseItems.map((item, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                    <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '8px', background: 'var(--color-surface)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
                       <select 
                         className="form-input" 
-                        style={{ flexGrow: 2 }}
+                        style={{ flex: '1 1 180px', minWidth: '140px' }}
                         value={item.itemId} 
                         onChange={(e) => handlePurchaseRowChange(idx, 'itemId', e.target.value)}
                         required
@@ -3603,48 +4819,50 @@ export default function Dashboard() {
                         ))}
                       </select>
 
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        placeholder="Qty" 
-                        className="form-input" 
-                        style={{ width: '80px' }}
-                        value={item.quantity}
-                        onChange={(e) => handlePurchaseRowChange(idx, 'quantity', e.target.value)}
-                        required
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 0 auto' }}>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="Qty" 
+                          className="form-input" 
+                          style={{ width: '75px' }}
+                          value={item.quantity}
+                          onChange={(e) => handlePurchaseRowChange(idx, 'quantity', e.target.value)}
+                          required
+                        />
 
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        placeholder="Unit Price" 
-                        className="form-input" 
-                        style={{ width: '100px' }}
-                        value={item.unitPrice}
-                        onChange={(e) => handlePurchaseRowChange(idx, 'unitPrice', e.target.value)}
-                        required
-                      />
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="Price (₹)" 
+                          className="form-input" 
+                          style={{ width: '90px' }}
+                          value={item.unitPrice}
+                          onChange={(e) => handlePurchaseRowChange(idx, 'unitPrice', e.target.value)}
+                          required
+                        />
 
-                      <span style={{ fontSize: '13px', fontWeight: '700', minWidth: '60px', textAlign: 'right' }}>
-                        ₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)).toFixed(2)}
-                      </span>
+                        <span style={{ fontSize: '12.5px', fontWeight: '700', minWidth: '60px', textAlign: 'right' }}>
+                          ₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)).toFixed(2)}
+                        </span>
 
-                      <button type="button" onClick={() => handleRemovePurchaseRow(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}>
-                        <X size={16} />
-                      </button>
+                        <button type="button" onClick={() => handleRemovePurchaseRow(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '6px' }} title="Remove item">
+                          <X size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifySelf: 'flex-end', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
                 <div>
-                  <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>INVOICE TOTAL AMOUNT:</span>
-                  <span style={{ fontSize: '20px', fontWeight: '800', marginLeft: '10px', color: 'var(--color-primary)' }}>₹{calculatePurchaseTotal().toFixed(2)}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>INVOICE TOTAL:</span>
+                  <span style={{ fontSize: '18px', fontWeight: '800', marginLeft: '8px', color: 'var(--color-primary)' }}>₹{calculatePurchaseTotal().toFixed(2)}</span>
                 </div>
                 <div className="dialog-actions">
-                  <button type="button" onClick={() => setShowPurchaseModal(false)} className="btn btn-secondary">Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={actionLoading}>Log Invoice</button>
+                  <button type="button" onClick={() => setShowPurchaseModal(false)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" style={{ borderRadius: '12px' }} disabled={actionLoading}>Save Purchase Order</button>
                 </div>
               </div>
             </form>
@@ -3655,50 +4873,106 @@ export default function Dashboard() {
       {/* Order Details Modal Overlay */}
       {showOrderModal && selectedOrder && (
         <div className="dialog-overlay">
-          <div className="dialog" style={{ maxWidth: '600px', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
-              <h3 className="dialog-title" style={{ margin: 0 }}>Invoice Details — #{selectedOrder.invoiceNo || 'N/A'}</h3>
-              <button onClick={() => { setShowOrderModal(false); setSelectedOrder(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+          <div className="dialog" style={{ maxWidth: '680px', width: '92vw', padding: '0', overflow: 'hidden', borderRadius: '20px' }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid var(--color-border)',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'flex-start',
+              gap: '16px',
+              background: 'var(--color-bg-subtle)'
+            }}>
+              <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 className="dialog-title" style={{ margin: 0, fontSize: '18px', wordBreak: 'break-word' }}>
+                    #{selectedOrder.invoiceNo || `ORD-${selectedOrder.dailyOrderNo || 'N/A'}`}
+                  </h3>
+                  <span className={`order-badge-status order-status-${(selectedOrder.orderStatus || 'pending').toLowerCase()}`}>
+                    {(selectedOrder.orderStatus || 'PENDING').toUpperCase()}
+                  </span>
+                </div>
+                <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                  Placed on {new Date(selectedOrder.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
+              </div>
+
+              <button
+                onClick={() => { setShowOrderModal(false); setSelectedOrder(null); }}
+                style={{
+                  flexShrink: 0,
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '10px',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justify: 'center',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+                }}
+                title="Close"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px', maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px' }}>
-              {/* Meta information grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', backgroundColor: 'var(--color-surface-2)', padding: '12px', borderRadius: '8px' }}>
-                <div>
-                  <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>DATE & TIME</span>
-                  <span style={{ fontWeight: '600' }}>{new Date(selectedOrder.createdAt).toLocaleString()}</span>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', maxHeight: '72vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Responsive Details Cards Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px'
+              }}>
+                <div style={{ padding: '12px 16px', background: 'var(--color-bg-subtle)', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>TABLE & ORDER NO</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700' }}>Table {selectedOrder.tableNo || 'N/A'} · Token #{selectedOrder.dailyOrderNo || 'N/A'}</span>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>TABLE NO</span>
-                  <span style={{ fontWeight: '600' }}>Table {selectedOrder.tableNo}</span>
+
+                <div style={{ padding: '12px 16px', background: 'var(--color-bg-subtle)', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>CUSTOMER INFO</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700' }}>{selectedOrder.customer?.name || 'Walk-in Customer'}</span>
+                  {selectedOrder.customer?.mobile && (
+                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'block' }}>{selectedOrder.customer.mobile}</span>
+                  )}
                 </div>
-                <div>
-                  <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>DAILY ORDER NO</span>
-                  <span style={{ fontWeight: '600' }}>#{selectedOrder.dailyOrderNo}</span>
+
+                <div style={{ padding: '12px 16px', background: 'var(--color-bg-subtle)', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>SERVER / WAITER</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700' }}>{selectedOrder.waiter?.waiterName || 'Self-Order / Digital Menu'}</span>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>WAITER</span>
-                  <span style={{ fontWeight: '600' }}>{selectedOrder.waiter?.waiterName || 'Self-Order'}</span>
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>CUSTOMER</span>
-                  <span style={{ fontWeight: '600' }}>{selectedOrder.customer?.name || 'Walk-in'} {selectedOrder.customer?.mobile ? `(${selectedOrder.customer.mobile})` : ''}</span>
+
+                <div style={{ padding: '12px 16px', background: 'var(--color-bg-subtle)', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>PAYMENT STATUS</span>
+                  <span style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    background: selectedOrder.isPaymentCompleted ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                    color: selectedOrder.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)'
+                  }}>
+                    {selectedOrder.isPaymentCompleted ? `PAID (${selectedOrder.paymentMethod || 'Online'})` : 'UNPAID'}
+                  </span>
                 </div>
               </div>
 
-              {/* Items List */}
+              {/* Ordered Dishes Section */}
               <div>
-                <h4 style={{ fontWeight: '800', marginBottom: '8px', fontSize: '12px', color: 'var(--color-text-muted)' }}>ORDERED DISHES</h4>
-                <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <h4 style={{ fontWeight: '800', marginBottom: '10px', fontSize: '12px', color: 'var(--color-text-muted)', letterSpacing: '0.5px' }}>ORDERED DISHES</h4>
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: '14px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
-                      <tr style={{ backgroundColor: 'var(--color-surface-2)', borderBottom: '1px solid var(--color-border)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' }}>
-                        <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '60px' }}>Qty</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '100px' }}>Price</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '100px' }}>Total</th>
+                      <tr style={{ backgroundColor: 'var(--color-bg-subtle)', borderBottom: '1px solid var(--color-border)', fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '10px 14px', textAlign: 'left' }}>Item</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center', width: '60px' }}>Qty</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', width: '90px' }}>Price</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', width: '90px' }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3710,13 +4984,13 @@ export default function Dashboard() {
                             : [];
                         return items.map((item, idx) => (
                           <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                            <td style={{ padding: '10px 12px' }}>
-                              <div style={{ fontWeight: '600' }}>{item.dishName}</div>
-                              {item.remarks && <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>* {item.remarks}</div>}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--color-text)' }}>{item.dishName || item.name || 'Dish'}</div>
+                              {item.remarks && <div style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>* {item.remarks}</div>}
                             </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>{item.quantity}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>₹{parseFloat(item.price || 0).toFixed(2)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600' }}>₹{(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '700' }}>{item.quantity}</td>
+                            <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--color-text-muted)' }}>₹{parseFloat(item.price || 0).toFixed(2)}</td>
+                            <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '700', color: 'var(--color-text)' }}>₹{(item.quantity * parseFloat(item.price || 0)).toFixed(2)}</td>
                           </tr>
                         ));
                       })()}
@@ -3725,39 +4999,103 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Financial Summary */}
-              <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', marginLeft: 'auto', width: '100%', maxWidth: '300px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              {/* Financial Calculation Summary */}
+              <div style={{
+                background: 'var(--color-bg-subtle)',
+                padding: '16px',
+                borderRadius: '14px',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginLeft: 'auto',
+                width: '100%',
+                maxWidth: '340px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Subtotal:</span>
                   <span style={{ fontWeight: '600' }}>₹{parseFloat(selectedOrder.totalAmount || 0).toFixed(2)}</span>
                 </div>
                 {parseFloat(selectedOrder.discountAmount || 0) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                     <span style={{ color: 'var(--color-danger)' }}>Discount:</span>
                     <span style={{ color: 'var(--color-danger)', fontWeight: '600' }}>-₹{parseFloat(selectedOrder.discountAmount).toFixed(2)}</span>
                   </div>
                 )}
                 {parseFloat(selectedOrder.gstAmount || 0) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                    <span style={{ color: 'var(--color-text-muted)' }}>GST/Taxes:</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>GST & Taxes:</span>
                     <span style={{ fontWeight: '600' }}>₹{parseFloat(selectedOrder.gstAmount).toFixed(2)}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', borderTop: '1px solid var(--color-border)', paddingTop: '6px', marginTop: '4px', fontSize: '15px', fontWeight: '800' }}>
+                <div style={{
+                  display: 'flex',
+                  justify: 'space-between',
+                  borderTop: '1px solid var(--color-border)',
+                  paddingTop: '8px',
+                  marginTop: '4px',
+                  fontSize: '16px',
+                  fontWeight: '800'
+                }}>
                   <span>Grand Total:</span>
                   <span style={{ color: 'var(--color-primary)' }}>₹{(selectedOrder.finalAmount || selectedOrder.totalAmount || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="dialog-actions" style={{ marginTop: '20px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-              <button onClick={() => { setShowOrderModal(false); setSelectedOrder(null); }} className="btn btn-secondary" style={{ width: '100%' }}>
+            {/* Modal Actions Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid var(--color-border)',
+              background: 'var(--color-bg-subtle)',
+              display: 'flex',
+              gap: '12px',
+              justify: 'flex-end',
+              alignItems: 'center',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                type="button"
+                onClick={() => handleViewOrderPdf(selectedOrder.ordersId, selectedOrder.invoiceNo)}
+                className="btn btn-primary"
+                disabled={loadingPdf}
+                style={{
+                  padding: '11px 22px',
+                  fontSize: '13px',
+                  borderRadius: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justify: 'center',
+                  gap: '8px',
+                  flex: '1 1 auto',
+                  maxWidth: '220px'
+                }}
+              >
+                <FileText size={16} />
+                {loadingPdf ? 'Generating PDF...' : 'View Invoice PDF'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setShowOrderModal(false); setSelectedOrder(null); }}
+                className="btn btn-secondary"
+                style={{
+                  padding: '11px 22px',
+                  fontSize: '13px',
+                  borderRadius: '12px',
+                  flex: '1 1 auto',
+                  maxWidth: '140px',
+                  textAlign: 'center'
+                }}
+              >
                 Close Details
               </button>
             </div>
+
           </div>
         </div>
       )}
+
 
       {/* Unified Delete Confirmation Dialog */}
       {showDeleteConfirm && (

@@ -3,7 +3,8 @@
 // ============================================================================
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   ArrowRight, ChefHat, BarChart3, Zap, ShieldCheck,
   Globe, HeadphonesIcon, Star, CheckCircle2, Sparkles,
@@ -13,6 +14,7 @@ import {
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PageWrapper from '../components/PageWrapper';
+
 
 // ── Scroll Reveal Hook ────────────────────────────────────────────────────────
 // APPROACH: Progressive enhancement — elements start fully visible.
@@ -99,6 +101,8 @@ function CountUp({ end, suffix = '', duration = 1800 }) {
 // ── Hero Section ──────────────────────────────────────────────────────────────
 function HeroSection() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const { user, owner } = useAuth();
+  const isLogged = Boolean(user || owner || localStorage.getItem('retrop_portal_token'));
 
   useEffect(() => {
     const onMove = (e) => setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
@@ -111,10 +115,10 @@ function HeroSection() {
       {/* Animated gradient blobs — parallax on mouse */}
       <div style={{
         position: 'absolute', borderRadius: '50%', filter: 'blur(90px)', pointerEvents: 'none',
-        width: 600, height: 600, opacity: 0.55,
+        width: 440, height: 440, opacity: 0.45,
         background: 'radial-gradient(circle, rgba(255,107,53,0.18) 0%, transparent 70%)',
-        top: `calc(5% + ${mousePos.y * -20}px)`,
-        left: `calc(3% + ${mousePos.x * -20}px)`,
+        top: `calc(10% + ${mousePos.y * 20}px)`,
+        left: `calc(10% + ${mousePos.x * 20}px)`,
         transition: 'top 0.8s ease, left 0.8s ease',
       }} />
       <div style={{
@@ -143,28 +147,31 @@ function HeroSection() {
             background: 'var(--color-primary-light)',
             border: '1px solid rgba(255,107,53,0.2)',
             color: 'var(--color-primary)', fontSize: '12px', fontWeight: 700,
-            letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '32px',
-            animationDelay: '0.1s',
+            padding: '6px 14px', borderRadius: '9999px',
+            letterSpacing: '0.4px', textTransform: 'uppercase',
+            marginBottom: '24px', animationDelay: '0.1s',
           }}
         >
-          <Sparkles size={12} />
-          AI-Powered Business Automation
+          <Sparkles size={13} />
+          Integrated Business Automation Platform
         </div>
 
         {/* Headline */}
         <h1
           className="hero-headline hero-anim"
           style={{
-            fontSize: 'clamp(42px,8vw,88px)', fontWeight: 800,
-            lineHeight: 1.06, letterSpacing: '-3px',
-            marginBottom: '28px',
+            fontSize: 'clamp(36px, 5.5vw, 68px)',
+            fontWeight: 850,
+            letterSpacing: '-2.2px',
+            lineHeight: 1.08,
+            marginBottom: '20px',
             animationDelay: '0.22s',
           }}
         >
-          Modernize<br />
+          A smarter way to build & run{' '}
           <span style={{
-            background: 'linear-gradient(135deg, #FF6B35 0%, #FF9A3C 60%, #FFB347 100%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            background: 'linear-gradient(135deg, var(--color-primary) 0%, #ff9248 50%, #6366f1 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
             your business
           </span>
@@ -194,20 +201,37 @@ function HeroSection() {
             animationDelay: '0.46s',
           }}
         >
-          <Link to="/services"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '14px 28px', borderRadius: '14px',
-              background: 'var(--color-primary)', color: '#fff',
-              fontSize: '15px', fontWeight: 700, textDecoration: 'none',
-              boxShadow: '0 8px 28px rgba(255,107,53,0.32)',
-              transition: 'all 0.25s ease',
-            }}
-            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.42)'; }}
-            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(255,107,53,0.32)'; }}
-          >
-            Explore Solutions <ArrowRight size={17} />
-          </Link>
+          {isLogged ? (
+            <Link to="/dashboard"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                padding: '14px 28px', borderRadius: '14px',
+                background: 'var(--color-primary)', color: '#fff',
+                fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+                boxShadow: '0 8px 28px rgba(255,107,53,0.32)',
+                transition: 'all 0.25s ease',
+              }}
+              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.42)'; }}
+              onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(255,107,53,0.32)'; }}
+            >
+              Go to Dashboard <ArrowRight size={17} />
+            </Link>
+          ) : (
+            <Link to="/services"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                padding: '14px 28px', borderRadius: '14px',
+                background: 'var(--color-primary)', color: '#fff',
+                fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+                boxShadow: '0 8px 28px rgba(255,107,53,0.32)',
+                transition: 'all 0.25s ease',
+              }}
+              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.42)'; }}
+              onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(255,107,53,0.32)'; }}
+            >
+              Explore Solutions <ArrowRight size={17} />
+            </Link>
+          )}
           <Link to="/docs"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
@@ -532,6 +556,8 @@ function CTASection() {
 export default function Home() {
   // Delay matches PageWrapper's 300ms skeleton + buffer
   useScrollReveal('home');
+
+
 
   return (
     <PageWrapper title="Home">

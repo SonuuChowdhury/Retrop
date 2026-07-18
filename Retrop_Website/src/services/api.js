@@ -9,12 +9,20 @@ const getHeaders = () => {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
   };
-  const token = localStorage.getItem('retrop_owner_token');
+  const token = localStorage.getItem('retrop_portal_token') || localStorage.getItem('retrop_owner_token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  const selectedRest = sessionStorage.getItem('retrop_selected_restaurant');
+  if (selectedRest) {
+    headers['X-Restaurant-Id'] = selectedRest;
+    headers['X-Product-Key'] = selectedRest;
+  }
   return headers;
 };
+
+
+
 
 const handleResponse = async (response) => {
   const data = await response.json().catch(() => ({}));
@@ -474,4 +482,113 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  // ── Portal Auth (new user system) ─────────────────────────────────────────
+
+  portalRequestSignupOtp: async (name, email) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/signup/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ name, email }),
+    });
+    return handleResponse(response);
+  },
+
+  portalVerifySignupOtp: async (name, email, otp) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/signup/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ name, email, otp }),
+    });
+    return handleResponse(response);
+  },
+
+  portalSetSignupPassword: async (userId, password) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/signup/set-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ userId, password }),
+    });
+    return handleResponse(response);
+  },
+
+  portalLogin: async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ email, password }),
+    });
+    return handleResponse(response);
+  },
+
+  portalGoogleAuth: async (idToken) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ idToken }),
+    });
+    return handleResponse(response);
+  },
+
+  portalRequestForgotOtp: async (email) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/forgot-password/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse(response);
+  },
+
+  portalVerifyForgotOtp: async (email, otp) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/forgot-password/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ email, otp }),
+    });
+    return handleResponse(response);
+  },
+
+  portalResetPassword: async (resetToken, newPassword) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/forgot-password/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ resetToken, newPassword }),
+    });
+    return handleResponse(response);
+  },
+
+  portalLogout: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/logout`, {
+      method: 'POST',
+      headers: getHeaders(),
+    }).catch(() => ({ ok: true }));
+    return response.ok ? { success: true } : handleResponse(response);
+  },
+
+  portalGetMe: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/me`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  portalUpdateProfile: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/profile`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  portalChangePassword: async (currentPassword, newPassword) => {
+    const response = await fetch(`${API_BASE_URL}/api/portal/auth/change-password`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    return handleResponse(response);
+  },
 };
+
