@@ -12,6 +12,8 @@ import CookieConsent from './components/CookieConsent';
 // ── Public Website Pages ─────────────────────────────────────────────────────
 import Home          from './pages/Home';
 import Services      from './pages/Services';
+import Downloads     from './pages/Downloads';
+import DownloadApp   from './pages/DownloadApp';
 import About         from './pages/About';
 import Contact       from './pages/Contact';
 import NotFound      from './pages/NotFound';
@@ -48,6 +50,8 @@ export default function App() {
           {/* ── Public Website ─────────────────────────────────────────────── */}
           <Route path="/"         element={<Home />}     />
           <Route path="/services" element={<Services />} />
+          <Route path="/downloads"          element={<Downloads />} />
+          <Route path="/downloads/:appId"   element={<DownloadApp />} />
           <Route path="/about"    element={<About />}    />
           <Route path="/contact"  element={<Contact />}  />
 

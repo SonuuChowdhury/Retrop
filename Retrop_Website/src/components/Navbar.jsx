@@ -11,6 +11,7 @@ const navLinks = [
   { to: '/',         label: 'Home'     },
   { to: '/services', label: 'Services' },
   { to: '/docs',     label: 'Docs'     },
+  { to: '/downloads', label: 'Downloads' },
   { to: '/about',    label: 'About'    },
   { to: '/contact',  label: 'Contact'  },
 ];
@@ -194,7 +195,9 @@ export default function Navbar() {
       </div>
 
       {/* Push page content below fixed navbar */}
-      <div style={{ height: '90px' }} aria-hidden="true" />
+      {location.pathname !== '/' && (
+        <div style={{ height: '90px' }} aria-hidden="true" />
+      )}
 
       <style>{`
         /* ── Float wrapper ─────────────────────────────────────────────── */
