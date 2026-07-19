@@ -14,3 +14,5 @@ output.txt
 output.md
 scripts
 *.md
+.data/
+data/
