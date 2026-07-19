@@ -216,10 +216,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Push page content below fixed navbar */}
-      {location.pathname !== '/' && (
-        <div style={{ height: '90px' }} aria-hidden="true" />
-      )}
+
 
       <style>{`
         /* ── Float wrapper ─────────────────────────────────────────────── */

@@ -5,7 +5,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import DocsLayout from '../../components/DocsLayout';
-import { ArrowRight, Smartphone, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, Smartphone, ShoppingCart, LayoutDashboard, Lightbulb } from 'lucide-react';
 
 export default function RMSOverview() {
   return (
@@ -49,7 +49,7 @@ export default function RMSOverview() {
       </p>
 
       <div className="docs-callout tip">
-        <div>💡</div>
+        <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p><strong>Tip:</strong> Retrop RMS is cloud-based, meaning your data is securely synced and accessible from any device, anywhere — with no local installation required.</p>
       </div>
 
@@ -85,15 +85,12 @@ export default function RMSOverview() {
         From a single café to a restaurant group with multiple locations — RMS scales to fit your needs.
       </p>
 
-      <div className="docs-callout warning">
-        <div>⚠️</div>
-        <p><strong>Note:</strong> During the current early-access phase, accounts are provisioned by the Retrop team. Self-service sign-up is coming soon. <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact us</a> to get onboarded.</p>
-      </div>
+
 
       <h2 id="getting-started">Getting Started</h2>
       <p>Here's the typical onboarding flow for new restaurants:</p>
       <ol>
-        <li><strong>Account Provisioning</strong> — The Retrop team creates your Owner account and sends you login credentials.</li>
+        <li><strong>Account Creation</strong> — Sign up directly via the portal or have your Owner account provisioned by the Retrop team.</li>
         <li><strong>Initial Setup</strong> — Log in to the Owner's Portal and configure your restaurant profile, menu categories, and ingredient inventory.</li>
         <li><strong>Add Your Team</strong> — Create staff accounts and assign roles (Kitchen, Floor Staff, Manager).</li>
         <li><strong>Set Up Vendors</strong> — Add your ingredient suppliers and set reorder quantities.</li>
@@ -105,7 +102,7 @@ export default function RMSOverview() {
       <p>Retrop RMS is fully cloud-based and works on any modern browser:</p>
       <ul>
         <li><strong>Owner's Portal:</strong> Any device with a modern browser (Chrome, Firefox, Safari, Edge)</li>
-        <li><strong>Mobile App:</strong> Android 8.0+ or iOS 13+</li>
+        <li><strong>Mobile App:</strong> Android 8.0+</li>
         <li><strong>Ordering System:</strong> Any smartphone with a QR scanner (built into the camera app)</li>
         <li><strong>Internet:</strong> Stable internet connection recommended; offline queuing available for ordering</li>
       </ul>

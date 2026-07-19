@@ -5,7 +5,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import DocsLayout from '../../components/DocsLayout';
-import { ArrowRight } from 'lucide-react';
+import {
+  ArrowRight, Info, Lightbulb, Zap, BarChart3, Utensils,
+  LayoutGrid, Users, DollarSign, Home, FileText, CreditCard,
+  ClipboardList, Clock, CheckCircle2, Bell
+} from 'lucide-react';
 
 export default function RMSApp() {
   return (
@@ -32,140 +36,314 @@ export default function RMSApp() {
         <ul>
           <li><a href="#installation">Installation & Login</a></li>
           <li><a href="#roles">User Roles in the App</a></li>
-          <li><a href="#home-screen">Home Screen</a></li>
-          <li><a href="#order-management">Order Management</a></li>
-          <li><a href="#inventory-check">Inventory Check</a></li>
-          <li><a href="#task-list">Task List</a></li>
-          <li><a href="#notifications">Notifications</a></li>
-          <li><a href="#profile-settings">Profile & Settings</a></li>
+          <li><a href="#manager-dashboard">1. Manager Dashboard</a></li>
+          <li><a href="#waiter-dashboard">2. Waiter Dashboard</a></li>
+          <li><a href="#kitchen-dashboard">3. Kitchen Dashboard (KDS)</a></li>
+          <li><a href="#system-flow">4. End-to-End Inter-Dashboard Flow</a></li>
         </ul>
       </div>
 
       <h2 id="installation">Installation & Login</h2>
       <p>
-        The Retrop RMS app is available for both Android and iOS. Your restaurant owner will share
+        The Retrop RMS app is available for Android. Your restaurant owner will share
         your staff credentials when they set up your account.
       </p>
       <h3>Steps to get started:</h3>
       <ol>
-        <li>Download the <strong>Retrop RMS</strong> app from the Google Play Store or Apple App Store.</li>
-        <li>Open the app and enter your <strong>staff email</strong> and the <strong>temporary password</strong> provided by your manager.</li>
-        <li>On first login, you'll be prompted to <strong>set a new password</strong>. Choose something memorable and at least 6 characters.</li>
+        <li>Download the latest <strong>Retrop RMS</strong> app from the <Link to="/downloads" style={{ color: 'var(--color-primary)' }}>Downloads section</Link>.</li>
+        <li>Open the app settings, go to <strong>App Authentication</strong>, and scan the authentication QR code provided in the owner's email.</li>
+        <li>Enter your <strong>mobile number</strong> and <strong>password</strong> provided by your manager.</li>
         <li>Once logged in, the app automatically loads your <strong>role-specific dashboard</strong>.</li>
       </ol>
 
       <div className="docs-callout info">
-        <div>ℹ️</div>
+        <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p>If you forget your password, contact your restaurant owner or manager. Password resets for staff accounts are managed by the owner through the Owner's Portal.</p>
       </div>
 
       <h2 id="roles">User Roles in the App</h2>
-      <p>The mobile app shows different screens and permissions based on the role assigned to your account:</p>
+      <p>The mobile app shows specialized dashboards and permissions based on the role assigned to your account:</p>
       <ul>
-        <li><strong>Kitchen Staff</strong> — View incoming orders, mark items as prepared, see ingredient usage for each dish</li>
-        <li><strong>Waiter / Floor Staff</strong> — Take orders at tables, send orders to kitchen, update table status</li>
-        <li><strong>Manager</strong> — All of the above, plus access to inventory counts, low-stock alerts, and daily summaries</li>
+        <li><strong>Manager</strong> — Operational command center, live analytics, menu stock toggles, table layout, staff management, expense logs, and end-of-day closure.</li>
+        <li><strong>Waiter / Floor Staff</strong> — Table management, POS order creation, running KOT updates, order status tracking, serving, and bill settlement.</li>
+        <li><strong>Kitchen Staff</strong> — Kitchen Display System (KDS) Kanban board, order timers, item-level prep check-off, and ready alerts.</li>
       </ul>
-      <p>Role permissions are configured by the restaurant owner in the Owner's Portal and cannot be changed from the mobile app.</p>
+      <p>Role permissions are configured by the restaurant owner in the Owner's Portal and enforced securely via backend authentication.</p>
 
-      <h2 id="home-screen">Home Screen</h2>
+      {/* ── 1. MANAGER DASHBOARD ─────────────────────────────────────────────── */}
+      <h2 id="manager-dashboard">1. Manager Dashboard</h2>
       <p>
-        The Home Screen is your command center. It shows you the most important information at a glance:
+        The Manager Dashboard gives managers and owners complete operational control over the restaurant directly from their smartphone.
       </p>
-      <ul>
-        <li><strong>Active Orders</strong> — A live count of orders currently being processed</li>
-        <li><strong>Today's Summary</strong> — Covers served, pending, and cancelled orders for the current shift</li>
-        <li><strong>Low Stock Alerts</strong> — Items flagged as below the set reorder threshold (Manager role only)</li>
-        <li><strong>Quick Actions</strong> — Shortcuts to New Order, Inventory, and Task List</li>
-        <li><strong>Shift Status</strong> — Whether you're currently clocked in or out</li>
-      </ul>
 
-      <h2 id="order-management">Order Management</h2>
-      <p>
-        The Orders section is the most used part of the app. Here, you can view, manage, and track every order placed in your restaurant.
-      </p>
-      <h3>Order statuses</h3>
-      <ul>
-        <li><code>Pending</code> — Order received, not yet acknowledged by the kitchen</li>
-        <li><code>Confirmed</code> — Kitchen has acknowledged the order</li>
-        <li><code>Preparing</code> — Items are being prepared in the kitchen</li>
-        <li><code>Ready</code> — Order is ready for serving or pickup</li>
-        <li><code>Served</code> — Order has been delivered to the customer</li>
-        <li><code>Cancelled</code> — Order was cancelled (reason recorded)</li>
-      </ul>
-
-      <h3>Placing an order (Waiter role)</h3>
-      <ol>
-        <li>Tap <strong>"New Order"</strong> on the home screen or Orders tab.</li>
-        <li>Select the <strong>table number</strong> from the floor plan.</li>
-        <li>Browse the menu by category and tap items to add them to the order.</li>
-        <li>Adjust quantities, add special instructions for each item if needed.</li>
-        <li>Tap <strong>"Send to Kitchen"</strong>. The order is immediately visible on the kitchen's screen.</li>
-        <li>Track the order status in real time from the Orders list.</li>
-      </ol>
-
-      <h3>Managing orders (Kitchen role)</h3>
-      <ol>
-        <li>New orders appear automatically on the Kitchen Orders screen.</li>
-        <li>Tap an order to view the full item list and any special instructions.</li>
-        <li>Tap <strong>"Start Preparing"</strong> to change the status to <code>Preparing</code>.</li>
-        <li>Once items are ready, tap <strong>"Mark as Ready"</strong> — this notifies the floor staff.</li>
-      </ol>
-
-      <div className="docs-callout tip">
-        <div>💡</div>
-        <p>Enable push notifications in your phone settings to receive instant alerts when an order is placed or when a status changes.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', margin: '24px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Zap size={16} color="var(--color-primary)" /> Live Operations & Master Toggle
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Toggle restaurant ordering ON/OFF instantly. Real-time KPIs for Today's Revenue, Total Orders, Occupied Tables, Active Waiters, and Pending Orders.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={16} color="var(--color-primary)" /> Analytics & Business Reports
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Filter by Today, Last 7 Days, Last 30 Days, or Custom Range. View gross revenue, AOV, payment method split (Cash, Card, UPI), top dishes, and peak rush hours.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Utensils size={16} color="var(--color-primary)" /> Menu Stock & Price Control
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            1-tap In-Stock / Out-of-Stock toggle per item to prevent orders for sold-out dishes. Price editing, category search, and menu item visibility.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <LayoutGrid size={16} color="var(--color-primary)" /> Floor Plan & QR Generator
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Visual floor layout with live statuses (Available, Occupied, Billed, Reserved). View and generate QR codes for customer self-ordering.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Users size={16} color="var(--color-primary)" /> Staff & Kitchen Management
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Create waiter and kitchen logins, view online shift status, and manage active order safety guards (prevents deleting staff with active orders).
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DollarSign size={16} color="var(--color-primary)" /> Expense Logger & EOD Day Close
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Log daily petty cash expenses (ingredients, repairs, advances). Perform End-of-Day register closure and drawer cash reconciliation.
+          </p>
+        </div>
       </div>
 
-      <h2 id="inventory-check">Inventory Check</h2>
+      <h3>Manager App Modules & Functionalities:</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px', fontSize: '14px' }}>
+        <thead>
+          <tr style={{ background: 'var(--color-bg-subtle)', borderBottom: '2px solid var(--color-border)', textAlign: 'left' }}>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>App Section</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Page Name</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Key Capabilities & Functions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Dashboard Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Operations Dashboard</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Master open/close toggle, real-time KPI counters, quick links to modules.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Analytics Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Analytics & Reports</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Revenue totals, payment method split, top-selling items, peak rush hour charts.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Menu & Stock Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Menu & Stock Control</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Toggle item availability (In-Stock / Out-of-Stock), edit prices, search & filter categories.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Floor Tables Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Table Floor Plan</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>View live table occupation statuses, generate table QR codes for customer self-ordering.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Waiters Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Waiter Management</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Add/remove waiters, view online status, safe deletion guard for active orders.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Kitchen Stations Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Kitchen KDS Accounts</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Provision kitchen display accounts, station assignments, active status toggles.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Expenses Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Expense Logger</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Log operational costs (ingredients, repairs, staff advance), category summary.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Day Close Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>EOD Shift Closure</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Drawer cash reconciliation, shift summary report, locking register session.</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Restaurant Info Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Restaurant Profile</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Edit restaurant name, phone, address, GSTIN, and tax settings.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ── 2. WAITER DASHBOARD ─────────────────────────────────────────────── */}
+      <h2 id="waiter-dashboard">2. Waiter Dashboard</h2>
       <p>
-        Managers and owners can perform quick inventory checks from the mobile app. This is useful
-        during morning setup or before a busy shift.
+        The Waiter Dashboard empowers floor staff to take orders, manage tables, monitor kitchen prep in real time, and settle customer bills.
       </p>
-      <ul>
-        <li>Navigate to <strong>Inventory</strong> from the bottom navigation bar.</li>
-        <li>View all ingredients grouped by category (Vegetables, Proteins, Dairy, Dry Goods, etc.).</li>
-        <li>Tap any item to view its current stock level, unit, reorder threshold, and last updated time.</li>
-        <li>Use the <strong>"Update Stock"</strong> button to log a quantity adjustment (e.g., after a delivery arrives).</li>
-        <li>Items highlighted in <span style={{ color: 'var(--color-danger)' }}>red</span> are below their reorder threshold — a purchase order should be raised.</li>
-      </ul>
 
-      <h2 id="task-list">Task List</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', margin: '24px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Home size={16} color="var(--color-primary)" /> Waiter Home Command Center
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Overview of assigned tables, active order badges, real-time alert banners for ready orders, and shift summary counters.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={16} color="var(--color-primary)" /> POS Order Creation
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Interactive menu browser with search, category tabs, quantity buttons, and custom item cooking instructions (e.g. "Less spicy").
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Zap size={16} color="var(--color-primary)" /> Active Orders Stream
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Live status stream grouped by Pending, Cooking, Ready, Served, and Bill Requested. Auto-refreshes in real time.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CreditCard size={16} color="var(--color-primary)" /> Order Detail & Billing
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Add items to active running orders (Running KOT), mark items as Served, request customer bill, and conclude payment (Cash/Card/UPI) to clear table.
+          </p>
+        </div>
+      </div>
+
+      <h3>Waiter App Sections & Functionalities:</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px', fontSize: '14px' }}>
+        <thead>
+          <tr style={{ background: 'var(--color-bg-subtle)', borderBottom: '2px solid var(--color-border)', textAlign: 'left' }}>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>App Section</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Page Name</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Key Capabilities & Functions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Home Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Waiter Home</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Assigned table grid, active order counter, push notification banners, audio ready alerts.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Active Orders Tab</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Active Orders Stream</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Filterable live stream of table orders grouped by status with automatic real-time updates.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Create Order Screen</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Create New Order</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Table selector, category menu picker, item search, custom kitchen notes, Send KOT button.</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Order Detail Screen</td>
+            <td style={{ padding: '12px 16px', fontWeight: 600 }}>Order Detail & Settlement</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Add running KOT items, mark items as Served, print/request bill, process payment & free table.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ── 3. KITCHEN DASHBOARD ─────────────────────────────────────────────── */}
+      <h2 id="kitchen-dashboard">3. Kitchen Dashboard (KDS)</h2>
       <p>
-        The Task List feature allows managers to assign daily tasks to staff members — such as cleaning schedules,
-        prep work, or equipment checks.
+        The Kitchen Dashboard serves as the Kitchen Display System (KDS). It converts orders into digital kitchen tickets arranged in a real-time horizontal Kanban board.
       </p>
-      <ul>
-        <li>Staff can view tasks assigned to them under the <strong>Tasks</strong> tab.</li>
-        <li>Tap a task to view details, due time, and priority level.</li>
-        <li>Mark tasks as <strong>Complete</strong> once done — this is visible to the manager in real time.</li>
-        <li>Managers can create, edit, and assign tasks from either the app or the Owner's Portal.</li>
-      </ul>
 
-      <h2 id="notifications">Notifications</h2>
-      <p>The Retrop RMS app sends push notifications for important events:</p>
-      <ul>
-        <li>New order received (Kitchen staff)</li>
-        <li>Order marked as ready (Floor staff)</li>
-        <li>Low-stock alert triggered (Managers)</li>
-        <li>Task assigned or overdue (All staff)</li>
-        <li>Shift reminder (All staff)</li>
-      </ul>
-      <p>Notification preferences can be adjusted in the app's <strong>Settings → Notifications</strong> screen.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', margin: '24px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ClipboardList size={16} color="var(--color-primary)" /> Real-Time Kanban Board
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            4 columns: <strong>Queue / New</strong> ➔ <strong>Preparing / Cooking</strong> ➔ <strong>Ready for Pickup</strong> ➔ <strong>Completed History</strong>.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Clock size={16} color="var(--color-primary)" /> Elapsed Urgency Timers
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Color-coded timers tracking elapsed time: Normal (&lt;10m), Warning (10-20m), Overdue (&gt;20m).
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={16} color="var(--color-primary)" /> Item-Level Prep Check-Off
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Chefs can tap and check off individual dishes on a ticket as they finish cooking them.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Bell size={16} color="var(--color-primary)" /> Instant Waiter Ready Alerts
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Tapping <strong>Mark Ready</strong> moves ticket to Ready and triggers an instant chime & push alert on the waiter's device.
+          </p>
+        </div>
+      </div>
 
-      <h2 id="profile-settings">Profile & Settings</h2>
-      <p>Access your profile from the bottom navigation bar or the top-right avatar icon.</p>
-      <ul>
-        <li><strong>Profile</strong> — View and update your display name and contact number.</li>
-        <li><strong>Change Password</strong> — Update your account password at any time.</li>
-        <li><strong>Language</strong> — Switch the app language (Hindi and English currently supported).</li>
-        <li><strong>Theme</strong> — Toggle between Light and Dark mode.</li>
-        <li><strong>Log Out</strong> — Sign out of your account. You'll need your credentials to log back in.</li>
-      </ul>
+      <div className="docs-callout tip">
+        <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+        <p>The Kitchen KDS plays a loud audio chime whenever a new order is received over the network so chefs never miss an incoming ticket during busy rushes.</p>
+      </div>
 
-      <div className="docs-callout warning">
-        <div>⚠️</div>
-        <p>Logging out clears your session. If you share a device with other staff, make sure to log out when done to protect your account.</p>
+      {/* ── 4. END-TO-END SYSTEM FLOW ────────────────────────────────────────── */}
+      <h2 id="system-flow">4. End-to-End Inter-Dashboard Flow</h2>
+      <p>
+        Here is how all 3 dashboards operate together in real time during a live dining session:
+      </p>
+
+      <div style={{ padding: '24px', borderRadius: '20px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', marginBottom: '32px' }}>
+        <ol style={{ margin: 0, paddingLeft: '20px', lineHeight: 1.85, fontSize: '14.5px', color: 'var(--color-text)' }}>
+          <li style={{ marginBottom: '16px' }}>
+            <strong>Order Placement (Waiter POS / Digital QR):</strong>
+            <br />
+            A waiter enters an order on the <strong>New Order POS screen</strong> or a customer scans Table 4 QR code. The order is submitted instantly.
+          </li>
+          <li style={{ marginBottom: '16px' }}>
+            <strong>Automatic Real-Time Dispatch:</strong>
+            <br />
+            The system registers the order (Status: <strong>Pending</strong>) and immediately transmits it to the kitchen display screen along with a notification alert.
+          </li>
+          <li style={{ marginBottom: '16px' }}>
+            <strong>Kitchen KDS Processing:</strong>
+            <br />
+            The <strong>Kitchen Display Screen</strong> chimes and displays the ticket in the <strong>Queue</strong> column. Chef taps <strong>Start Preparing</strong> (Status: <strong>Preparing</strong>).
+          </li>
+          <li style={{ marginBottom: '16px' }}>
+            <strong>Ready Alert & Serving:</strong>
+            <br />
+            When cooking finishes, chef taps <strong>Mark Ready</strong>. The assigned waiter's smartphone chimes with a notification banner. Waiter picks up the dish and taps <strong>Mark Served</strong> on the <strong>Order & Billing screen</strong>.
+          </li>
+          <li style={{ marginBottom: '16px' }}>
+            <strong>Billing & Table Clearance:</strong>
+            <br />
+            Guest requests bill. Waiter generates bill and processes payment (Cash, Card, UPI). Waiter taps <strong>Conclude Payment</strong>, updating order status to <strong>Completed</strong> and resetting Table 4 back to <strong>Available</strong>.
+          </li>
+          <li>
+            <strong>Manager Real-Time Sync & Shift Close:</strong>
+            <br />
+            Revenue, sales metrics, and tax data update live in the <strong>Manager Dashboard</strong> and <strong>Analytics section</strong>. At the end of the shift, the manager uses the <strong>Day Close section</strong> to perform cash drawer reconciliation and generate the EOD report.
+          </li>
+        </ol>
       </div>
 
       {/* Navigation */}

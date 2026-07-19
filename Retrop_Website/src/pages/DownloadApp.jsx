@@ -259,7 +259,7 @@ export default function DownloadApp() {
         .app-detail-container {
           max-width: 900px;
           margin: 0 auto;
-          padding: 40px 24px 96px;
+          padding: 108px 24px 80px;
         }
         .back-link {
           display: inline-flex;
@@ -519,7 +519,7 @@ export default function DownloadApp() {
         /* ── Responsive Overrides ───────────────────────────────────────── */
         @media (max-width: 640px) {
           .app-detail-container {
-            padding: 24px 16px 64px;
+            padding: 92px 16px 48px;
           }
           .back-link {
             margin-bottom: 24px;

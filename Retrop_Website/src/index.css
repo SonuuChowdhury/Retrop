@@ -93,7 +93,17 @@
 }
 
 html {
-  /* removed smooth scroll */
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
+
+:target,
+h1[id],
+h2[id],
+h3[id],
+h4[id],
+[id] {
+  scroll-margin-top: 100px;
 }
 
 body {

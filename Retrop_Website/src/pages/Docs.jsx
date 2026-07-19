@@ -34,7 +34,7 @@ export default function Docs() {
           <div className="container">
             <div style={{ marginBottom: '16px' }}>
               <h2 style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-subtle)', marginBottom: '24px' }}>
-                Retrop RMS · Business Management System
+                Retrop RMS · Restaurant Management System
               </h2>
               <div className="services-grid">
                 {docsCards.map(({ icon: Icon, title, desc, to }) => (

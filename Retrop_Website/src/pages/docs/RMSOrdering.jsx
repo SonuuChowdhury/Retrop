@@ -5,7 +5,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import DocsLayout from '../../components/DocsLayout';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lightbulb, Info } from 'lucide-react';
 
 export default function RMSOrdering() {
   return (
@@ -55,7 +55,7 @@ export default function RMSOrdering() {
       </ol>
 
       <div className="docs-callout tip">
-        <div>💡</div>
+        <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p>The ordering system is also accessible on a staff-operated device — waiters can place orders on behalf of customers by scanning the same QR code or using the staff app's manual ordering mode.</p>
       </div>
 
@@ -98,7 +98,7 @@ export default function RMSOrdering() {
       </ol>
 
       <div className="docs-callout info">
-        <div>ℹ️</div>
+        <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p>No login or app download is required for customers. The ordering menu works entirely in the mobile browser.</p>
       </div>
 

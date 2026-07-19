@@ -372,7 +372,7 @@ function ServicesSection() {
               </div>
               <div>
                 <h3 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '2px' }}>Retrop RMS</h3>
-                <p style={{ fontSize: '13px', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>Business Management System</p>
+                <p style={{ fontSize: '13px', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>Restaurant Management System</p>
               </div>
             </div>
             <span className="badge badge-success">Live Now</span>

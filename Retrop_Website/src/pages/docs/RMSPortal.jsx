@@ -5,7 +5,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import DocsLayout from '../../components/DocsLayout';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lightbulb, AlertTriangle } from 'lucide-react';
 
 export default function RMSPortal() {
   return (
@@ -71,7 +71,7 @@ export default function RMSPortal() {
       </ul>
 
       <div className="docs-callout tip">
-        <div>💡</div>
+        <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p>Bookmark the dashboard link in your browser for quick daily access. The portal stays logged in for 7 days before requiring re-authentication.</p>
       </div>
 
@@ -226,7 +226,7 @@ export default function RMSPortal() {
       </ul>
 
       <div className="docs-callout warning">
-        <div>⚠️</div>
+        <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
         <p>Regenerating a table's QR code invalidates the old one. If you reprint, make sure to replace all physical copies of that table's QR code.</p>
       </div>
 

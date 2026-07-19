@@ -47,17 +47,14 @@ export default function Services() {
                   </div>
                   <div>
                     <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.8px', marginBottom: '2px' }}>Retrop RMS</h2>
-                    <p style={{ fontSize: '13px', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>Business Management System</p>
+                    <p style={{ fontSize: '13px', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>Restaurant Management System</p>
                   </div>
                 </div>
                 <span className="badge badge-success" style={{ alignSelf: 'flex-start' }}>Available Now</span>
               </div>
 
               <p style={{ fontSize: '16px', color: 'var(--color-text-muted)', lineHeight: 1.85, marginBottom: '28px' }}>
-                Retrop RMS is our flagship product — a comprehensive business management platform that helps
-                organizations automate their day-to-day operations. From real-time inventory tracking and
-                intelligent cost analysis to team coordination and digital ordering, RMS gives you everything
-                you need to run a smarter, leaner, more profitable operation.
+                Retrop RMS is our flagship product — a comprehensive restaurant &amp; café management platform tailored for restaurants, cafes, and food service businesses to automate their day-to-day operations. From real-time inventory tracking and intelligent cost analysis to kitchen-to-team coordination and digital QR ordering, RMS gives you everything you need to run a smarter, leaner, and more profitable restaurant or cafe.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '12px', marginBottom: '32px' }}>
