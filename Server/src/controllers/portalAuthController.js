@@ -397,7 +397,7 @@ export const portalAuthController = {
       const { data: user } = await supabase.from('portal_user').select('userId').eq('email', emailLower).maybeSingle();
       if (!user) return res.status(400).json({ success: false, message: 'User not found' });
 
-      const resetToken = jwt.sign({ userId: user.userId, purpose: 'password_reset' }, PORTAL_JWT_SECRET, { expiresIn: '15m' });
+      const resetToken = jwt.sign({ userId: user.userId, purpose: 'password_reset' }, getPortalJwtSecret(), { expiresIn: '15m' });
 
       return res.status(200).json({ success: true, data: { resetToken } });
     } catch (err) {
@@ -419,7 +419,7 @@ export const portalAuthController = {
 
       let decoded;
       try {
-        decoded = jwt.verify(resetToken, PORTAL_JWT_SECRET);
+        decoded = jwt.verify(resetToken, getPortalJwtSecret());
       } catch {
         return res.status(400).json({ success: false, message: 'Reset token is invalid or expired' });
       }
