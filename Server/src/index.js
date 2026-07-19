@@ -29,21 +29,71 @@ app.use(helmetMiddleware);
 app.use(generalLimiter);
 
 // ===== CORS Middleware =====
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
+const defaultProductionOrigins = [
+  'https://retrop.vercel.app',
+  'https://retrop-rms.vercel.app',
+  'https://retrop-admin.vercel.app'
+];
+
+const envAllowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174', 'http://localhost:5180'];
+  : [];
+
+const productionOrigins = Array.from(new Set([...defaultProductionOrigins, ...envAllowedOrigins]));
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow non-browser requests (e.g. native mobile apps, server-to-server, curl)
     if (!origin) return callback(null, true);
-    if (process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (!isProduction) {
+      // Development mode: Allow localhost, 127.0.0.1, and ngrok tunnels
+      if (
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.endsWith('.ngrok-free.app') ||
+        origin.endsWith('.ngrok.io')
+      ) {
+        return callback(null, true);
+      }
+    }
+
+    // Check allowed production origins or any *.vercel.app deployment URL
+    try {
+      const hostname = new URL(origin).hostname;
+      if (
+        productionOrigins.includes(origin) ||
+        hostname === 'retrop.vercel.app' ||
+        hostname.endsWith('.vercel.app')
+      ) {
+        return callback(null, true);
+      }
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+
+    // Development fallback
+    if (!isProduction) {
       return callback(null, true);
     }
+
+    logger.warn(`CORS blocked request from origin: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'X-Requested-With', 'X-Product-Key', 'x-product-key', 'X-Restaurant-Id', 'x-restaurant-id'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'ngrok-skip-browser-warning',
+    'X-Requested-With',
+    'X-Product-Key',
+    'x-product-key',
+    'X-Restaurant-Id',
+    'x-restaurant-id'
+  ],
 }));
 
 
