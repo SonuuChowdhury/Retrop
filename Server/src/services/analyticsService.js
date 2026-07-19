@@ -13,27 +13,36 @@ const inMemorySessions = new Map();
 const inMemoryVisitorIds = new Set();
 
 // Disk persistence fallback directory and file path
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = path.resolve(process.cwd(), '.data');
 const BACKUP_FILE = path.join(DATA_DIR, 'website_analytics_backup.json');
 
-// Save sessions to disk backup file
+let diskSaveTimer = null;
+
+// Save sessions to disk backup file (debounced every 3 seconds to avoid triggering file watches)
 function saveDiskBackup() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (diskSaveTimer) return;
+  diskSaveTimer = setTimeout(() => {
+    diskSaveTimer = null;
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const array = Array.from(inMemorySessions.values());
+      fs.writeFileSync(BACKUP_FILE, JSON.stringify(array, null, 2), 'utf-8');
+    } catch (err) {
+      logger.error('GOD DEBUG: Disk backup write failed:', err.message);
     }
-    const array = Array.from(inMemorySessions.values());
-    fs.writeFileSync(BACKUP_FILE, JSON.stringify(array, null, 2), 'utf-8');
-  } catch (err) {
-    logger.error('GOD DEBUG: Disk backup write failed:', err.message);
-  }
+  }, 3000);
 }
 
 // Load sessions from disk backup file
 function loadDiskBackup() {
   try {
-    if (fs.existsSync(BACKUP_FILE)) {
-      const raw = fs.readFileSync(BACKUP_FILE, 'utf-8');
+    const legacyFile = path.resolve(process.cwd(), 'data', 'website_analytics_backup.json');
+    const targetFile = fs.existsSync(BACKUP_FILE) ? BACKUP_FILE : (fs.existsSync(legacyFile) ? legacyFile : null);
+
+    if (targetFile) {
+      const raw = fs.readFileSync(targetFile, 'utf-8');
       const array = JSON.parse(raw);
       if (Array.isArray(array)) {
         array.forEach(s => {
@@ -42,7 +51,7 @@ function loadDiskBackup() {
             if (s.visitorId) inMemoryVisitorIds.add(s.visitorId);
           }
         });
-        logger.info(`GOD DEBUG: Loaded ${array.length} analytics session records from local disk persistence.`);
+        logger.info(`Loaded ${array.length} analytics session records from local disk storage.`);
       }
     }
   } catch (err) {
@@ -131,8 +140,8 @@ export const analyticsService = {
           updated_at: new Date().toISOString()
         }], { onConflict: 'session_id' });
 
-        if (sbErr) {
-          logger.warn(`GOD DEBUG: Supabase website_analytics notice: ${sbErr.message}`);
+        if (sbErr && !sbErr.message.includes('Could not find the table')) {
+          logger.warn(`Supabase website_analytics notice: ${sbErr.message}`);
         }
       } catch (dbErr) {
         logger.error('GOD DEBUG: Exception upserting to website_analytics:', dbErr.message);
@@ -164,8 +173,8 @@ export const analyticsService = {
           updated_at: new Date().toISOString()
         }).eq('session_id', sessionId);
 
-        if (sbErr) {
-          logger.warn(`GOD DEBUG: Heartbeat update notice: ${sbErr.message}`);
+        if (sbErr && !sbErr.message.includes('Could not find the table')) {
+          logger.warn(`Heartbeat update notice: ${sbErr.message}`);
         }
       } catch (dbErr) {
         // Fallback to local memory & disk
