@@ -1,34 +1,187 @@
-/* ── Category tab bar ── */
+/* ============================================================================
+// MENU PAGE STYLES & WORLD-CLASS RESPONSIVE DESIGN FOR PC & MOBILE
+// ============================================================================ */
+
+/* Allow Menu page app shell to expand up to 1200px on PC/Desktop */
+.app-shell.menu-app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-shadow: 0 0 90px rgba(0, 0, 0, 0.6);
+  min-height: 100vh;
+}
+
+/* ── 1. Search & Filter Bar ─────────────────────────────────────────── */
+.menu-search-filter {
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 72px; /* Below StatusBar */
+  z-index: 95;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.menu-search-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.menu-search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.menu-search-input {
+  width: 100%;
+  padding: 10px 38px 10px 38px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.menu-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.menu-search-clear {
+  position: absolute;
+  right: 12px;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.menu-search-clear:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* Dietary Filter Pills */
+.menu-dietary-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+
+.menu-dietary-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.menu-dietary-pill {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.menu-dietary-pill:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.menu-dietary-pill--active {
+  background: var(--color-accent);
+  color: #0d0d0d !important;
+  border-color: var(--color-accent);
+  font-weight: 700;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.veg-icon-dot, .nonveg-icon-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1.5px solid;
+  position: relative;
+}
+
+.veg-icon-dot {
+  border-color: #4ade80;
+}
+
+.veg-icon-dot::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+  display: block;
+  margin: 1px auto;
+}
+
+.nonveg-icon-dot {
+  border-color: #f87171;
+}
+
+.nonveg-icon-dot::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f87171;
+  display: block;
+  margin: 1px auto;
+}
+
+/* ── 2. Sticky Category Tabs Bar ─────────────────────────────────────── */
 .menu-tabs {
   background: var(--color-surface-1);
   border-bottom: 1px solid var(--color-border);
   position: sticky;
-  top: 80px; /* below StatusBar — adjust if StatusBar height changes */
+  top: 145px; /* Below StatusBar + Search Filter */
   z-index: 90;
-  /* Prevent tab bar itself from overflowing */
   overflow: hidden;
   width: 100%;
 }
 
 .menu-tabs__scroll {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  /* Horizontal scroll container — NO wrapping */
   overflow-x: auto;
-  overflow-y: hidden;
-  /* Smooth momentum scrolling on iOS */
-  -webkit-overflow-scrolling: touch;
-  /* Snap tabs as user scrolls */
-  scroll-snap-type: x proximity;
-  /* Hide the scrollbar visually but keep scroll functionality */
-  scrollbar-width: none;  /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge */
-  /* Padding: left = start indent, right = breathing room after last tab */
-  padding: var(--space-2) var(--space-4);
-  gap: var(--space-2);
-  /* Prevent flex children from shrinking below their content */
-  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 10px 20px;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .menu-tabs__scroll::-webkit-scrollbar {
@@ -36,82 +189,148 @@
 }
 
 .menu-tabs__tab {
-  /* Never shrink — always show full pill text */
-  flex: 0 0 auto;
-  white-space: nowrap;
-  scroll-snap-align: start;
-
-  /* Pill styling */
-  padding: var(--space-2) var(--space-4);
+  padding: 7px 16px;
   border-radius: var(--radius-full);
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  background: transparent;
-  border: 1.5px solid transparent;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   cursor: pointer;
-  /* Smooth state transitions */
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  min-height: 36px;
-  /* GPU compositing for smoother transitions */
-  will-change: background, color;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
 }
 
 .menu-tabs__tab:hover {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
-  border-color: var(--color-border);
-}
-
-.menu-tabs__tab:active {
-  transform: scale(0.97);
 }
 
 .menu-tabs__tab--active {
-  background: var(--color-accent-light);
-  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-color: var(--color-accent);
   color: var(--color-accent);
-  font-weight: 600;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 15%, transparent);
+  font-weight: 700;
 }
 
-/* ── Menu content ── */
+.menu-tabs__tab--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.menu-tabs__count {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: currentColor;
+}
+
+/* ── 3. Main Content & Grid Layout ──────────────────────────────────── */
 .menu-content {
   flex: 1;
-  padding-top: var(--space-2);
-  /* Performance: use GPU layer for scroll container */
-  will-change: transform;
+  padding: 24px 20px;
+  width: 100%;
 }
 
 .menu-category {
-  margin-bottom: var(--space-8);
-  /* Performance: limit paint area */
-  contain: layout paint;
+  margin-bottom: 36px;
+}
+
+.menu-category__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  position: sticky;
+  top: 195px;
+  background: var(--color-bg);
+  z-index: 80;
+  padding-top: 4px;
 }
 
 .menu-category__title {
   font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.4rem;
+  font-weight: 700;
   color: var(--color-text-primary);
-  padding-block: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-2);
-  position: sticky;
-  top: 128px; /* below StatusBar + tabs */
-  background: var(--color-bg);
-  z-index: 80;
-  /* GPU acceleration to reduce repaint while sticky */
-  will-change: transform;
-  transform: translateZ(0);
+  margin: 0;
+  letter-spacing: -0.3px;
 }
 
+.menu-category__badge {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
+/* Responsive Grid across all devices */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
 
+/* On Desktop / PC Screens (>= 1024px) */
+@media (min-width: 1024px) {
+  .menu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+}
+
+/* Mobile Screens (< 640px) */
+@media (max-width: 639px) {
+  .menu-search-filter {
+    top: 60px;
+    padding: 10px 14px;
+  }
+  .menu-tabs {
+    top: 130px;
+  }
+  .menu-tabs__scroll {
+    padding: 8px 14px;
+  }
+  .menu-content {
+    padding: 16px 14px;
+  }
+  .menu-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Empty Menu / Search State */
 .menu-empty {
   text-align: center;
-  padding: var(--space-16) var(--space-6);
+  padding: 60px 20px;
+  background: var(--color-surface-1);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  margin: 40px auto;
+  max-width: 480px;
+}
+
+.menu-empty__icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.menu-empty h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.menu-empty p {
+  font-size: 0.88rem;
   color: var(--color-text-muted);
-  font-size: 0.9rem;
 }

@@ -148,6 +148,13 @@ select {
   }
 }
 
+@media (min-width: 768px) {
+  .app-shell.public-menu-shell,
+  .app-shell.menu-app-shell {
+    max-width: 1200px;
+  }
+}
+
 /* =============================================
    GLOBAL UTILITIES
    ============================================= */
