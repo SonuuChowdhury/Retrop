@@ -36,6 +36,7 @@ import {
   Menu as MenuToggleIcon,
   UploadCloud,
   Eye,
+  EyeOff,
   Search,
   RotateCcw,
   Filter,
