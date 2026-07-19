@@ -2,15 +2,13 @@
 // PAGE WRAPPER — Fade-in, dynamic page titles, and premium skeleton loader
 // ============================================================================
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
+import SEO from './SEO';
 
-export default function PageWrapper({ children, title }) {
+export default function PageWrapper({ children, title, description, schemaData }) {
   const [isLoading, setIsLoading] = useState(true);
-
-  // Update browser tab title
-  useEffect(() => {
-    document.title = title ? `${title} — Retrop` : 'Retrop';
-  }, [title]);
+  const location = useLocation();
 
   // Simulate premium skeleton loading transition
   useEffect(() => {
@@ -83,6 +81,7 @@ export default function PageWrapper({ children, title }) {
         animation: 'fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both'
       }}
     >
+      <SEO title={title} description={description} pathname={location.pathname} schemaData={schemaData} />
       <div aria-hidden="true" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at top left, rgba(255,107,53,0.08), transparent 32%), radial-gradient(circle at bottom right, rgba(99,102,241,0.05), transparent 30%)' }} />
       {children}
     </div>

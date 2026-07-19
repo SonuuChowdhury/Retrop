@@ -36,12 +36,16 @@ export default function PrivacyPolicy() {
             <li><strong>Communications:</strong> Messages sent to our support team</li>
           </ul>
 
-          <h3>1.2 Information collected automatically</h3>
+          <h3>1.2 Information collected automatically (Visitor Analytics & Telemetry)</h3>
+          <p>
+            When you visit or navigate our website, our server and automated analytics systems collect standard web telemetry data to measure performance, optimize user experience, and ensure security:
+          </p>
           <ul>
-            <li><strong>Usage Data:</strong> Pages visited, features used, session duration, and click patterns</li>
-            <li><strong>Device Information:</strong> Browser type, operating system, device model, IP address</li>
-            <li><strong>Log Data:</strong> Server logs including timestamps, errors, and API calls</li>
-            <li><strong>Cookies:</strong> Session cookies and preference cookies (see our Cookie Policy for details)</li>
+            <li><strong>Visitor Analytics:</strong> Unique visitor identifier tokens, returning visitor status, total pageviews, session duration, entry page, exit page, and bounce rate metrics.</li>
+            <li><strong>Device & System Specifications:</strong> Device category (Mobile, Tablet, Desktop), web browser type and version, operating system, screen resolution, system timezone, and network connection type.</li>
+            <li><strong>Network & Geographic Location:</strong> IP address (anonymized/hashed where applicable), estimated country, state, city, and Internet Service Provider (ISP).</li>
+            <li><strong>Traffic Source & Referral Data:</strong> Referring channel (Search engines such as Google, direct visits, social channels like Facebook, Instagram, LinkedIn, Twitter/X, or referral websites) and UTM campaign parameters (source, medium, campaign name).</li>
+            <li><strong>Log Data & Cookies:</strong> Server logs including request timestamps, system errors, API call latency, and essential session storage identifiers.</li>
           </ul>
 
           <h3>1.3 Customer order data</h3>
@@ -53,15 +57,16 @@ export default function PrivacyPolicy() {
 
           <h2>2. How We Use Your Information</h2>
           <ul>
-            <li>To provide, maintain, and improve our Services</li>
+            <li>To provide, maintain, and continuously optimize our Services</li>
             <li>To process and fulfil orders placed through the system</li>
+            <li>To analyze website performance, measure traffic sources, and evaluate marketing campaign effectiveness</li>
             <li>To authenticate users and manage account security</li>
             <li>To send you service-related communications (billing, support, updates)</li>
-            <li>To generate analytics and reports within your account</li>
-            <li>To detect and prevent fraud, abuse, or security incidents</li>
+            <li>To generate analytics and operational reports within your account</li>
+            <li>To detect, investigate, and prevent fraud, unauthorized access, or security incidents</li>
             <li>To comply with legal obligations</li>
           </ul>
-          <p>We do <strong>not</strong> sell your personal data to third parties. We do not use your data for advertising.</p>
+          <p>We do <strong>not</strong> sell your personal data or visitor analytics to third parties. We do not monetize your data for external advertising networks.</p>
 
           <h2>3. Data Storage & Security</h2>
           <p>

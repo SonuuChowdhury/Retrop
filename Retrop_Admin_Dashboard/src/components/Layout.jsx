@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { LayoutDashboard, Store, LogOut, User, Settings, CreditCard, Receipt, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Store, LogOut, User, Settings, CreditCard, Receipt, Menu, X, BarChart3 } from 'lucide-react';
 
 export default function Layout({ children }) {
   const [admin, setAdmin] = useState(null);
@@ -76,6 +76,7 @@ export default function Layout({ children }) {
     { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { label: 'Restaurants', path: '/restaurants', icon: <Store size={20} /> },
     { label: 'Transactions', path: '/transactions', icon: <Receipt size={20} /> },
+    { label: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} /> },
     { label: 'Settings', path: '/settings', icon: <Settings size={20} /> },
   ];
 

@@ -228,4 +228,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+
+  // Website & Traffic Analytics
+  getWebsiteAnalytics: () => request('/api/analytics/summary'),
 };

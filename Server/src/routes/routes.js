@@ -2,6 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { getHealth } from '../controllers/healthController.js';
 import { strictLimiter } from '../middleware/security.js';
+import analyticsRoutes from './analyticsRoutes.js';
 import {
   adminLogin,
   refreshToken,
@@ -426,5 +427,8 @@ router.get('/api/owner/analytics',          ownerAuthMiddleware, getComprehensiv
 router.get('/api/owner/orders',             ownerAuthMiddleware, ownerController.getOrders);
 router.get('/api/owner/orders/:orderId/pdf',      ownerAuthMiddleware, ownerController.getOrderBillPDF);
 router.get('/api/owner/reviews',            ownerAuthMiddleware, ownerController.getReviews);
+
+// ── Website & Visitor Analytics ──────────────────────────────────────────────
+router.use('/api/analytics', analyticsRoutes);
 
 export default router;

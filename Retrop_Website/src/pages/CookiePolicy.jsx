@@ -55,20 +55,18 @@ export default function CookiePolicy() {
             <li><strong>Dashboard Layout</strong> — Remembers collapsed/expanded sidebar state</li>
           </ul>
 
-          <h3>2.3 Analytics Cookies</h3>
+          <h3>2.3 Analytics & Performance Telemetry</h3>
           <p>
-            These cookies help us understand how visitors use our website so we can improve it. The data
-            collected is aggregated and anonymized — it does not identify individual users.
+            We use privacy-first, first-party analytics tokens and local storage identifiers (`retrop_vid` and `retrop_sid`) to understand visitor traffic, measure session durations, and evaluate marketing campaigns:
           </p>
           <ul>
-            <li><strong>Page visit tracking</strong> — Which pages are most visited</li>
-            <li><strong>Session duration</strong> — How long users spend on different pages</li>
-            <li><strong>Referral source</strong> — How users found our website</li>
-            <li><strong>Error tracking</strong> — Errors encountered during usage</li>
+            <li><strong>Visitor Identifier (`retrop_vid`):</strong> A persistent, pseudo-anonymous token stored in localStorage to calculate unique and returning visitor ratios.</li>
+            <li><strong>Session Token (`retrop_sid`):</strong> A temporary browser session token used to calculate active session duration, entry pages, and exit pages.</li>
+            <li><strong>Traffic & Referral Tracking:</strong> Logs traffic sources (Google, Direct, Facebook, Instagram, LinkedIn, Twitter/X, Referral links) and campaign UTM parameters.</li>
+            <li><strong>Device Telemetry:</strong> Anonymized device category (Mobile/Tablet/Desktop), browser type, operating system, screen resolution, timezone, and network type.</li>
           </ul>
           <p>
-            We use privacy-first analytics tools that comply with applicable data protection regulations
-            and do not share analytics data with advertising networks.
+            All analytics data is stored securely on our backend servers and database. We do not sell analytics data to external advertising networks or data brokers.
           </p>
 
           <h3>2.4 Functional Cookies</h3>

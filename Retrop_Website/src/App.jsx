@@ -8,6 +8,12 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 import CookieConsent from './components/CookieConsent';
+import { useAnalytics } from './hooks/useAnalytics';
+
+function AnalyticsTracker() {
+  useAnalytics();
+  return null;
+}
 
 // ── Public Website Pages ─────────────────────────────────────────────────────
 import Home          from './pages/Home';
@@ -46,6 +52,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
+        <AnalyticsTracker />
         <CookieConsent />
 
         <Routes>

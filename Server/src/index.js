@@ -59,7 +59,9 @@ app.use(
 
 // ===== Request Logging Middleware =====
 app.use((req, res, next) => {
-  logger.debug(`${req.method} ${req.path}`);
+  if (req.path !== '/api/analytics/heartbeat') {
+    logger.debug(`${req.method} ${req.path}`);
+  }
   next();
 });
 
