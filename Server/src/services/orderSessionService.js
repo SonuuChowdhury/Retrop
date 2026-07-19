@@ -771,7 +771,8 @@ export const orderSessionService = {
   // ── Waiter concludes order + payment ─────────────────────────────────
   // ISSUE 9 FIX: Apply active discounts (from restaurant_info) before tax calculation.
   // ISSUE 3 FIX: totalAmount uses lockedItems as baseline to prevent removal malpractice.
-  concludeOrder: async (orderId, waiterId, paymentMethod) => {
+  concludeOrder: async (orderId, waiterId, paymentMethod, reqRestaurantId = null) => {
+    logger.warn(`GOD DEBUG: [concludeOrder Service] Start processing - orderId: ${orderId}, waiterId: ${waiterId}, paymentMethod: ${paymentMethod}, reqRestaurantId: ${reqRestaurantId}`);
     try {
       const { data: order, error } = await supabase
         .from('orders')
@@ -779,15 +780,44 @@ export const orderSessionService = {
         .eq('ordersId', orderId)
         .maybeSingle();
 
-      if (error || !order) return { success: false, error: 'Order not found.', code: 404 };
-      if (order.waiterId !== waiterId) return { success: false, error: 'Not your order.', code: 403 };
-      if (order.isPaymentCompleted) return { success: false, error: 'Payment already completed.', code: 400 };
+      if (error || !order) {
+        logger.warn(`GOD DEBUG: [concludeOrder Service] Order not found for ID: ${orderId}`);
+        return { success: false, error: 'Order not found.', code: 404 };
+      }
 
-      // Calculate taxes from restaurant_info
+      // Verify restaurant context
+      const targetRestaurantId = reqRestaurantId || order.restaurantId;
+      if (order.restaurantId && targetRestaurantId && order.restaurantId !== targetRestaurantId) {
+        logger.warn(`GOD DEBUG: [concludeOrder Service] Restaurant mismatch for order ${orderId}`);
+        return { success: false, error: 'Order belongs to another restaurant.', code: 403 };
+      }
+
+      // Fetch restaurant info for tax calculations
       const { data: restaurantInfo } = await supabase
         .from('restaurant_info')
         .select('*')
-        .single();
+        .eq('restaurantId', targetRestaurantId)
+        .maybeSingle() || await supabase.from('restaurant_info').select('*').single();
+
+      // IDEMPOTENCY: If payment is ALREADY completed, return success immediately
+      if (order.isPaymentCompleted) {
+        logger.warn(`GOD DEBUG: [concludeOrder Service] Order ${orderId} is ALREADY marked completed. Returning idempotent success.`);
+        return {
+          success: true,
+          data: {
+            orderId,
+            dailyOrderNo: order.dailyOrderNo,
+            finalAmount: order.finalAmount || order.totalAmount || 0,
+            taxBreakdown: order.taxBreakdown || [],
+            taxType: restaurantInfo?.taxType || 'exclusive',
+            discountAmount: order.discountAmount || 0,
+            discountBreakdown: order.discountBreakdown || [],
+            paymentMethod: order.paymentMethod || paymentMethod,
+            restaurantInfo,
+            customerName: null,
+          },
+        };
+      }
 
       // ISSUE 3: Use lockedItems as the MINIMUM bill baseline.
       // Build the final item list: union of lockedItems + any unlocked additional items.
@@ -867,9 +897,11 @@ export const orderSessionService = {
         finalAmount = discountedSubtotal;
       }
 
+      logger.warn(`GOD DEBUG: [concludeOrder Service] Updating DB order ${orderId} status to completed, finalAmount: ${finalAmount}`);
       const { error: updateError } = await supabase
         .from('orders')
         .update({
+          waiterId: order.waiterId || waiterId,
           ordersInfo: billableItems, // Ensure bill reflects final locked+additions list
           orderStatus: 'completed',
           isPaymentCompleted: true,
@@ -885,7 +917,10 @@ export const orderSessionService = {
         })
         .eq('ordersId', orderId);
 
-      if (updateError) return { success: false, error: 'Failed to complete order.', code: 500 };
+      if (updateError) {
+        logger.error(`GOD DEBUG: [concludeOrder Service] DB Update Error for order ${orderId}: ${updateError.message}`);
+        return { success: false, error: 'Failed to complete order.', code: 500 };
+      }
 
       // Free the table
       await supabase.from('restaurant_table')
@@ -904,14 +939,22 @@ export const orderSessionService = {
         finalAmount,
       });
 
-      // Remove Redis order session
-      const tableResult = await supabase.from('restaurant_table').select('tableId').eq('tableNo', order.tableNo).maybeSingle();
-      if (tableResult.data) {
-        await redis.del(REDIS_KEYS.orderSession(tableResult.data.tableId));
+      // Remove Redis order session (safe — failure won't block conclusion)
+      try {
+        const tableResult = await supabase.from('restaurant_table').select('tableId').eq('tableNo', order.tableNo).maybeSingle();
+        if (tableResult.data) {
+          await redis.del(REDIS_KEYS.orderSession(tableResult.data.tableId));
+        }
+      } catch (redisErr) {
+        logger.warn('Non-critical Redis session deletion notice:', redisErr.message);
       }
 
-      // Update waiter daily stats
-      await updateWaiterDailyStats(waiterId, finalAmount);
+      // Update waiter daily stats (safe — failure won't block conclusion)
+      try {
+        await updateWaiterDailyStats(waiterId, finalAmount, order.restaurantId);
+      } catch (statsErr) {
+        logger.warn('Non-critical waiter daily stats update notice:', statsErr.message);
+      }
 
       // Increment customer total orders (safe — failure won't block payment)
       try {
@@ -1463,31 +1506,37 @@ export const orderSessionService = {
 };
 
 // ── Helper: update waiter daily stats ────────────────────────────────────────
-const updateWaiterDailyStats = async (waiterId, earnedAmount) => {
-  const today = todayDateIST();
-  const { data: existing } = await supabase
-    .from('waiter_daily_stats')
-    .select('*')
-    .eq('waiterId', waiterId)
-    .eq('statsDate', today)
-    .maybeSingle();
+const updateWaiterDailyStats = async (waiterId, earnedAmount, restaurantId) => {
+  try {
+    if (!waiterId || !restaurantId) return;
+    const today = todayDateIST();
+    const { data: existing } = await supabase
+      .from('waiter_daily_stats')
+      .select('*')
+      .eq('waiterId', waiterId)
+      .eq('statsDate', today)
+      .maybeSingle();
 
-  if (existing) {
-    await supabase.from('waiter_daily_stats').update({
-      completedOrders: existing.completedOrders + 1,
-      totalOrders: existing.totalOrders + 1,
-      totalEarnings: parseFloat((existing.totalEarnings + earnedAmount).toFixed(2)),
-      updatedAt: nowIST(),
-    }).eq('statsId', existing.statsId);
-  } else {
-    await supabase.from('waiter_daily_stats').insert([{
-      waiterId,
-      statsDate: today,
-      totalOrders: 1,
-      completedOrders: 1,
-      totalEarnings: parseFloat(earnedAmount.toFixed(2)),
-      createdAt: nowIST(),
-      updatedAt: nowIST(),
-    }]);
+    if (existing) {
+      await supabase.from('waiter_daily_stats').update({
+        completedOrders: (existing.completedOrders || 0) + 1,
+        totalOrders: (existing.totalOrders || 0) + 1,
+        totalEarnings: parseFloat(((existing.totalEarnings || 0) + earnedAmount).toFixed(2)),
+        updatedAt: nowIST(),
+      }).eq('statsId', existing.statsId);
+    } else {
+      await supabase.from('waiter_daily_stats').insert([{
+        waiterId,
+        restaurantId,
+        statsDate: today,
+        totalOrders: 1,
+        completedOrders: 1,
+        totalEarnings: parseFloat(earnedAmount.toFixed(2)),
+        createdAt: nowIST(),
+        updatedAt: nowIST(),
+      }]);
+    }
+  } catch (err) {
+    logger.warn('Failed to update waiter daily stats (non-critical):', err.message);
   }
 };

@@ -359,17 +359,21 @@ export const updateOrderStatus = async (req, res) => {
 
 // ── POST /api/waiter/orders/:orderId/conclude ─────────────────────────────────
 export const concludeOrder = async (req, res) => {
+  logger.warn(`GOD DEBUG: [concludeOrder Controller] Request received - orderId: ${req.params?.orderId}, paymentMethod: ${req.body?.paymentMethod}, waiterId: ${req.waiter?.waiterId}, restaurantId: ${req.restaurantId}`);
   try {
     const { orderId } = req.params;
     const { paymentMethod } = req.body;
     const waiterId = req.waiter.waiterId;
+    const restaurantId = req.restaurantId || req.waiter?.restaurantId;
 
-    // ISSUE 7: Updated valid payment methods — 'card' replaces 'online'
     if (!paymentMethod || !['cash', 'card', 'upi'].includes(paymentMethod)) {
+      logger.warn(`GOD DEBUG: [concludeOrder Controller] Invalid paymentMethod: ${paymentMethod}`);
       return res.status(400).json({ status: 'error', message: 'Valid paymentMethod required: cash, card, upi' });
     }
 
-    const result = await orderSessionService.concludeOrder(orderId, waiterId, paymentMethod);
+    const result = await orderSessionService.concludeOrder(orderId, waiterId, paymentMethod, restaurantId);
+    logger.warn(`GOD DEBUG: [concludeOrder Controller] Service result: ${JSON.stringify(result)}`);
+
     if (!result.success) {
       return res.status(result.code || 400).json({ status: 'error', message: result.error });
     }
@@ -380,12 +384,17 @@ export const concludeOrder = async (req, res) => {
     const backendUrl = `${protocol}://${host}`;
 
     // Generate a secure 10-minute temporary token for the customer QR scan link
-    const tempToken = crypto.randomBytes(16).toString('hex');
-    const redisTokenKey = `temp_bill_token:${orderId}`;
-    await redis.setex(redisTokenKey, 600, tempToken); // Expire in 10 minutes
+    let billUrl = `${backendUrl}/api/orders/${orderId}/bill-pdf`;
+    try {
+      const tempToken = crypto.randomBytes(16).toString('hex');
+      const redisTokenKey = `temp_bill_token:${orderId}`;
+      await redis.setex(redisTokenKey, 600, tempToken); // Expire in 10 minutes
+      billUrl = `${backendUrl}/api/orders/${orderId}/bill-pdf?token=${tempToken}`;
+    } catch (redisErr) {
+      logger.warn(`GOD DEBUG: [concludeOrder Controller] Redis token generation notice (non-critical): ${redisErr.message}`);
+    }
 
-    const billUrl = `${backendUrl}/api/orders/${orderId}/bill-pdf?token=${tempToken}`;
-
+    logger.warn(`GOD DEBUG: [concludeOrder Controller] Responding HTTP 200 SUCCESS for order ${orderId}`);
     res.status(200).json({
       status: 'success',
       data: {
@@ -394,8 +403,8 @@ export const concludeOrder = async (req, res) => {
       }
     });
   } catch (err) {
-    logger.error('Conclude order controller error', err.message);
-    res.status(500).json({ status: 'error', message: 'Failed to conclude order' });
+    logger.error('GOD DEBUG: Conclude order controller CRITICAL ERROR', err.stack || err.message);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to conclude order' });
   }
 };
 

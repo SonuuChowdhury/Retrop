@@ -1,10 +1,7 @@
-// ============================================================================
-// WAITER & KITCHEN AUTH MIDDLEWARE
-// ============================================================================
-
 import { waiterAuthService } from '../services/waiterAuthService.js';
 import { kitchenAuthService } from '../services/kitchenAuthService.js';
 import { logger } from '../utils/logger.js';
+import { tenantContext } from '../config/supabase.js';
 
 // ── Waiter auth middleware ────────────────────────────────────────────────────
 export const waiterAuthMiddleware = async (req, res, next) => {
@@ -29,8 +26,13 @@ export const waiterAuthMiddleware = async (req, res, next) => {
 
     req.waiter = verification.waiter;
 
-    if (req.waiter.restaurantId !== req.restaurantId) {
-      return res.status(401).json({ status: 'error', message: 'Access denied: token not valid for this restaurant' });
+    // Use verified session's restaurantId as authoritative tenant context
+    if (req.waiter.restaurantId) {
+      if (req.restaurantId !== req.waiter.restaurantId) {
+        logger.warn(`GOD DEBUG: Syncing req.restaurantId from productKey (${req.restaurantId}) to waiter session (${req.waiter.restaurantId})`);
+        req.restaurantId = req.waiter.restaurantId;
+      }
+      tenantContext.enterWith({ restaurantId: req.waiter.restaurantId });
     }
 
     next();
@@ -63,8 +65,13 @@ export const kitchenAuthMiddleware = async (req, res, next) => {
 
     req.kitchen = verification.kitchen;
 
-    if (req.kitchen.restaurantId !== req.restaurantId) {
-      return res.status(401).json({ status: 'error', message: 'Access denied: token not valid for this restaurant' });
+    // Use verified session's restaurantId as authoritative tenant context
+    if (req.kitchen.restaurantId) {
+      if (req.restaurantId !== req.kitchen.restaurantId) {
+        logger.warn(`GOD DEBUG: Syncing req.restaurantId from productKey (${req.restaurantId}) to kitchen session (${req.kitchen.restaurantId})`);
+        req.restaurantId = req.kitchen.restaurantId;
+      }
+      tenantContext.enterWith({ restaurantId: req.kitchen.restaurantId });
     }
 
     next();

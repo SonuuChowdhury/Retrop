@@ -572,13 +572,15 @@ export default function OrderDetailScreen() {
       setShowPayment(false);
       setReceiptUrl(result.data?.billUrl || '');
       setReceiptBill({
-        invoiceNo: result.data?.invoiceNo || `Order #${order.dailyOrderNo}`,
-        totalAmount: result.data?.finalAmount || bill?.finalAmount || order.totalAmount,
+        invoiceNo: result.data?.invoiceNo || (order?.dailyOrderNo ? `Order #${order.dailyOrderNo}` : `Order`),
+        totalAmount: result.data?.finalAmount || bill?.finalAmount || order?.totalAmount || 0,
         paymentMethod: paymentMethod.toUpperCase(),
       });
       setShowReceipt(true);
-    } else if (result.message?.includes('Already paid') || result.message?.includes('already')) {
-      showError('Already Paid', 'This order has already been paid.');
+    } else if (result.message?.toLowerCase().includes('already') || result.message?.toLowerCase().includes('completed')) {
+      setShowPayment(false);
+      showSuccess('Order Concluded', 'This order payment has been completed.');
+      router.replace('/(tabs)/orders');
     } else {
       showError('Error', result.message ?? 'Failed to conclude order.');
     }
