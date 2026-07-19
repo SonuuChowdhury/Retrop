@@ -4397,7 +4397,7 @@ export default function Dashboard() {
                 <label>PASSWORD *</label>
                 <div style={{ position: 'relative' }}>
                   <input type={showStaffPwd ? 'text' : 'password'} className="form-input" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)} required style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowStaffPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowStaffPwd(v => !v); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
                     {showStaffPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -4428,7 +4428,7 @@ export default function Dashboard() {
                 <label>NEW PASSWORD *</label>
                 <div style={{ position: 'relative' }}>
                   <input type={showResetStaffPwd ? 'text' : 'password'} className="form-input" value={resetPasswordVal} onChange={(e) => setResetPasswordVal(e.target.value)} required style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowResetStaffPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowResetStaffPwd(v => !v); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
                     {showResetStaffPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>

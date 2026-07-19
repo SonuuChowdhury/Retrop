@@ -1647,7 +1647,7 @@ export default function RestaurantDetails() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAdminPassword(!showAdminPassword); }}
                     style={{
                       position: 'absolute',
                       right: '10px',

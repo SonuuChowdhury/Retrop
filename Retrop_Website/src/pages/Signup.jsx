@@ -318,7 +318,7 @@ function StepPassword({ userId, onDone }) {
             onChange={e => setPwd(e.target.value)} disabled={loading}
             style={{ paddingLeft: 36, paddingRight: 40, fontSize: 14 }}
           />
-          <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4 }}>
+          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPwd(v => !v); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4 }}>
             {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
@@ -341,7 +341,7 @@ function StepPassword({ userId, onDone }) {
             onChange={e => setConf(e.target.value)} disabled={loading}
             style={{ paddingLeft: 36, paddingRight: 40, fontSize: 14 }}
           />
-          <button type="button" onClick={() => setShowCon(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4 }}>
+          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowCon(v => !v); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4 }}>
             {showCon ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>

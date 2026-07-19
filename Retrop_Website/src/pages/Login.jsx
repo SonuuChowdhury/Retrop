@@ -143,7 +143,7 @@ function LoginStep({ onResetNeeded, onShowComingSoon, successMsg }) {
           </div>
           <div style={{ position: 'relative' }}>
             <input id="login-pwd" type={showPwd ? 'text' : 'password'} className="form-input" placeholder="Enter your password" value={pwd} onChange={e => setPwd(e.target.value)} disabled={loading} autoComplete="current-password" style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
-            <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPwd(v => !v); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
               {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
@@ -215,7 +215,7 @@ function ResetStep({ userId, currentPwd, onBack }) {
           <label htmlFor="new-pwd" style={{ fontSize: '12px', marginBottom: '6px' }}>New Password</label>
           <div style={{ position: 'relative' }}>
             <input id="new-pwd" type={showNew ? 'text' : 'password'} className="form-input" placeholder="Minimum 8 characters" value={newPwd} onChange={e => setNewPwd(e.target.value)} disabled={loading} style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
-            <button type="button" onClick={() => setShowNew(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowNew(v => !v); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
               {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
@@ -224,7 +224,7 @@ function ResetStep({ userId, currentPwd, onBack }) {
           <label htmlFor="conf-pwd" style={{ fontSize: '12px', marginBottom: '6px' }}>Confirm Password</label>
           <div style={{ position: 'relative' }}>
             <input id="conf-pwd" type={showCon ? 'text' : 'password'} className="form-input" placeholder="Repeat your new password" value={confPwd} onChange={e => setConfPwd(e.target.value)} disabled={loading} style={{ padding: '10px 12px', paddingRight: '40px', fontSize: '13.5px' }} />
-            <button type="button" onClick={() => setShowCon(v => !v)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowCon(v => !v); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}>
               {showCon ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>

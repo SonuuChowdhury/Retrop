@@ -256,7 +256,7 @@ function ChangePasswordModal({ onClose }) {
                   type={showCurr ? 'text' : 'password'} className="form-input" value={currPwd} onChange={e => setCurrPwd(e.target.value)} disabled={loading}
                   style={{ width: '100%', padding: '10px 12px', paddingRight: 40, fontSize: 14 }}
                 />
-                <button type="button" onClick={() => setShowCurr(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowCurr(v => !v); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
                   {showCurr ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
@@ -269,7 +269,7 @@ function ChangePasswordModal({ onClose }) {
                   type={showNew ? 'text' : 'password'} className="form-input" placeholder="Minimum 8 characters" value={newPwd} onChange={e => setNewPwd(e.target.value)} disabled={loading}
                   style={{ width: '100%', padding: '10px 12px', paddingRight: 40, fontSize: 14 }}
                 />
-                <button type="button" onClick={() => setShowNew(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowNew(v => !v); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
                   {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
@@ -282,7 +282,7 @@ function ChangePasswordModal({ onClose }) {
                   type={showConf ? 'text' : 'password'} className="form-input" placeholder="Repeat new password" value={confPwd} onChange={e => setConfPwd(e.target.value)} disabled={loading}
                   style={{ width: '100%', padding: '10px 12px', paddingRight: 40, fontSize: 14 }}
                 />
-                <button type="button" onClick={() => setShowConf(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowConf(v => !v); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
                   {showConf ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
