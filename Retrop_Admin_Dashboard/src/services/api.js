@@ -231,4 +231,7 @@ export const api = {
 
   // Website & Traffic Analytics
   getWebsiteAnalytics: () => request('/api/analytics/summary'),
+
+  // Registered Users & Login Analytics
+  getUserAnalytics: () => request('/api/retrop/analytics/users'),
 };

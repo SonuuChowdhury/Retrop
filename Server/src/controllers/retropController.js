@@ -8,6 +8,7 @@
 
 import { retropAuthService } from '../services/retropAuthService.js';
 import { productKeyService } from '../services/productKeyService.js';
+import { analyticsService } from '../services/analyticsService.js';
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
 import { nowIST } from '../utils/time.js';
@@ -196,6 +197,20 @@ export const retropController = {
       });
     } catch (err) {
       logger.error('retropController.getDashboard error', err.message);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  },
+
+  // GET /api/retrop/analytics/users
+  getUserAnalytics: async (req, res) => {
+    try {
+      const result = await analyticsService.getUserAnalyticsSummary();
+      if (!result.success) {
+        return res.status(500).json({ success: false, message: result.error });
+      }
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      logger.error('retropController.getUserAnalytics error', err.message);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   },
@@ -744,7 +759,8 @@ export const retropController = {
         'day_close',
         'retrop_other_staff',
         'loyalty_points',
-        'customer_feedback'
+        'customer_feedback',
+        'portal_user_business'
       ];
 
       for (const table of tablesToDelete) {

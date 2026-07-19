@@ -87,7 +87,19 @@ export const heartbeat = async (req, res) => {
 export const getSummary = async (req, res) => {
   try {
     const result = await analyticsService.getAnalyticsSummary();
-    return res.status(200).json({ status: 'success', data: result.summary });
+    const userResult = await analyticsService.getUserAnalyticsSummary();
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        ...result.summary,
+        userAnalytics: userResult.success ? {
+          metrics: userResult.userMetrics,
+          users: userResult.users,
+          loginAuditTrail: userResult.loginAuditTrail
+        } : null
+      }
+    });
   } catch (error) {
     logger.error('Error in getSummary controller:', error.message);
     return res.status(500).json({ status: 'error', message: error.message });

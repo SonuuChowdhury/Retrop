@@ -173,8 +173,9 @@ router.post('/api/retrop/auth/refresh', retropController.refreshToken);
 router.post('/api/retrop/auth/logout',  retropAuth, retropController.logout);
 router.get('/api/retrop/auth/me',       retropAuth, retropController.me);
 
-// Dashboard
+// Dashboard & User Analytics
 router.get('/api/retrop/dashboard', retropAuth, retropController.getDashboard);
+router.get('/api/retrop/analytics/users', retropAuth, retropController.getUserAnalytics);
 
 // Restaurant CRUD
 router.post('/api/retrop/restaurants',                          retropAuth, retropOperationLimiter, retropController.createRestaurant);

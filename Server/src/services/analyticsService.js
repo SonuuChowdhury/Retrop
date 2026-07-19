@@ -127,11 +127,56 @@ export const analyticsService = {
   // Aggregate Summary Metrics for Dashboard
   getAnalyticsSummary: async () => {
     try {
-      const sessions = Array.from(inMemorySessions.values());
-      const totalSessions = sessions.length;
-      const totalVisitors = inMemoryVisitorIds.size;
+      // 1. Fetch records from Supabase website_analytics table
+      let dbSessions = [];
+      try {
+        const { data, error } = await supabase
+          .from('website_analytics')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1000);
 
-      // Unique visitors vs returning
+        if (!error && data) {
+          dbSessions = data;
+        }
+      } catch (dbErr) {
+        logger.error('Failed to query website_analytics from DB:', dbErr.message);
+      }
+
+      // Merge memory sessions with DB sessions
+      const sessionMap = new Map();
+
+      // First add DB sessions
+      dbSessions.forEach(row => {
+        sessionMap.set(row.session_id, {
+          sessionId: row.session_id,
+          visitorId: row.visitor_id,
+          isReturning: !!row.is_returning,
+          entryPage: row.entry_page,
+          exitPage: row.exit_page,
+          pagesVisited: Array.isArray(row.pages_visited) ? row.pages_visited : (row.entry_page ? [row.entry_page] : ['/']),
+          sessionDurationSeconds: Number(row.duration_seconds) || 0,
+          deviceType: row.device_type || 'Desktop',
+          browser: row.browser || 'Chrome',
+          os: row.os || 'Windows',
+          country: row.country || 'India',
+          city: row.city || 'Hyderabad',
+          sourceCategory: row.traffic_source || 'Direct'
+        });
+      });
+
+      // Overwrite with in-memory sessions (most up-to-date)
+      inMemorySessions.forEach((val, key) => {
+        sessionMap.set(key, val);
+      });
+
+      const sessions = Array.from(sessionMap.values());
+      const totalSessions = sessions.length;
+
+      const visitorSet = new Set(sessions.map(s => s.visitorId).filter(Boolean));
+      inMemoryVisitorIds.forEach(id => visitorSet.add(id));
+      const totalVisitors = visitorSet.size;
+
       let returningCount = 0;
       let totalDuration = 0;
       let bounceCount = 0;
@@ -153,7 +198,7 @@ export const analyticsService = {
 
         // Pages
         (s.pagesVisited || []).forEach(p => {
-          pagesMap[p] = (pagesMap[p] || 0) + 1;
+          if (p) pagesMap[p] = (pagesMap[p] || 0) + 1;
         });
 
         // Device Specs
@@ -193,6 +238,138 @@ export const analyticsService = {
       };
     } catch (err) {
       logger.error('Failed to aggregate analytics summary', err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  // Registered User Details & Login Analytics Aggregator
+  getUserAnalyticsSummary: async () => {
+    try {
+      // 1. Fetch portal users
+      const { data: users, error: userErr } = await supabase
+        .from('portal_user')
+        .select('userId, name, email, mobile, googleId, needsPasswordReset, isActive, emailVerified, lastLoginAt, createdAt, updatedAt')
+        .order('createdAt', { ascending: false });
+
+      if (userErr) {
+        logger.error('Failed to fetch portal_user for analytics:', userErr.message);
+      }
+
+      // 2. Fetch user business mappings with restaurant info
+      const { data: userBusinesses, error: busErr } = await supabase
+        .from('portal_user_business')
+        .select('userId, role, linkedAt, retrop_restaurant ( restaurantId, businessName, businessTypeId, isActive )');
+
+      if (busErr) {
+        logger.error('Failed to fetch portal_user_business for analytics:', busErr.message);
+      }
+
+      const businessMap = {};
+      (userBusinesses || []).forEach(ub => {
+        if (!businessMap[ub.userId]) businessMap[ub.userId] = [];
+        if (ub.retrop_restaurant) {
+          businessMap[ub.userId].push({
+            restaurantId: ub.retrop_restaurant.restaurantId,
+            businessName: ub.retrop_restaurant.businessName,
+            businessTypeId: ub.retrop_restaurant.businessTypeId,
+            isActive: ub.retrop_restaurant.isActive,
+            role: ub.role,
+            linkedAt: ub.linkedAt
+          });
+        }
+      });
+
+      // 3. Fetch user sessions
+      const { data: sessions, error: sessErr } = await supabase
+        .from('portal_user_session')
+        .select('sessionId, userId, ipAddress, userAgent, isActive, tokenExpiresAt, createdAt')
+        .order('createdAt', { ascending: false })
+        .limit(300);
+
+      if (sessErr) {
+        logger.error('Failed to fetch portal_user_session for analytics:', sessErr.message);
+      }
+
+      // Session stats per user
+      const userSessionStats = {};
+      let totalActiveSessions = 0;
+
+      (sessions || []).forEach(s => {
+        if (s.isActive) totalActiveSessions++;
+        if (!userSessionStats[s.userId]) {
+          userSessionStats[s.userId] = {
+            totalSessions: 0,
+            activeSessions: 0,
+            sessions: []
+          };
+        }
+        userSessionStats[s.userId].totalSessions++;
+        if (s.isActive) userSessionStats[s.userId].activeSessions++;
+        userSessionStats[s.userId].sessions.push(s);
+      });
+
+      // Metrics counter
+      const totalUsers = (users || []).length;
+      let verifiedUsers = 0;
+      let googleUsers = 0;
+      let emailUsers = 0;
+      let activeUsers = 0;
+      let pendingPasswordUsers = 0;
+
+      const userDetails = (users || []).map(u => {
+        if (u.emailVerified) verifiedUsers++;
+        if (u.googleId) googleUsers++;
+        else emailUsers++;
+        if (u.isActive) activeUsers++;
+        if (u.needsPasswordReset) pendingPasswordUsers++;
+
+        const userStats = userSessionStats[u.userId] || { totalSessions: 0, activeSessions: 0, sessions: [] };
+
+        return {
+          ...u,
+          authType: u.googleId ? 'Google OAuth' : 'Email / Password',
+          businesses: businessMap[u.userId] || [],
+          totalSessionsCount: userStats.totalSessions,
+          activeSessionsCount: userStats.activeSessions,
+          recentSessions: userStats.sessions.slice(0, 5)
+        };
+      });
+
+      // User lookup map for audit logs
+      const userMap = {};
+      (users || []).forEach(u => { userMap[u.userId] = u; });
+
+      const loginAuditTrail = (sessions || []).slice(0, 100).map(s => {
+        const u = userMap[s.userId] || {};
+        return {
+          sessionId: s.sessionId,
+          userId: s.userId,
+          userName: u.name || 'Unknown User',
+          userEmail: u.email || 'N/A',
+          ipAddress: s.ipAddress || '127.0.0.1',
+          userAgent: s.userAgent || 'Unknown Device',
+          isActive: s.isActive,
+          createdAt: s.createdAt,
+          tokenExpiresAt: s.tokenExpiresAt
+        };
+      });
+
+      return {
+        success: true,
+        userMetrics: {
+          totalUsers,
+          verifiedUsers,
+          googleUsers,
+          emailUsers,
+          activeUsers,
+          pendingPasswordUsers,
+          totalActiveSessions
+        },
+        users: userDetails,
+        loginAuditTrail
+      };
+    } catch (err) {
+      logger.error('Failed to get user analytics summary:', err.message);
       return { success: false, error: err.message };
     }
   }
