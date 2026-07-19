@@ -2,13 +2,56 @@
 // ANALYTICS SERVICE — Server-side Analytics Storage & Aggregation Engine
 // ============================================================================
 
+import fs from 'fs';
+import path from 'path';
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
 import { nowIST } from '../utils/time.js';
 
-// In-memory sessions store fallback for fast caching and fallback when DB is connecting
+// In-memory sessions store fallback for fast caching
 const inMemorySessions = new Map();
 const inMemoryVisitorIds = new Set();
+
+// Disk persistence fallback directory and file path
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+const BACKUP_FILE = path.join(DATA_DIR, 'website_analytics_backup.json');
+
+// Save sessions to disk backup file
+function saveDiskBackup() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const array = Array.from(inMemorySessions.values());
+    fs.writeFileSync(BACKUP_FILE, JSON.stringify(array, null, 2), 'utf-8');
+  } catch (err) {
+    logger.error('GOD DEBUG: Disk backup write failed:', err.message);
+  }
+}
+
+// Load sessions from disk backup file
+function loadDiskBackup() {
+  try {
+    if (fs.existsSync(BACKUP_FILE)) {
+      const raw = fs.readFileSync(BACKUP_FILE, 'utf-8');
+      const array = JSON.parse(raw);
+      if (Array.isArray(array)) {
+        array.forEach(s => {
+          if (s && s.sessionId) {
+            inMemorySessions.set(s.sessionId, s);
+            if (s.visitorId) inMemoryVisitorIds.add(s.visitorId);
+          }
+        });
+        logger.info(`GOD DEBUG: Loaded ${array.length} analytics session records from local disk persistence.`);
+      }
+    }
+  } catch (err) {
+    logger.error('GOD DEBUG: Disk backup load failed:', err.message);
+  }
+}
+
+// Initialize local disk cache immediately on module load
+loadDiskBackup();
 
 export const analyticsService = {
   // Record or update session hit
@@ -59,10 +102,11 @@ export const analyticsService = {
       existing.updatedAt = nowIST();
 
       inMemorySessions.set(sessionId, existing);
+      saveDiskBackup(); // Save to local disk immediately
 
-      // Persist to Supabase if table exists (async, fail-safe)
+      // Persist to Supabase if table exists
       try {
-        await supabase.from('website_analytics').upsert([{
+        const { error: sbErr } = await supabase.from('website_analytics').upsert([{
           session_id: sessionId,
           visitor_id: visitorId,
           is_returning: isReturning,
@@ -86,8 +130,12 @@ export const analyticsService = {
           utm_data: existing.utm,
           updated_at: new Date().toISOString()
         }], { onConflict: 'session_id' });
+
+        if (sbErr) {
+          logger.warn(`GOD DEBUG: Supabase website_analytics notice: ${sbErr.message}`);
+        }
       } catch (dbErr) {
-        // Log & fallback to memory
+        logger.error('GOD DEBUG: Exception upserting to website_analytics:', dbErr.message);
       }
 
       return { success: true, sessionId };
@@ -106,16 +154,21 @@ export const analyticsService = {
         if (exitPage) existing.exitPage = exitPage;
         existing.updatedAt = nowIST();
         inMemorySessions.set(sessionId, existing);
+        saveDiskBackup(); // Save updated duration to disk
       }
 
       try {
-        await supabase.from('website_analytics').update({
+        const { error: sbErr } = await supabase.from('website_analytics').update({
           duration_seconds: durationSeconds,
           exit_page: exitPage,
           updated_at: new Date().toISOString()
         }).eq('session_id', sessionId);
+
+        if (sbErr) {
+          logger.warn(`GOD DEBUG: Heartbeat update notice: ${sbErr.message}`);
+        }
       } catch (dbErr) {
-        // fallback to memory
+        // Fallback to local memory & disk
       }
 
       return { success: true };
@@ -136,14 +189,16 @@ export const analyticsService = {
           .order('updated_at', { ascending: false })
           .limit(1000);
 
-        if (!error && data) {
+        if (error) {
+          logger.warn(`GOD DEBUG: Supabase website_analytics fetch notice: ${error.message}`);
+        } else if (data) {
           dbSessions = data;
         }
       } catch (dbErr) {
         logger.error('Failed to query website_analytics from DB:', dbErr.message);
       }
 
-      // Merge memory sessions with DB sessions
+      // Merge memory & disk sessions with DB sessions
       const sessionMap = new Map();
 
       // First add DB sessions
@@ -165,7 +220,7 @@ export const analyticsService = {
         });
       });
 
-      // Overwrite with in-memory sessions (most up-to-date)
+      // Overwrite with in-memory & disk sessions (most up-to-date)
       inMemorySessions.forEach((val, key) => {
         sessionMap.set(key, val);
       });
