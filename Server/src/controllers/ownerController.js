@@ -758,7 +758,7 @@ export const ownerController = {
         .from('orders')
         .select(`
           ordersId, dailyOrderNo, invoiceNo, tableNo, orderStatus, ordersInfo,
-          ordersUpdateInfo, totalAmount, finalAmount, taxBreakdown, gstAmount,
+          ordersUpdateInfo, cancellationReason, totalAmount, finalAmount, taxBreakdown, gstAmount,
           paymentMethod, isPaymentCompleted, createdAt, completedAt, servedAt,
           customer(name, mobile),
           waiter:waiterId(waiterName, mobile)
@@ -798,11 +798,33 @@ export const ownerController = {
         return res.status(400).json({ success: false, message: 'No restaurant associated with this owner' });
       }
 
-      const { limit = '20', offset = '0' } = req.query;
+      const { limit = '20', offset = '0', ratingFilter } = req.query;
       const lim = Math.min(parseInt(limit) || 20, 100);
       const off = parseInt(offset) || 0;
 
-      const { data, error, count } = await supabase
+      // Calculate rating summary metrics across all reviews for this restaurant
+      const { data: allFeedback } = await supabase
+        .from('customer_feedback')
+        .select('rating')
+        .eq('restaurantId', restaurantId);
+
+      const summary = {
+        total: allFeedback?.length || 0,
+        avgRating: 0,
+        counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+      };
+
+      if (allFeedback && allFeedback.length > 0) {
+        let sum = 0;
+        allFeedback.forEach(f => {
+          const r = Math.min(Math.max(parseInt(f.rating) || 0, 1), 5);
+          summary.counts[r] = (summary.counts[r] || 0) + 1;
+          sum += r;
+        });
+        summary.avgRating = parseFloat((sum / allFeedback.length).toFixed(1));
+      }
+
+      let query = supabase
         .from('customer_feedback')
         .select(`
           feedbackId,
@@ -815,20 +837,44 @@ export const ownerController = {
             dailyOrderNo,
             invoiceNo,
             tableNo,
+            orderStatus,
+            ordersInfo,
+            ordersUpdateInfo,
+            cancellationReason,
             totalAmount,
+            discountAmount,
+            gstAmount,
             finalAmount,
-            customer(name)
+            taxBreakdown,
+            paymentMethod,
+            isPaymentCompleted,
+            createdAt,
+            completedAt,
+            servedAt,
+            customer(name, mobile),
+            waiter:waiterId(waiterName, mobile)
           )
         `, { count: 'exact' })
-        .eq('restaurantId', restaurantId)
-        .order('createdAt', { ascending: false })
-        .range(off, off + lim - 1);
+        .eq('restaurantId', restaurantId);
 
+      if (ratingFilter) {
+        if (ratingFilter === '5') query = query.eq('rating', 5);
+        else if (ratingFilter === '4_below') query = query.lte('rating', 4);
+        else if (ratingFilter === '3_below') query = query.lte('rating', 3);
+        else if (ratingFilter === '2_below') query = query.lte('rating', 2);
+        else if (ratingFilter === '1') query = query.eq('rating', 1);
+        else if (!isNaN(parseInt(ratingFilter))) query = query.eq('rating', parseInt(ratingFilter));
+      }
+
+      query = query.order('createdAt', { ascending: false }).range(off, off + lim - 1);
+
+      const { data, error, count } = await query;
       if (error) throw error;
 
       return res.status(200).json({
         success: true,
         data,
+        summary,
         meta: { total: count ?? 0, limit: lim, offset: off, hasMore: (off + lim) < (count ?? 0) },
       });
     } catch (err) {

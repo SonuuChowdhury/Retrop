@@ -296,7 +296,7 @@
   display: none !important;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .mobile-nav-toggle {
     display: inline-flex !important;
   }
@@ -306,13 +306,15 @@
   }
 
   .sidebar {
-    transform: translateX(-100%);
+    transform: translateX(calc(-100% - 40px)) !important;
+    visibility: hidden;
     box-shadow: var(--shadow-xl);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s ease;
   }
 
-
   .sidebar.mobile-open {
-    transform: translateX(0);
+    transform: translateX(0) !important;
+    visibility: visible !important;
   }
 
   .main-panel {

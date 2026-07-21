@@ -2,7 +2,7 @@
 // OWNER DASHBOARD & INVENTORY MANAGEMENT (/dashboard)
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +29,7 @@ import {
   ClipboardList,
   AlertTriangle,
   Calendar,
+  Clock,
   CheckCircle,
   FileSpreadsheet,
   BookOpen,
@@ -44,7 +45,8 @@ import {
   List,
   FileText,
   Printer,
-  Download
+  Download,
+  ChevronRight
 } from 'lucide-react';
 
 
@@ -354,12 +356,16 @@ export default function Dashboard() {
   });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const statusPillsRef = useRef(null);
+  const reviewFilterRef = useRef(null);
 
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewsTotal, setReviewsTotal] = useState(0);
   const [reviewsOffset, setReviewsOffset] = useState(0);
   const [reviewsLimit] = useState(20);
+  const [reviewSummary, setReviewSummary] = useState(null);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState('');
 
   // Loading States
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -433,7 +439,6 @@ export default function Dashboard() {
   const [purchaseNotes, setPurchaseNotes] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([{ itemId: '', quantity: '', unitPrice: '' }]);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [ordersViewMode, setOrdersViewMode] = useState('grid');
 
 
 
@@ -597,6 +602,7 @@ export default function Dashboard() {
   };
 
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [togglingDishId, setTogglingDishId] = useState(null);
   const fetchMenuManagement = async () => {
     setLoadingMenu(true);
     try {
@@ -681,15 +687,18 @@ export default function Dashboard() {
   };
 
 
-  const fetchOwnerReviews = async (offset = 0) => {
+  const fetchOwnerReviews = async (offset = 0, filterRating = reviewRatingFilter) => {
     setLoadingReviews(true);
     try {
-      const res = await api.getReviews(reviewsLimit, offset);
+      const res = await api.getReviews(reviewsLimit, offset, filterRating);
       if (res.success) {
         if (offset === 0) {
           setReviews(res.data || []);
         } else {
           setReviews(prev => [...prev, ...(res.data || [])]);
+        }
+        if (res.summary) {
+          setReviewSummary(res.summary);
         }
         setReviewsTotal(res.meta?.total || 0);
         setReviewsOffset(offset);
@@ -900,6 +909,9 @@ export default function Dashboard() {
       } else if (type === 'expense') {
         res = await api.deleteExpense(id);
         if (res.success) fetchExpenses();
+      } else if (type === 'dish' || type === 'menu') {
+        res = await api.deleteMenuItem(id);
+        if (res.success) fetchMenuManagement();
       }
 
       if (res && res.success) {
@@ -1372,14 +1384,17 @@ export default function Dashboard() {
   };
 
   const handleToggleMenuDishAvailability = async (dish) => {
+    setTogglingDishId(dish.dishId);
     try {
       const res = await api.toggleMenuItemAvailability(dish.dishId, !dish.isAvailable);
       if (res.success) {
         notify(`Dish status updated`, 'success');
-        fetchMenuManagement();
+        await fetchMenuManagement();
       }
     } catch (err) {
       notify(err.message || 'Failed to update availability', 'error');
+    } finally {
+      setTogglingDishId(null);
     }
   };
 
@@ -1600,9 +1615,24 @@ export default function Dashboard() {
                   {restaurant ? restaurant.businessName : 'Retrop Restaurant'}
                 </span>
               </h3>
-              <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.35 }}>
+              <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)', margin: '0 0 8px 0', lineHeight: 1.35 }}>
                 Manage inventory, staff, orders, reviews, and compliance from one place.
               </p>
+
+              <button
+                onClick={() => { navigate('/dashboard'); setMobileNavOpen(false); }}
+                className="sidebar-dashboard-btn mobile-only-btn"
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer',
+                  fontSize: '11.5px', fontWeight: '700', transition: 'all 0.2s', boxShadow: 'var(--shadow-sm)'
+                }}
+                title="Return to Business Selector Dashboard"
+              >
+                <LayoutGrid size={13} style={{ color: 'var(--color-primary)' }} />
+                <span>Return to Dashboard</span>
+              </button>
             </div>
           </div>
           
@@ -1647,40 +1677,29 @@ export default function Dashboard() {
           <div className="dashboard-header-left">
             <button
               onClick={() => setMobileNavOpen(v => !v)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer'
-              }}
-              className="mobile-nav-toggle"
+              className="mobile-nav-toggle dashboard-sidebar-toggler"
               aria-label="Toggle navigation"
+              title="Open Navigation Menu"
             >
               <MenuToggleIcon size={18} />
             </button>
 
             <button
               onClick={() => navigate('/dashboard')}
-              className="dashboard-back-btn"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '7px 14px', borderRadius: '10px', border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)', color: 'var(--color-text)',
-                cursor: 'pointer', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s',
-                boxShadow: 'var(--shadow-sm)'
-              }}
+              className="dashboard-back-btn desktop-only-btn"
               title="Return to Business Selector Dashboard"
             >
-              ← Dashboard
+              <LayoutGrid size={14} className="dashboard-back-icon" />
+              <span>Return to Dashboard</span>
             </button>
           </div>
 
           <div className="user-badge dashboard-header-actions">
-            <div className="dashboard-user-meta" style={{ textAlign: 'right' }}>
-              <p style={{ fontWeight: '700', fontSize: '14px', margin: 0 }}>{owner?.name || 'Owner'}</p>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '600', margin: 0 }}>Owner</p>
+            <div className="dashboard-user-meta">
+              <span className="dashboard-user-name">{owner?.name || 'Owner'}</span>
+              <span className="dashboard-user-role">OWNER</span>
             </div>
           </div>
-
         </header>
 
 
@@ -1692,27 +1711,31 @@ export default function Dashboard() {
                 title="Today's Summary"
                 description="Revenue, fulfilment, basket size, and top items at a glance."
                 action={(
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div className="export-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', flexWrap: 'nowrap' }}>
                     <button
                       onClick={() => handleExportSales('csv')}
                       disabled={exportingFormat === 'csv'}
                       className="btn btn-secondary"
                       style={{
-                        padding: '10px 18px',
-                        borderRadius: '12px',
+                        flex: 1,
+                        minWidth: 0,
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap',
+                        padding: '8px 10px',
+                        borderRadius: '10px',
                         fontWeight: '700',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '6px',
                         boxShadow: 'var(--shadow-sm)',
                         transition: 'all 0.2s ease'
                       }}
                     >
                       {exportingFormat === 'csv' ? (
-                        <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-primary)' }} /> Exporting...</>
+                        <><span className="spinner animate-spin" style={{ width: 13, height: 13, borderWidth: 2, borderTopColor: 'var(--color-primary)' }} /> Exporting...</>
                       ) : (
-                        <><FileSpreadsheet size={16} style={{ color: 'var(--color-primary)' }} /> Export Sales CSV</>
+                        <><FileSpreadsheet size={15} style={{ color: 'var(--color-primary)', flexShrink: 0 }} /> Export CSV</>
                       )}
                     </button>
                     <button
@@ -1720,21 +1743,25 @@ export default function Dashboard() {
                       disabled={exportingFormat === 'xls'}
                       className="btn btn-secondary"
                       style={{
-                        padding: '10px 18px',
-                        borderRadius: '12px',
+                        flex: 1,
+                        minWidth: 0,
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap',
+                        padding: '8px 10px',
+                        borderRadius: '10px',
                         fontWeight: '700',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '6px',
                         boxShadow: 'var(--shadow-sm)',
                         transition: 'all 0.2s ease'
                       }}
                     >
                       {exportingFormat === 'xls' ? (
-                        <><span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-success)' }} /> Exporting...</>
+                        <><span className="spinner animate-spin" style={{ width: 13, height: 13, borderWidth: 2, borderTopColor: 'var(--color-success)' }} /> Exporting...</>
                       ) : (
-                        <><FileSpreadsheet size={16} style={{ color: '#16a34a' }} /> Export Sales XLS</>
+                        <><FileSpreadsheet size={15} style={{ color: '#16a34a', flexShrink: 0 }} /> Export XLS</>
                       )}
                     </button>
                   </div>
@@ -1742,7 +1769,7 @@ export default function Dashboard() {
               />
 
               {loadingSummary ? (
-                <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="stats-grid">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="card stat-card">
                       <LoadingRows rows={2} height={24} />
@@ -1750,7 +1777,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="stats-grid">
                   <div className="card stat-card" style={{ borderLeft: '4px solid var(--color-primary)' }}>
                     <div className="stat-label">TODAY'S REVENUE</div>
                     <div className="stat-value">₹{summary?.stats?.totalSales || 0}</div>
@@ -1800,30 +1827,29 @@ export default function Dashboard() {
                       description="Completed bills for today will appear here once service starts."
                     />
                   ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="custom-table">
+                    <div style={{ width: '100%', overflow: 'hidden' }}>
+                      <table className="custom-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th>BILL ID</th>
-                            <th>TABLE</th>
-                            <th>AMOUNT</th>
-                            <th>STATUS</th>
+                            <th style={{ width: '30%', padding: '8px 6px' }}>TABLE</th>
+                            <th style={{ width: '35%', padding: '8px 6px' }}>AMOUNT</th>
+                            <th style={{ width: '35%', padding: '8px 6px', textAlign: 'right' }}>STATUS</th>
                           </tr>
                         </thead>
                         <tbody>
                           {summary?.recentOrders?.map((order) => (
                             <tr key={order.ordersId}>
-                              <td style={{ fontWeight: '600', color: 'var(--color-primary)' }}>#{order.ordersId.substring(0, 8)}</td>
-                              <td>Table {order.tableNo}</td>
-                              <td style={{ fontWeight: '600' }}>₹{order.finalAmount || order.totalAmount}</td>
-                              <td>
+                              <td style={{ padding: '10px 6px', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Table {order.tableNo}</td>
+                              <td style={{ padding: '10px 6px', fontWeight: '700', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>₹{order.finalAmount || order.totalAmount}</td>
+                              <td style={{ padding: '10px 6px', textAlign: 'right' }}>
                                 <span style={{ 
-                                  padding: '4px 8px', 
+                                  padding: '3px 8px', 
                                   borderRadius: '4px', 
                                   fontSize: '11px', 
                                   fontWeight: '700',
                                   backgroundColor: order.isPaymentCompleted ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                  color: order.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)'
+                                  color: order.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)',
+                                  display: 'inline-block'
                                 }}>
                                   {order.isPaymentCompleted ? 'PAID' : 'PENDING'}
                                 </span>
@@ -3156,72 +3182,181 @@ export default function Dashboard() {
                     action={<button onClick={() => handleOpenMenuModal()} className="btn btn-primary">Add new dish</button>}
                   />
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>PHOTO</th>
-                          <th>DISH NAME</th>
-                          <th>CATEGORY</th>
-                          <th>PRICE</th>
-                          <th>TYPE</th>
-                          <th>STATUS</th>
-                          <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {menuItems
-                          .filter(item => {
-                            const matchSearch = item.dishName?.toLowerCase().includes(menuSearch.toLowerCase()) || item.category?.toLowerCase().includes(menuSearch.toLowerCase());
-                            const matchCat = !menuCategoryFilter || item.category === menuCategoryFilter;
-                            return matchSearch && matchCat;
-                          })
-                          .map((item) => (
-                            <tr key={item.dishId} style={{ opacity: item.isAvailable ? 1 : 0.6 }}>
-                              <td>
-                                {item.imageUrl ? (
-                                  <img src={item.imageUrl} alt={item.dishName} style={{ width: '42px', height: '42px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--color-border)' }} />
-                                ) : (
-                                  <div style={{ width: '42px', height: '42px', borderRadius: '6px', backgroundColor: 'var(--color-bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}><BookOpen size={16} /></div>
-                                )}
-                              </td>
-                              <td style={{ fontWeight: '600' }}>{item.dishName}</td>
-                              <td><span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{item.category}</span></td>
-                              <td style={{ fontWeight: '700' }}>₹{item.price?.toFixed(2)}</td>
-                              <td>
-                                <span style={{
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  backgroundColor: item.isVegetarian ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                  color: item.isVegetarian ? 'var(--color-success)' : 'var(--color-danger)'
-                                }}>{item.isVegetarian ? 'VEG' : 'NON-VEG'}</span>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="tab-desktop-view" style={{ overflowX: 'auto' }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>PHOTO</th>
+                            <th>DISH NAME</th>
+                            <th>CATEGORY</th>
+                            <th>PRICE</th>
+                            <th>TYPE</th>
+                            <th>STATUS</th>
+                            <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menuItems
+                            .filter(item => {
+                              const matchSearch = item.dishName?.toLowerCase().includes(menuSearch.toLowerCase()) || item.category?.toLowerCase().includes(menuSearch.toLowerCase());
+                              const matchCat = !menuCategoryFilter || item.category === menuCategoryFilter;
+                              return matchSearch && matchCat;
+                            })
+                            .map((item) => (
+                              <tr key={item.dishId} style={{ opacity: item.isAvailable ? 1 : 0.6 }}>
+                                <td>
+                                  {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={item.dishName} style={{ width: '42px', height: '42px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--color-border)' }} />
+                                  ) : (
+                                    <div style={{ width: '42px', height: '42px', borderRadius: '6px', backgroundColor: 'var(--color-bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}><BookOpen size={16} /></div>
+                                  )}
+                                </td>
+                                <td style={{ fontWeight: '600' }}>{item.dishName}</td>
+                                <td><span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-muted)' }}>{item.category}</span></td>
+                                <td style={{ fontWeight: '700' }}>₹{item.price?.toFixed(2)}</td>
+                                <td>
+                                  <span style={{
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    backgroundColor: item.isVegetarian ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                    color: item.isVegetarian ? 'var(--color-success)' : 'var(--color-danger)'
+                                  }}>{item.isVegetarian ? 'VEG' : 'NON-VEG'}</span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {togglingDishId === item.dishId ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-primary)', display: 'inline-block' }} />
+                                        <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)' }}>Updating...</span>
+                                      </div>
+                                    ) : (
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={item.isAvailable}
+                                          onChange={() => handleToggleMenuDishAvailability(item)}
+                                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                        />
+                                        <span style={{ fontSize: '12px', fontWeight: '600', color: item.isAvailable ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                          {item.isAvailable ? 'Available' : 'Disabled'}
+                                        </span>
+                                      </label>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button onClick={() => handleOpenMenuModal(item)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Edit</button>
+                                    <button onClick={() => triggerDeleteConfirm('dish', item.dishId, item.dishName)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile & Tablet Cards View */}
+                    <div className="tab-mobile-view" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {menuItems
+                        .filter(item => {
+                          const matchSearch = item.dishName?.toLowerCase().includes(menuSearch.toLowerCase()) || item.category?.toLowerCase().includes(menuSearch.toLowerCase());
+                          const matchCat = !menuCategoryFilter || item.category === menuCategoryFilter;
+                          return matchSearch && matchCat;
+                        })
+                        .map((item) => (
+                          <div
+                            key={item.dishId}
+                            style={{
+                              padding: '14px 16px',
+                              borderRadius: '14px',
+                              background: 'var(--color-bg-subtle)',
+                              border: '1px solid var(--color-border)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px',
+                              opacity: item.isAvailable ? 1 : 0.65
+                            }}
+                          >
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.dishName} style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid var(--color-border)', flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: '48px', height: '48px', borderRadius: '10px', backgroundColor: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', flexShrink: 0 }}><BookOpen size={18} /></div>
+                              )}
+
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: '800', fontSize: '15px', color: 'var(--color-text)' }}>{item.dishName}</span>
+                                  <span style={{
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '9.5px',
+                                    fontWeight: '800',
+                                    backgroundColor: item.isVegetarian ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
+                                    color: item.isVegetarian ? 'var(--color-success)' : 'var(--color-danger)'
+                                  }}>
+                                    {item.isVegetarian ? 'VEG' : 'NON-VEG'}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                  <span style={{ padding: '2px 8px', borderRadius: '8px', fontSize: '10.5px', fontWeight: '700', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
+                                    {item.category}
+                                  </span>
+                                  <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-primary)' }}>
+                                    ₹{item.price?.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
+                              {togglingDishId === item.dishId ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span className="spinner animate-spin" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: 'var(--color-primary)', display: 'inline-block' }} />
+                                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)' }}>Updating status...</span>
+                                </div>
+                              ) : (
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
                                   <input
                                     type="checkbox"
                                     checked={item.isAvailable}
                                     onChange={() => handleToggleMenuDishAvailability(item)}
                                     style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                   />
-                                  <span style={{ fontSize: '12px', fontWeight: '600', color: item.isAvailable ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                  <span style={{ fontSize: '12.5px', fontWeight: '700', color: item.isAvailable ? 'var(--color-success)' : 'var(--color-danger)' }}>
                                     {item.isAvailable ? 'Available' : 'Disabled'}
                                   </span>
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                  <button onClick={() => handleOpenMenuModal(item)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Edit</button>
-                                  <button onClick={() => handleDeleteMenuDish(item)} className="btn btn-secondary" style={{ padding: '6px 10px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}><Trash2 size={14} /></button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
+                                </label>
+                              )}
+
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={() => handleOpenMenuModal(item)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => triggerDeleteConfirm('dish', item.dishId, item.dishName)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', borderColor: 'rgba(230, 57, 70, 0.3)', color: 'var(--color-danger)' }}
+                                  title="Delete"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -3480,28 +3615,44 @@ export default function Dashboard() {
               {/* Modern Filters Card */}
 
               <div className="card orders-filter-container">
-                {/* Status Pills Bar */}
-                <div className="orders-status-pills">
-                  {[
-                    { id: '', label: 'All Orders' },
-                    { id: 'pending', label: 'Pending' },
-                    { id: 'accepted', label: 'Accepted' },
-                    { id: 'preparing', label: 'Preparing' },
-                    { id: 'ready', label: 'Ready' },
-                    { id: 'completed', label: 'Completed' },
-                    { id: 'cancelled', label: 'Cancelled' },
-                  ].map((st) => (
-                    <button
-                      key={st.id}
-                      onClick={() => {
-                        setOrdersFilters(prev => ({ ...prev, status: st.id }));
-                        setTimeout(() => fetchOwnerOrders(0), 0);
-                      }}
-                      className={`orders-status-pill ${ordersFilters.status === st.id ? 'active' : ''}`}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
+                {/* Status Pills Bar with Scroll Arrow Indicator */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <div ref={statusPillsRef} className="orders-status-pills">
+                    {[
+                      { id: '', label: 'All Orders' },
+                      { id: 'pending', label: 'Pending' },
+                      { id: 'accepted', label: 'Accepted' },
+                      { id: 'preparing', label: 'Preparing' },
+                      { id: 'ready', label: 'Ready' },
+                      { id: 'completed', label: 'Completed' },
+                      { id: 'cancelled', label: 'Cancelled' },
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => {
+                          setOrdersFilters(prev => ({ ...prev, status: st.id }));
+                          setTimeout(() => fetchOwnerOrders(0), 0);
+                        }}
+                        className={`orders-status-pill ${ordersFilters.status === st.id ? 'active' : ''}`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (statusPillsRef.current) {
+                        statusPillsRef.current.scrollBy({ left: 160, behavior: 'smooth' });
+                      }
+                    }}
+                    className="status-pills-scroll-btn"
+                    title="More status filters"
+                    aria-label="Scroll status filters right"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
 
                 {/* Inputs & Actions Row */}
@@ -3517,8 +3668,20 @@ export default function Dashboard() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') fetchOwnerOrders(0);
                       }}
-                      style={{ paddingLeft: '36px', height: '40px', fontSize: '13px' }}
+                      style={{ paddingLeft: '36px', paddingRight: ordersFilters.search ? '32px' : '12px', height: '40px', fontSize: '13px' }}
                     />
+                    {ordersFilters.search && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrdersFilters(prev => ({ ...prev, search: '' }));
+                          setTimeout(() => fetchOwnerOrders(0), 0);
+                        }}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '2px' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
 
                   <div className="orders-table-input">
@@ -3532,76 +3695,28 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  <div className="orders-date-input">
+                  <div className="orders-date-wrapper">
+                    <span className="orders-date-label">FROM:</span>
                     <input
                       type="date"
-                      className="form-input"
                       value={ordersFilters.from}
                       onChange={(e) => setOrdersFilters(prev => ({ ...prev, from: e.target.value }))}
-                      style={{ height: '40px', fontSize: '12.5px' }}
                       title="From Date"
                     />
                   </div>
 
-                  <div className="orders-date-input">
+                  <div className="orders-date-wrapper">
+                    <span className="orders-date-label">TO:</span>
                     <input
                       type="date"
-                      className="form-input"
                       value={ordersFilters.to}
                       onChange={(e) => setOrdersFilters(prev => ({ ...prev, to: e.target.value }))}
-                      style={{ height: '40px', fontSize: '12.5px' }}
                       title="To Date"
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {/* View Mode Switcher */}
-                    <div style={{ display: 'flex', gap: '2px', background: 'var(--color-bg-subtle)', padding: '3px', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-                      <button
-                        type="button"
-                        onClick={() => setOrdersViewMode('grid')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: ordersViewMode === 'grid' ? 'var(--color-surface)' : 'transparent',
-                          color: ordersViewMode === 'grid' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                          fontWeight: '700',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: ordersViewMode === 'grid' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
-                        }}
-                      >
-                        <LayoutGrid size={14} />
-                        Cards
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOrdersViewMode('table')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: ordersViewMode === 'table' ? 'var(--color-surface)' : 'transparent',
-                          color: ordersViewMode === 'table' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                          fontWeight: '700',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: ordersViewMode === 'table' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
-                        }}
-                      >
-                        <List size={14} />
-                        Table
-                      </button>
-                    </div>
-
-                    <button onClick={() => fetchOwnerOrders(0)} className="btn btn-primary" style={{ height: '40px', paddingInline: '16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div className="orders-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'nowrap' }}>
+                    <button onClick={() => fetchOwnerOrders(0)} className="btn btn-primary" style={{ height: '40px', paddingInline: '16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
                       <Filter size={14} />
                       Filter
                     </button>
@@ -3611,29 +3726,31 @@ export default function Dashboard() {
                         setTimeout(() => fetchOwnerOrders(0), 0);
                       }}
                       className="btn btn-secondary"
-                      style={{ height: '40px', paddingInline: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      style={{ height: '40px', paddingInline: '14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '10px', whiteSpace: 'nowrap' }}
                       title="Reset Filters"
                     >
                       <RotateCcw size={14} />
+                      Reset
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* DESKTOP VIEW */}
+                           {/* DESKTOP CARDS VIEW */}
               <div className="orders-desktop-view">
                 {loadingOrders && orders.length === 0 ? (
-                  <div className="card" style={{ padding: '30px' }}><LoadingRows rows={4} height={32} /></div>
+                  <div className="card" style={{ padding: '24px' }}>
+                    <LoadingRows rows={3} height={36} />
+                  </div>
                 ) : orders.length === 0 ? (
-                  <div className="card">
+                  <div className="card" style={{ padding: '36px' }}>
                     <EmptyState
                       icon={ShoppingBag}
                       title="No orders found"
                       description="Try adjusting your date range, invoice search, or status filter."
                     />
                   </div>
-                ) : ordersViewMode === 'grid' ? (
-                  /* PC CARDS GRID VIEW */
+                ) : (
                   <div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
                       {orders.map((o) => {
@@ -3685,7 +3802,7 @@ export default function Dashboard() {
                           >
                             {/* Header Row */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-primary)' }}>
                                   #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
                                 </span>
@@ -3698,9 +3815,20 @@ export default function Dashboard() {
                               </span>
                             </div>
 
-                            {/* Customer & Staff Info */}
+                            {/* Date, Time & Customer Info */}
                             <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: '700', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--color-text)' }}>
+                                  <Calendar size={13} style={{ color: 'var(--color-primary)' }} />
+                                  <span>{formattedDate}</span>
+                                  <span style={{ color: 'var(--color-text-muted)', marginInline: '2px' }}>·</span>
+                                  <Clock size={13} style={{ color: 'var(--color-primary)' }} />
+                                  <span>{formattedTime}</span>
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{o.waiter?.waiterName ? `Waiter: ${o.waiter.waiterName}` : 'Self-Order'}</span>
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', paddingTop: '2px' }}>
                                 <span style={{ fontWeight: '700', color: 'var(--color-text)' }}>
                                   {o.customer?.name || 'Walk-in Customer'}
                                 </span>
@@ -3709,10 +3837,6 @@ export default function Dashboard() {
                                     {o.customer.mobile}
                                   </span>
                                 )}
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: 'var(--color-text-muted)' }}>
-                                <span>{formattedTime} ({formattedDate})</span>
-                                <span>{o.waiter?.waiterName ? `Waiter: ${o.waiter.waiterName}` : 'Self-Order'}</span>
                               </div>
                             </div>
 
@@ -3783,130 +3907,6 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
-                ) : (
-                  /* PC TABLE VIEW */
-                  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="custom-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th>INVOICE / TIME</th>
-                            <th>TABLE</th>
-                            <th>CUSTOMER</th>
-                            <th>WAITER / ASSIGNED</th>
-                            <th>ORDER STATUS</th>
-                            <th>PAYMENT STATUS</th>
-                            <th style={{ textAlign: 'right' }}>TOTAL AMOUNT</th>
-                            <th style={{ textAlign: 'center' }}>ACTION</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders.map((o) => {
-                            const dateObj = new Date(o.createdAt);
-                            const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-
-                            const status = (o.orderStatus || 'pending').toLowerCase();
-                            let badgeClass = 'order-status-pending';
-                            let labelStr = 'PENDING';
-
-                            if (status === 'completed') {
-                              badgeClass = 'order-status-completed';
-                              labelStr = 'COMPLETED';
-                            } else if (status === 'preparing') {
-                              badgeClass = 'order-status-preparing';
-                              labelStr = 'PREPARING';
-                            } else if (status === 'ready') {
-                              badgeClass = 'order-status-ready';
-                              labelStr = 'READY';
-                            } else if (status === 'accepted') {
-                              badgeClass = 'order-status-preparing';
-                              labelStr = 'ACCEPTED';
-                            } else if (status === 'cancelled') {
-                              badgeClass = 'order-status-cancelled';
-                              labelStr = 'CANCELLED';
-                            }
-
-                            return (
-                              <tr key={o.ordersId}>
-                                <td>
-                                  <div style={{ fontWeight: '800', color: 'var(--color-primary)', fontSize: '13.5px' }}>
-                                    #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
-                                  </div>
-                                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                                    {formattedTime} · {formattedDate}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span style={{ padding: '4px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    T-{o.tableNo}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div style={{ fontWeight: '700', fontSize: '13px' }}>{o.customer?.name || 'Walk-in Customer'}</div>
-                                  {o.customer?.mobile && (
-                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{o.customer.mobile}</div>
-                                  )}
-                                </td>
-                                <td>
-                                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-text-muted)' }}>
-                                    {o.waiter?.waiterName ? `Waiter: ${o.waiter.waiterName}` : 'Self-Order'}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className={`order-badge-status ${badgeClass}`}>
-                                    {labelStr}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span style={{
-                                    padding: '4px 10px',
-                                    borderRadius: '8px',
-                                    fontSize: '11px',
-                                    fontWeight: '800',
-                                    background: o.isPaymentCompleted ? 'rgba(46, 196, 182, 0.15)' : 'rgba(230, 57, 70, 0.15)',
-                                    color: o.isPaymentCompleted ? 'var(--color-success)' : 'var(--color-danger)',
-                                    border: `1px solid ${o.isPaymentCompleted ? 'rgba(46, 196, 182, 0.3)' : 'rgba(230, 57, 70, 0.3)'}`
-                                  }}>
-                                    {o.isPaymentCompleted ? `PAID (${o.paymentMethod || 'Online'})` : 'UNPAID'}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'right', fontWeight: '800', fontSize: '14px', color: 'var(--color-text)' }}>
-                                  ₹{(o.finalAmount || o.totalAmount || 0).toFixed(2)}
-                                </td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedOrder(o);
-                                      setShowOrderModal(true);
-                                    }}
-                                    className="btn btn-secondary"
-                                    style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                  >
-                                    <Eye size={14} />
-                                    Details
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {orders.length < ordersTotal && (
-                      <div style={{ textAlign: 'center', padding: '16px', borderTop: '1px solid var(--color-border)' }}>
-                        <button
-                          onClick={() => fetchOwnerOrders(ordersOffset + ordersLimit)}
-                          className="btn btn-secondary"
-                          disabled={loadingOrders}
-                          style={{ padding: '10px 24px', fontSize: '13px' }}
-                        >
-                          {loadingOrders ? 'Loading Orders...' : `Load More Orders (${orders.length} of ${ordersTotal})`}
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 )}
               </div>
 
@@ -3924,6 +3924,7 @@ export default function Dashboard() {
                   orders.map((o) => {
                     const dateObj = new Date(o.createdAt);
                     const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
                     const status = (o.orderStatus || 'pending').toLowerCase();
                     let badgeClass = 'order-status-pending';
@@ -3947,7 +3948,7 @@ export default function Dashboard() {
                     }
 
                     return (
-                      <div key={o.ordersId} className="card order-card-item">
+                      <div key={o.ordersId} className="card order-card-item" style={{ padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ padding: '4px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
                             Table {o.tableNo}
@@ -3963,7 +3964,7 @@ export default function Dashboard() {
                               #{o.invoiceNo || `ORD-${o.dailyOrderNo || 'N/A'}`}
                             </span>
                             <p style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
-                              {formattedTime} · {o.customer?.name || 'Walk-in Customer'}
+                              {formattedTime} ({formattedDate}) · {o.customer?.name || 'Walk-in Customer'}
                             </p>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -4011,13 +4012,105 @@ export default function Dashboard() {
           {/* REVIEWS TAB */}
 
           {activeTab === 'reviews' && (
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <SectionHeader
                 title="Customer Feedback & Reviews"
                 description="Read customer ratings, comments, and linked bills."
               />
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+              {/* REVIEW SUMMARY BANNER */}
+              <div className="card" style={{ padding: '24px', borderRadius: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px', alignItems: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                {/* Left: Big Rating Score */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', paddingRight: '12px' }}>
+                  <span style={{ fontSize: '48px', fontWeight: '900', color: 'var(--color-text)', lineHeight: '1' }}>
+                    {reviewSummary?.avgRating ? reviewSummary.avgRating.toFixed(1) : '0.0'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '3px', margin: '8px 0 4px 0' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={20}
+                        fill={star <= Math.round(reviewSummary?.avgRating || 0) ? '#FFD700' : 'none'}
+                        color={star <= Math.round(reviewSummary?.avgRating || 0) ? '#FFD700' : '#CCCCCC'}
+                      />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--color-text-muted)' }}>
+                    Based on {reviewSummary?.total || 0} customer ratings
+                  </span>
+                </div>
+
+                {/* Right: 5-Star Distribution Bars */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviewSummary?.counts?.[star] || 0;
+                    const total = reviewSummary?.total || 1;
+                    const percent = Math.round((count / (total || 1)) * 100);
+
+                    return (
+                      <div key={star} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
+                        <span style={{ fontWeight: '700', width: '45px', display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--color-text)' }}>
+                          {star} <Star size={12} fill="#FFD700" color="#FFD700" />
+                        </span>
+                        <div style={{ flex: 1, height: '8px', background: 'var(--color-bg-subtle)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                          <div style={{ width: `${percent}%`, height: '100%', background: star >= 4 ? '#2EC4B6' : star === 3 ? '#FF9F1C' : '#E63946', borderRadius: '6px', transition: 'width 0.4s ease' }} />
+                        </div>
+                        <span style={{ fontSize: '11.5px', fontWeight: '700', color: 'var(--color-text-muted)', width: '60px', textAlign: 'right' }}>
+                          {count} ({percent}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* RATING FILTERS BAR */}
+              <div className="card" style={{ padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', display: 'flex', alignItems: 'center', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-text-muted)', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>
+                  FILTER RATING:
+                </span>
+                
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                  <div ref={reviewFilterRef} className="orders-status-pills">
+                    {[
+                      { id: '', label: 'All Reviews' },
+                      { id: '5', label: '5 Stars ★' },
+                      { id: '4_below', label: '4 Stars & Below' },
+                      { id: '3_below', label: '3 Stars & Below' },
+                      { id: '2_below', label: '2 Stars & Below' },
+                      { id: '1', label: '1 Star ★' },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          setReviewRatingFilter(f.id);
+                          fetchOwnerReviews(0, f.id);
+                        }}
+                        className={`orders-status-pill ${reviewRatingFilter === f.id ? 'active' : ''}`}
+                        style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '10px' }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (reviewFilterRef.current) {
+                        reviewFilterRef.current.scrollBy({ left: 140, behavior: 'smooth' });
+                      }
+                    }}
+                    className="status-pills-scroll-btn"
+                    title="More rating filters"
+                    aria-label="Scroll rating filters right"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
                 {loadingReviews && reviews.length === 0 ? (
                   <div className="card" style={{ gridColumn: '1 / -1', padding: '40px' }}><LoadingRows rows={3} height={24} /></div>
                 ) : reviews.length === 0 ? (
@@ -4030,9 +4123,9 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   reviews.map((r) => (
-                    <div key={r.feedbackId} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1.5px solid var(--color-border)', borderRadius: '12px' }}>
+                    <div key={r.feedbackId} className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--color-border)', borderRadius: '16px', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'hidden' }}>
                       {/* Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
                             {[1, 2, 3, 4, 5].map((star) => (
@@ -4054,29 +4147,32 @@ export default function Dashboard() {
                       </div>
 
                       {/* Comment */}
-                      <div style={{ fontSize: '13.5px', color: 'var(--color-text)', fontStyle: r.comment ? 'normal' : 'italic', lineBreak: 'anywhere' }}>
+                      <div style={{ fontSize: '13.5px', color: 'var(--color-text)', fontStyle: r.comment ? 'normal' : 'italic', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                         {r.comment ? `"${r.comment}"` : 'No comment provided.'}
                       </div>
 
                       <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '12px', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {/* Customer */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', flexWrap: 'wrap', gap: '4px' }}>
                           <span style={{ color: 'var(--color-text-muted)' }}>Customer Mobile</span>
-                          <span style={{ fontWeight: '600' }}>{r.mobile}</span>
+                          <span style={{ fontWeight: '600' }}>{r.mobile || 'N/A'}</span>
                         </div>
 
                         {/* Linked Order */}
                         {r.orders ? (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                            <span style={{ color: 'var(--color-text-muted)' }}>Order #{r.orders.dailyOrderNo} (T-{r.orders.tableNo})</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', flexWrap: 'wrap', gap: '6px', paddingTop: '2px' }}>
+                            <span style={{ color: 'var(--color-text-muted)', fontWeight: '600' }}>
+                              Order #{r.orders.invoiceNo || `ORD-${r.orders.dailyOrderNo || 'N/A'}`} (T-{r.orders.tableNo})
+                            </span>
                             <button
                               onClick={() => {
                                 setSelectedOrder(r.orders);
                                 setShowOrderModal(true);
                               }}
                               className="btn btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '11px' }}
+                              style={{ padding: '4px 10px', fontSize: '11.5px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                             >
+                              <Eye size={13} />
                               View Bill
                             </button>
                           </div>
@@ -4106,61 +4202,63 @@ export default function Dashboard() {
 
           {/* SETTINGS TAB */}
           {activeTab === 'settings' && (
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <SectionHeader
                 title="System Settings"
                 description="Review account details, theme controls, and restaurant logo settings."
               />
               
-              <div className="card" style={{ maxWidth: '600px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
+              <div className="card" style={{ maxWidth: '680px', width: '100%', padding: '24px', borderRadius: '20px', boxSizing: 'border-box', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
                   <Info size={18} style={{ color: 'var(--color-primary)' }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Account Information</h3>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Account Information</h3>
                 </div>
 
-                <div className="settings-option">
-                  <div>
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>Owner Name</p>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{owner?.name}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="settings-option">
+                    <div>
+                      <p style={{ fontWeight: '700', fontSize: '13.5px', margin: 0 }}>Owner Name</p>
+                      <p style={{ color: 'var(--color-text-muted)', fontSize: '12.5px', margin: '2px 0 0 0' }}>{owner?.name || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="settings-option">
+                    <div>
+                      <p style={{ fontWeight: '700', fontSize: '13.5px', margin: 0 }}>Registered Email</p>
+                      <p style={{ color: 'var(--color-text-muted)', fontSize: '12.5px', margin: '2px 0 0 0', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{owner?.email || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="settings-option">
+                    <div>
+                      <p style={{ fontWeight: '700', fontSize: '13.5px', margin: 0 }}>Mobile Number</p>
+                      <p style={{ color: 'var(--color-text-muted)', fontSize: '12.5px', margin: '2px 0 0 0' }}>{owner?.mobile || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="settings-option">
-                  <div>
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>Registered Email</p>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{owner?.email}</p>
-                  </div>
-                </div>
-
-                <div className="settings-option">
-                  <div>
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>Mobile Number</p>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{owner?.mobile}</p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '32px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
                   <SettingsIcon size={18} style={{ color: 'var(--color-primary)' }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Theme Preference</h3>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Theme Preference</h3>
                 </div>
 
-                <div className="settings-option">
-                  <div>
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>Interface Theme</p>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Toggle between Light and Dark interface colors.</p>
+                <div className="settings-option" style={{ padding: '14px' }}>
+                  <div style={{ flex: '1 1 180px' }}>
+                    <p style={{ fontWeight: '700', fontSize: '13.5px', margin: 0 }}>Interface Theme</p>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', margin: '2px 0 0 0' }}>Toggle between Light and Dark interface colors.</p>
                   </div>
-                  <button onClick={toggleTheme} className="btn btn-secondary" style={{ gap: '10px' }}>
+                  <button onClick={toggleTheme} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
                     Theme: {theme.toUpperCase()}
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '32px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px', marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
                   <Store size={18} style={{ color: 'var(--color-primary)' }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Restaurant Logo</h3>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Restaurant Logo</h3>
                 </div>
 
-                <div style={{ marginTop: '16px' }}>
+                <div style={{ marginTop: '14px' }}>
                   <CustomFileUpload
                     label="Upload Restaurant Logo"
                     previewUrl={restaurant?.logoUrl}
@@ -4180,24 +4278,21 @@ export default function Dashboard() {
       </main>
 
       {/* ======================================================================
-         MODALS & DIALOG BOXES
-         ====================================================================== */}
-
-      {/* Menu Dish Modal */}
+         MODALS & DIA      {/* Menu Dish Modal */}
       {showMenuModal && (
         <div className="dialog-overlay">
-          <div className="dialog" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 className="dialog-title" style={{ margin: 0 }}>{selectedMenuDish ? 'Edit Dish Details' : 'Add New Dish'}</h3>
-              <button onClick={() => { setShowMenuModal(false); setFormError(''); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+          <div className="dialog" style={{ maxWidth: '560px', width: 'min(560px, calc(100vw - 24px))', maxHeight: '82vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 className="dialog-title" style={{ margin: 0, fontSize: '18px' }}>{selectedMenuDish ? 'Edit Dish Details' : 'Add New Dish'}</h3>
+              <button onClick={() => { setShowMenuModal(false); setFormError(''); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '4px' }}>
                 <X size={18} />
               </button>
             </div>
-            {formError && <div className="auth-error">{formError}</div>}
+            {formError && <div className="auth-error" style={{ marginBottom: '12px' }}>{formError}</div>}
             
-            <form onSubmit={handleSaveMenuDish} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div className="form-group">
+            <form onSubmit={handleSaveMenuDish} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>DISH NAME *</label>
                   <input
                     type="text"
@@ -4208,7 +4303,7 @@ export default function Dashboard() {
                     required
                   />
                 </div>
-                <div className="form-group">
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>PRICE (₹) *</label>
                   <input
                     type="number"
@@ -4222,10 +4317,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div className="form-group">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>CATEGORY *</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <select
                       className="form-input"
                       value={isCustomCategory ? '__CUSTOM__' : dishForm.category}
@@ -4262,7 +4357,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 
-                <div className="form-group">
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>SPICY LEVEL (1-4)</label>
                   <select
                     className="form-input"
@@ -4277,9 +4372,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div className="form-group">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>PREPARATION TIME (MINS)</label>
                   <input
                     type="number"
@@ -4289,26 +4383,29 @@ export default function Dashboard() {
                     placeholder="15"
                   />
                 </div>
+              </div>
 
-                <div className="form-group" style={{ display: 'flex', gap: '10px', alignItems: 'center', height: '100%', paddingTop: '14px', flexWrap: 'wrap' }}>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '700', color: 'var(--color-text)', padding: '9px 12px', background: 'var(--color-bg-subtle)', borderRadius: '10px', border: '1px solid var(--color-border)', flex: '1 1 auto' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>STATUS & DIETARY</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700', color: 'var(--color-text)', padding: '8px 12px', background: 'var(--color-bg-subtle)', borderRadius: '8px', border: '1px solid var(--color-border)', flex: '1 1 120px', minWidth: 0, boxSizing: 'border-box' }}>
                     <input
                       type="checkbox"
                       checked={dishForm.isVegetarian}
                       onChange={(e) => handleDishFormChange('isVegetarian', e.target.checked)}
-                      style={{ width: '16px', height: '16px', accentColor: 'var(--color-success)', cursor: 'pointer' }}
+                      style={{ width: '15px', height: '15px', accentColor: 'var(--color-success)', cursor: 'pointer', flexShrink: 0 }}
                     />
-                    <span>🟢 VEGETARIAN</span>
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>VEGETARIAN</span>
                   </label>
                   
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: '700', color: 'var(--color-text)', padding: '9px 12px', background: 'var(--color-bg-subtle)', borderRadius: '10px', border: '1px solid var(--color-border)', flex: '1 1 auto' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: '700', color: 'var(--color-text)', padding: '8px 12px', background: 'var(--color-bg-subtle)', borderRadius: '8px', border: '1px solid var(--color-border)', flex: '1 1 120px', minWidth: 0, boxSizing: 'border-box' }}>
                     <input
                       type="checkbox"
                       checked={dishForm.isAvailable}
                       onChange={(e) => handleDishFormChange('isAvailable', e.target.checked)}
-                      style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                      style={{ width: '15px', height: '15px', accentColor: 'var(--color-primary)', cursor: 'pointer', flexShrink: 0 }}
                     />
-                    <span>✅ AVAILABLE</span>
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AVAILABLE</span>
                   </label>
                 </div>
               </div>
@@ -4924,6 +5021,27 @@ export default function Dashboard() {
             {/* Modal Body */}
             <div style={{ padding: '24px', maxHeight: '72vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
+              {/* Cancellation Reason Alert Box */}
+              {(selectedOrder.orderStatus?.toLowerCase() === 'cancelled' || selectedOrder.cancellationReason || selectedOrder.cancelReason || selectedOrder.cancellation_reason) && (
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  background: 'rgba(230, 57, 70, 0.08)',
+                  border: '1px solid rgba(230, 57, 70, 0.3)',
+                  color: 'var(--color-danger)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⚠️</span> CANCELLATION REASON (STAFF NOTE)
+                  </span>
+                  <span style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--color-text)', lineHeight: '1.4' }}>
+                    {selectedOrder.cancellationReason || selectedOrder.cancelReason || selectedOrder.cancellation_reason || selectedOrder.remarks || 'No specific cancellation reason recorded.'}
+                  </span>
+                </div>
+              )}
+
               {/* Responsive Details Cards Grid */}
               <div style={{
                 display: 'grid',
@@ -5017,12 +5135,29 @@ export default function Dashboard() {
                   <span style={{ color: 'var(--color-text-muted)' }}>Subtotal:</span>
                   <span style={{ fontWeight: '600' }}>₹{parseFloat(selectedOrder.totalAmount || 0).toFixed(2)}</span>
                 </div>
-                {parseFloat(selectedOrder.discountAmount || 0) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--color-danger)' }}>Discount:</span>
-                    <span style={{ color: 'var(--color-danger)', fontWeight: '600' }}>-₹{parseFloat(selectedOrder.discountAmount).toFixed(2)}</span>
-                  </div>
-                )}
+                {(() => {
+                  const discountVal = parseFloat(selectedOrder.discountAmount || selectedOrder.discount || selectedOrder.discount_amount || 0) || 
+                    ((parseFloat(selectedOrder.totalAmount || 0) > 0 && parseFloat(selectedOrder.finalAmount || 0) > 0 && (parseFloat(selectedOrder.totalAmount || 0) + parseFloat(selectedOrder.gstAmount || 0) - parseFloat(selectedOrder.finalAmount || 0)) > 0.01)
+                      ? (parseFloat(selectedOrder.totalAmount || 0) + parseFloat(selectedOrder.gstAmount || 0) - parseFloat(selectedOrder.finalAmount || 0))
+                      : 0);
+                  
+                  if (discountVal <= 0) return null;
+
+                  const coupon = selectedOrder.couponCode || selectedOrder.coupon_code;
+                  const percent = selectedOrder.discountPercent || selectedOrder.discount_percent;
+                  const discountLabel = coupon 
+                    ? `Discount (${coupon})`
+                    : percent
+                      ? `Discount (${percent}%)`
+                      : 'Discount';
+
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-danger)', fontWeight: '600' }}>{discountLabel}:</span>
+                      <span style={{ color: 'var(--color-danger)', fontWeight: '700' }}>-₹{discountVal.toFixed(2)}</span>
+                    </div>
+                  );
+                })()}
                 {parseFloat(selectedOrder.gstAmount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                     <span style={{ color: 'var(--color-text-muted)' }}>GST & Taxes:</span>

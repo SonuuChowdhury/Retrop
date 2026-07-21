@@ -475,8 +475,10 @@ export const api = {
     return handleResponse(response);
   },
 
-  getReviews: async (limit = 20, offset = 0) => {
-    const response = await fetch(`${API_BASE_URL}/api/owner/reviews?limit=${limit}&offset=${offset}`, {
+  getReviews: async (limit = 20, offset = 0, filterRating = '') => {
+    const params = new URLSearchParams({ limit, offset });
+    if (filterRating) params.append('ratingFilter', filterRating);
+    const response = await fetch(`${API_BASE_URL}/api/owner/reviews?${params.toString()}`, {
       method: 'GET',
       headers: getHeaders(),
     });
