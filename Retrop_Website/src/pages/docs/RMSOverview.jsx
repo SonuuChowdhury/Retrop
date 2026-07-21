@@ -78,7 +78,7 @@ export default function RMSOverview() {
       <ul>
         <li><strong>Restaurant Owners</strong> — Full control over all operations, financials, and staff</li>
         <li><strong>Kitchen Staff</strong> — Order tracking and recipe/ingredient visibility via the mobile app</li>
-        <li><strong>Floor Staff / Waiters</strong> — Order placement and table management</li>
+        <li><strong>Waiters</strong> — Order placement and table management</li>
         <li><strong>Managers</strong> — Shift oversight, inventory counting, and purchase approvals</li>
       </ul>
       <p>
@@ -92,7 +92,7 @@ export default function RMSOverview() {
       <ol>
         <li><strong>Account Creation</strong> — Sign up directly via the portal or have your Owner account provisioned by the Retrop team.</li>
         <li><strong>Initial Setup</strong> — Log in to the Owner's Portal and configure your restaurant profile, menu categories, and ingredient inventory.</li>
-        <li><strong>Add Your Team</strong> — Create staff accounts and assign roles (Kitchen, Floor Staff, Manager).</li>
+        <li><strong>Add Your Team</strong> — Create staff accounts and assign roles (Kitchen, Waiter, Manager).</li>
         <li><strong>Set Up Vendors</strong> — Add your ingredient suppliers and set reorder quantities.</li>
         <li><strong>Launch Ordering</strong> — Generate your table QR codes and go live with the ordering system.</li>
         <li><strong>Monitor & Grow</strong> — Use the analytics dashboard to track performance, costs, and trends.</li>

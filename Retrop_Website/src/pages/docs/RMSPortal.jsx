@@ -5,7 +5,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import DocsLayout from '../../components/DocsLayout';
-import { ArrowRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import {
+  LayoutDashboard, Users, Settings as SettingsIcon,
+  ShoppingBag, DollarSign, Store, ChefHat, Truck, Box,
+  ClipboardList, CheckCircle, FileSpreadsheet, BookOpen, Star,
+  ArrowRight, Lightbulb, Zap
+} from 'lucide-react';
 
 export default function RMSPortal() {
   return (
@@ -20,247 +25,245 @@ export default function RMSPortal() {
       </div>
 
       <span className="badge badge-primary" style={{ marginBottom: '16px' }}>Owner's Portal</span>
-      <h1>Retrop RMS — Owner's Portal</h1>
-      <p style={{ fontSize: '17px', color: 'var(--color-text)', lineHeight: 1.7, marginBottom: '32px' }}>
-        The Owner's Portal is the central web dashboard for restaurant owners to manage every aspect
-        of their Retrop RMS setup — from inventory and staff to analytics and vendor management.
+      <h1>Retrop RMS — Owner's Portal Guide</h1>
+      <p style={{ fontSize: '16.5px', color: 'var(--color-text)', lineHeight: 1.7, marginBottom: '32px' }}>
+        The Owner's Portal is the master web-based management platform accessible at <code>/dashboard</code>. It gives restaurant owners end-to-end control over menu catalogs, real-time orders, staff credentials, raw ingredient inventory, recipes (BOM), purchase orders, petty cash expenses, GST compliance, and End-of-Day register closure.
       </p>
 
       {/* TOC */}
       <div className="docs-toc">
-        <h4>On this page</h4>
+        <h4>Table of Contents</h4>
         <ul>
-          <li><a href="#accessing">Accessing the Portal</a></li>
-          <li><a href="#dashboard-overview">Dashboard Overview</a></li>
-          <li><a href="#inventory">Inventory Management</a></li>
-          <li><a href="#menu-manager">Menu Manager</a></li>
-          <li><a href="#cost-calculator">Cost Calculator</a></li>
-          <li><a href="#staff-management">Staff Management</a></li>
-          <li><a href="#vendor-management">Vendor Management</a></li>
-          <li><a href="#orders-section">Orders Section</a></li>
-          <li><a href="#analytics">Analytics & Reports</a></li>
-          <li><a href="#table-management">Table Management</a></li>
-          <li><a href="#settings">Account Settings</a></li>
+          <li><a href="#system-flow-diagram">1. System Architecture & Inter-Module Data Flow</a></li>
+          <li><a href="#snapshot-analytics">2. Snapshot & Executive Overview</a></li>
+          <li><a href="#customer-flow">3. Customer Flow (Menu, Orders & Reviews)</a></li>
+          <li><a href="#operations-inventory">4. Operations & Inventory (Staff, Stock, Vendors, BOM, Purchases, Expenses)</a></li>
+          <li><a href="#compliance-settings">5. Compliance, Day Close & Settings</a></li>
+          <li><a href="#form-recording-guidelines">6. Form Filling & Data Recording Guidelines</a></li>
         </ul>
       </div>
 
-      <h2 id="accessing">Accessing the Portal</h2>
+      {/* ── 1. SYSTEM FLOW DIAGRAM ────────────────────────────────────────── */}
+      <h2 id="system-flow-diagram">1. System Architecture & Inter-Module Data Flow</h2>
       <p>
-        The Owner's Portal is a web application accessible at <code>retrop.in/login</code> from any modern browser.
-        Use the owner credentials provided by the Retrop team when your account was created.
+        The Owner's Portal connects every restaurant operation into a unified data pipeline:
       </p>
-      <ul>
-        <li><strong>Supported browsers:</strong> Chrome, Firefox, Safari, Edge (latest versions)</li>
-        <li><strong>Works on:</strong> Desktop, laptop, and tablet (mobile support coming soon)</li>
-        <li><strong>First-time login:</strong> You'll be prompted to change your temporary password before entering the portal</li>
-      </ul>
 
-      <h2 id="dashboard-overview">Dashboard Overview</h2>
-      <p>
-        The main dashboard gives you a snapshot of your restaurant's current status. It refreshes automatically
-        and shows live data.
-      </p>
-      <h3>Dashboard widgets</h3>
-      <ul>
-        <li><strong>Today's Orders</strong> — Total orders placed today, with a breakdown by status</li>
-        <li><strong>Revenue Today</strong> — Gross revenue from served orders (based on menu prices)</li>
-        <li><strong>Active Staff</strong> — Number of staff currently clocked in</li>
-        <li><strong>Low Stock Items</strong> — Count of ingredients below their reorder threshold</li>
-        <li><strong>Recent Orders Feed</strong> — Live list of the last 10 orders with table number and status</li>
-        <li><strong>Top Selling Items Today</strong> — The most ordered menu items for the current day</li>
-      </ul>
+      <div style={{ overflowX: 'auto', margin: '24px 0 32px' }}>
+        <div style={{ minWidth: '600px', padding: '24px', borderRadius: '20px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px', textAlign: 'center' }}>
+            <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255, 107, 53, 0.1)', border: '1px solid rgba(255, 107, 53, 0.3)' }}>
+              <ShoppingBag size={24} color="var(--color-primary)" style={{ margin: '0 auto 8px' }} />
+              <strong style={{ display: 'block', fontSize: '13.5px', color: 'var(--color-text)' }}>1. Order Placed</strong>
+              <span style={{ fontSize: '11.5px', color: 'var(--color-text-muted)' }}>Customer QR / POS</span>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+              <ChefHat size={24} color="#6366F1" style={{ margin: '0 auto 8px' }} />
+              <strong style={{ display: 'block', fontSize: '13.5px', color: 'var(--color-text)' }}>2. BOM Deduction</strong>
+              <span style={{ fontSize: '11.5px', color: 'var(--color-text-muted)' }}>Auto stock deduction</span>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+              <Box size={24} color="#F59E0B" style={{ margin: '0 auto 8px' }} />
+              <strong style={{ display: 'block', fontSize: '13.5px', color: 'var(--color-text)' }}>3. Reorder Alert</strong>
+              <span style={{ fontSize: '11.5px', color: 'var(--color-text-muted)' }}>Issue PO to Vendor</span>
+            </div>
+
+            <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <CheckCircle size={24} color="#10B981" style={{ margin: '0 auto 8px' }} />
+              <strong style={{ display: 'block', fontSize: '13.5px', color: 'var(--color-text)' }}>4. EOD & GST Audit</strong>
+              <span style={{ fontSize: '11.5px', color: 'var(--color-text-muted)' }}>Cash & tax reporting</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. SNAPSHOT & ANALYTICS ────────────────────────────────────────── */}
+      <h2 id="snapshot-analytics">2. Snapshot & Executive Overview</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', margin: '20px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <LayoutDashboard size={16} color="var(--color-primary)" /> Executive Dashboard Overview
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Real-time business snapshot displaying Today's Revenue (₹), Total Orders count, Active Table occupancy %, Net Profit metrics, and instant Low Stock alert banners.
+          </p>
+        </div>
+      </div>
+
+      {/* ── 3. CUSTOMER FLOW ────────────────────────────────────────── */}
+      <h2 id="customer-flow">3. Customer Flow (Menu, Orders & Reviews)</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', margin: '20px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BookOpen size={16} color="var(--color-primary)" /> Menu List Manager
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Create and edit menu items. Upload dish photos (PNG/JPG/WEBP max 2MB), set base price (₹), select category, apply tax rate %, set veg/non-veg tags, and toggle In-Stock / Out-of-Stock.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShoppingBag size={16} color="var(--color-primary)" /> Orders Live Monitor
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Real-time feed of all incoming customer orders across dining tables. View customer details, ordered dishes, KOT status, bill totals, payment modes (Cash, Card, UPI), and print receipts.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Star size={16} color="var(--color-primary)" /> Customer Reviews & Ratings
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Track star ratings and customer feedback submitted at the end of digital QR dining sessions to monitor service quality and dish satisfaction.
+          </p>
+        </div>
+      </div>
+
+      {/* ── 4. OPERATIONS & INVENTORY ────────────────────────────────────────── */}
+      <h2 id="operations-inventory">4. Operations & Inventory (Staff, Stock, Vendors, BOM, Purchases, Expenses)</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', margin: '20px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Users size={16} color="var(--color-primary)" /> Staff Registry
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Provision staff accounts for Managers, Waiters, and Kitchen Chefs. Assign mobile login credentials, passcodes, shift permissions, and toggle active/inactive access.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Box size={16} color="var(--color-primary)" /> Stock Items (Inventory)
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Track raw ingredients (e.g. Cheese, Flour, Oil) with unit measures (kg, L, pcs), current stock count, minimum safety reorder thresholds, and unit cost prices.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Truck size={16} color="var(--color-primary)" /> Vendors Directory
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Manage ingredient suppliers, company contact persons, phone numbers, email addresses, vendor GSTIN, and credit payment terms.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ChefHat size={16} color="var(--color-primary)" /> Recipes & Bill of Materials (BOM)
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Link menu dishes to ingredient quantities (e.g., 1 Pizza = 150g Cheese + 200g Dough). Enables automated real-time inventory deduction whenever an order is completed.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ClipboardList size={16} color="var(--color-primary)" /> Purchases & Stock Intake
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Issue Purchase Orders (POs) to vendors. Marking a PO as <strong>Received</strong> automatically increases raw ingredient stock counts in the inventory module.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DollarSign size={16} color="var(--color-primary)" /> Operational Expenses Ledger
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Log petty cash store expenses (Rent, Electricity, Maintenance, Staff Advances, Repairs). Categorize costs and track net operating expenses.
+          </p>
+        </div>
+      </div>
+
+      {/* ── 5. COMPLIANCE & SETTINGS ────────────────────────────────────────── */}
+      <h2 id="compliance-settings">5. Compliance, Day Close & Settings</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', margin: '20px 0 32px' }}>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={16} color="var(--color-primary)" /> Day Close Register
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            End-of-Day shift register closure. Record physical cash counted in drawer; system calculates expected cash vs. actual cash variance and locks the session.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileSpreadsheet size={16} color="var(--color-primary)" /> GST Compliance & Tax Reports
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Configure GSTIN number, CGST/SGST tax split rates, and export monthly GST audit reports for tax filing.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Store size={16} color="var(--color-primary)" /> Restaurant Settings
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Manage store profile (Restaurant Name, Phone, Address, Logo, Currency), operating hours, and master Customer QR Self-Ordering toggle.
+          </p>
+        </div>
+        <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <SettingsIcon size={16} color="var(--color-primary)" /> Account & Security Settings
+          </h4>
+          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Owner profile settings, password changes, authentication security, dark/light theme toggle, and system preferences.
+          </p>
+        </div>
+      </div>
+
+      {/* ── 6. FORM RECORDING GUIDELINES ────────────────────────────────────────── */}
+      <h2 id="form-recording-guidelines">6. Form Filling & Data Recording Guidelines</h2>
+      <p>Follow these operational standards when populating or updating forms in the Owner's Portal:</p>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px', fontSize: '14px' }}>
+        <thead>
+          <tr style={{ background: 'var(--color-bg-subtle)', borderBottom: '2px solid var(--color-border)', textAlign: 'left' }}>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Module / Form</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>What to Record</th>
+            <th style={{ padding: '12px 16px', fontWeight: 700 }}>What NOT to Record</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Menu Item Form</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>Exact dish title, net base price (₹) excluding tax, dish image (PNG/JPG max 2MB), category, veg/non-veg flag, tax rate %.</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Do not include currency symbols in price fields. Do not upload images larger than 2MB or non-image files.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Stock Item Form</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>Ingredient name, standard unit (kg, L, pcs, g), current stock level, minimum safety threshold, unit purchase cost.</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Do not mix units (e.g. entering grams when unit is kg). Do not leave reorder threshold at 0.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Staff Account Form</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>Staff full name, registered mobile number (used for app login), assigned role (Manager/Waiter/Chef), 4-digit passcode.</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Do not assign master owner password to staff. Do not use duplicate mobile numbers across staff accounts.</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Expenses Form</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>Expense category (Rent, Repairs, Utilities, Wages), exact amount paid in cash (₹), transaction date, notes/invoice ref.</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Do not log supplier inventory purchases here (use Purchase Orders module instead).</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-primary)' }}>Day Close Form</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>Actual counted cash physically present in register drawer at shift end.</td>
+            <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>Do not alter recorded expected sales figures manually. System calculates variance automatically.</td>
+          </tr>
+        </tbody>
+      </table>
 
       <div className="docs-callout tip">
         <Lightbulb size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-        <p>Bookmark the dashboard link in your browser for quick daily access. The portal stays logged in for 7 days before requiring re-authentication.</p>
+        <p>The Owner's Portal layout is fully responsive across desktop, tablet, and mobile browsers. Data changes sync instantly with all active mobile app instances.</p>
       </div>
-
-      <h2 id="inventory">Inventory Management</h2>
-      <p>
-        The Inventory section is the core of Retrop RMS. Every ingredient your kitchen uses is tracked here,
-        giving you visibility into what you have, what you've used, and what needs to be ordered.
-      </p>
-      <h3>Adding ingredients</h3>
-      <ol>
-        <li>Go to <strong>Inventory → Ingredients → Add New</strong>.</li>
-        <li>Enter the ingredient name, unit of measurement (kg, litre, piece, etc.).</li>
-        <li>Set the <strong>current stock quantity</strong> and the <strong>reorder threshold</strong> (quantity at which a low-stock alert is triggered).</li>
-        <li>Optionally link to a vendor for automatic purchase order suggestions.</li>
-        <li>Save — the ingredient is now tracked in real time.</li>
-      </ol>
-
-      <h3>Stock adjustments</h3>
-      <p>Stock levels are automatically reduced when orders are served (based on recipe mappings). You can also manually adjust:</p>
-      <ul>
-        <li><strong>Add Stock</strong> — Log a delivery or purchase that increases stock</li>
-        <li><strong>Remove Stock</strong> — Log wastage, spillage, or manual consumption</li>
-        <li><strong>Stock Count</strong> — Perform a full physical count to reconcile system vs. actual stock</li>
-      </ul>
-
-      <h3>Low stock alerts</h3>
-      <p>
-        When an ingredient drops below its reorder threshold, it appears highlighted in the Inventory list
-        and triggers notifications to Managers and the Owner. You can configure alert delivery via
-        push notification or email in <strong>Settings → Notifications</strong>.
-      </p>
-
-      <h2 id="menu-manager">Menu Manager</h2>
-      <p>
-        The Menu Manager is where you build and maintain your digital menu — the same menu customers
-        see when they scan your table QR codes.
-      </p>
-      <h3>Categories</h3>
-      <p>Start by creating menu categories (e.g., Starters, Mains, Beverages). Each category can have:</p>
-      <ul>
-        <li>A name and optional description</li>
-        <li>A display order (drag to reorder)</li>
-        <li>An enabled/disabled toggle (useful for seasonal menus)</li>
-      </ul>
-      <h3>Menu items</h3>
-      <p>Each menu item includes:</p>
-      <ul>
-        <li><strong>Name and description</strong></li>
-        <li><strong>Price</strong> (inclusive of all taxes by default)</li>
-        <li><strong>Image</strong> (JPG/PNG, recommended 800×800px)</li>
-        <li><strong>Dietary tag</strong> — Veg, Non-Veg, Vegan, Contains Allergens</li>
-        <li><strong>Serving size</strong></li>
-        <li><strong>Recipe linkage</strong> — Link menu items to ingredient recipes for automatic stock deduction</li>
-        <li><strong>Available toggle</strong> — Hide items from customers instantly</li>
-      </ul>
-
-      <h2 id="cost-calculator">Cost Calculator</h2>
-      <p>
-        The Cost Calculator helps you understand the true cost of each dish and determine your margins.
-        This is one of the most powerful features of Retrop RMS for driving profitability.
-      </p>
-      <h3>How it works</h3>
-      <ol>
-        <li>Select a menu item to analyse.</li>
-        <li>Add the ingredients used in the recipe and their quantities per serving.</li>
-        <li>The system calculates the <strong>raw material cost per plate</strong> based on your current ingredient prices.</li>
-        <li>Set your <strong>selling price</strong> and the system shows your <strong>gross margin percentage</strong>.</li>
-        <li>Optionally add overhead costs (staff hours, utilities) for a net margin estimate.</li>
-      </ol>
-      <p>
-        As ingredient prices change (after a purchase), the cost calculator automatically updates — helping you
-        spot when a dish's margin has eroded and price adjustments are needed.
-      </p>
-
-      <h2 id="staff-management">Staff Management</h2>
-      <p>Manage all staff accounts from the Staff section of the portal.</p>
-      <h3>Adding a staff member</h3>
-      <ol>
-        <li>Go to <strong>Staff → Add Member</strong>.</li>
-        <li>Enter their name, email, phone number, and role (Kitchen, Waiter, Manager).</li>
-        <li>The system generates a temporary password and emails it to the staff member.</li>
-        <li>On first login via the mobile app, they're prompted to set a new password.</li>
-      </ol>
-      <h3>Roles & permissions</h3>
-      <ul>
-        <li><strong>Kitchen</strong> — View and manage orders only; no access to inventory, analytics, or staff management</li>
-        <li><strong>Waiter / Floor</strong> — Place orders, view order status, update table status</li>
-        <li><strong>Manager</strong> — All of the above + inventory, purchase orders, task management, and shift reports</li>
-        <li><strong>Owner</strong> — Full access to everything, including billing, settings, and account management</li>
-      </ul>
-      <h3>Deactivating a staff account</h3>
-      <p>
-        To remove a staff member's access immediately, go to their profile and toggle <strong>Account Status → Inactive</strong>.
-        This prevents login without deleting their history.
-      </p>
-
-      <h2 id="vendor-management">Vendor Management</h2>
-      <p>
-        The Vendor section tracks all your ingredient suppliers and purchase history.
-      </p>
-      <h3>Adding a vendor</h3>
-      <ul>
-        <li>Name, contact person, phone, email, and address</li>
-        <li>Ingredients typically supplied by this vendor</li>
-        <li>Payment terms (e.g., 30-day credit)</li>
-      </ul>
-      <h3>Purchase orders</h3>
-      <p>When ingredients hit their reorder threshold, Retrop can suggest a purchase order automatically:</p>
-      <ol>
-        <li>Go to <strong>Vendors → Purchase Orders → Create New</strong>.</li>
-        <li>Select the vendor and the ingredients to order.</li>
-        <li>Enter quantities and expected delivery date.</li>
-        <li>Submit the order — it's saved in history and used to update stock when goods are received.</li>
-        <li>When delivery arrives, mark the PO as <strong>Received</strong> — stock is automatically updated.</li>
-      </ol>
-
-      <h2 id="orders-section">Orders Section</h2>
-      <p>
-        The Orders section in the portal gives you a bird's-eye view of all orders — current and historical.
-      </p>
-      <ul>
-        <li><strong>Live Orders</strong> — All orders currently in <code>Pending</code>, <code>Confirmed</code>, or <code>Preparing</code> state</li>
-        <li><strong>Order History</strong> — Filter by date range, table, staff member, or item</li>
-        <li><strong>Order Details</strong> — Click any order to see the full item list, timestamps, and staff who handled it</li>
-        <li><strong>Refunds / Cancellations</strong> — Log and track cancelled orders with reasons</li>
-      </ul>
-
-      <h2 id="analytics">Analytics & Reports</h2>
-      <p>
-        The Analytics section gives you insight into your restaurant's performance over time.
-      </p>
-      <h3>Available reports</h3>
-      <ul>
-        <li><strong>Daily Revenue Summary</strong> — Orders served, gross revenue, average order value</li>
-        <li><strong>Weekly / Monthly Trends</strong> — Revenue charts by day of the week and month</li>
-        <li><strong>Top Selling Items</strong> — Ranked list of most ordered dishes for any period</li>
-        <li><strong>Inventory Consumption</strong> — Which ingredients were used most and how fast stock is moving</li>
-        <li><strong>Staff Performance</strong> — Orders handled per staff member, average processing time</li>
-        <li><strong>Margin Analysis</strong> — Per-item profitability based on recipe costs and selling prices</li>
-      </ul>
-      <h3>Exporting reports</h3>
-      <p>All reports can be exported as <strong>CSV</strong> or <strong>PDF</strong> from the Export button on each report page. Use these for accounting, CA filings, or business reviews.</p>
-
-      <h2 id="table-management">Table Management</h2>
-      <p>Set up and manage your restaurant's table layout:</p>
-      <ul>
-        <li><strong>Add Tables</strong> — Give each table a number or name</li>
-        <li><strong>QR Code Generation</strong> — Download and print a QR code for each table</li>
-        <li><strong>Table Status</strong> — View which tables are occupied, with active orders</li>
-        <li><strong>Merge/Split Tables</strong> — Combine or split orders across multiple tables (coming soon)</li>
-        <li><strong>Sections</strong> — Organise tables into sections (e.g., Indoor, Outdoor, Private Room)</li>
-      </ul>
-
-      <div className="docs-callout warning">
-        <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-        <p>Regenerating a table's QR code invalidates the old one. If you reprint, make sure to replace all physical copies of that table's QR code.</p>
-      </div>
-
-      <h2 id="settings">Account Settings</h2>
-      <p>Access Settings from the bottom-left of the dashboard sidebar.</p>
-      <h3>Restaurant Profile</h3>
-      <ul>
-        <li>Restaurant name, address, GST number</li>
-        <li>Logo and cover image (used on the digital menu)</li>
-        <li>Operating hours</li>
-        <li>Contact number displayed to customers</li>
-      </ul>
-      <h3>Billing & Subscription</h3>
-      <ul>
-        <li>View your current plan and usage</li>
-        <li>Billing history and invoices</li>
-        <li>Upgrade or modify your subscription (contact Retrop support)</li>
-      </ul>
-      <h3>Notifications</h3>
-      <ul>
-        <li>Email and push notification preferences</li>
-        <li>Alert thresholds for low-stock notifications</li>
-        <li>Daily summary email time</li>
-      </ul>
-      <h3>Theme</h3>
-      <p>Toggle between <strong>Light Mode</strong> and <strong>Dark Mode</strong> using the theme toggle in the top-right header of the dashboard.</p>
 
       {/* Navigation */}
       <div style={{ marginTop: '48px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <Link to="/docs/rms/app" className="btn btn-primary">
+          RMS Mobile App <ArrowRight size={15} />
+        </Link>
         <Link to="/docs/rms" className="btn btn-secondary">
           ← Back to Overview
-        </Link>
-        <Link to="/contact" className="btn btn-primary">
-          Need Help? Contact Us <ArrowRight size={15} />
         </Link>
       </div>
     </DocsLayout>
