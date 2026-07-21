@@ -122,35 +122,41 @@ export const ownerController = {
   // ==========================================================================
 
   // GET /api/owner/dashboard/summary
+  // GET /api/owner/dashboard/summary
   getDashboardSummary: async (req, res) => {
     try {
       if (!req.restaurantId) {
         return res.status(200).json({
           success: true,
           data: {
-            stats: { totalSales: 0, ordersCount: 0, averageOrderValue: 0 },
+            stats: { totalSales: 0, ordersCount: 0, averageOrderValue: 0, totalCOGS: 0, totalProfit: 0, profitMargin: 0, totalLoyaltyPoints: 0, loyaltyCustomersCount: 0 },
             recentOrders: [],
             topDishes: []
           }
         });
       }
 
-      // Fetch today's date range in IST
+      const restaurantId = req.restaurantId;
+
+      // Fetch today's date range in IST (start of today 00:00:00 local time)
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayStartISO = todayStart.toISOString();
 
-      // Get orders for this restaurant completed today
-      const { data: orders, error: ordersError } = await supabase
+      // Get orders for this restaurant for today
+      const { data: todayOrders, error: ordersError } = await supabase
         .from('orders')
         .select('*')
-        .gte('createdAt', todayStartISO)
-        .eq('isPaymentCompleted', true);
+        .eq('restaurantId', restaurantId)
+        .gte('createdAt', todayStartISO);
 
       if (ordersError) throw ordersError;
 
+      // Filter paid/completed orders for today
+      const orders = (todayOrders || []).filter(o => o.isPaymentCompleted || ['COMPLETED', 'SERVED', 'BILL_GENERATED'].includes(o.orderStatus));
+
       const totalSales = orders.reduce((sum, order) => {
-        const amt = order.finalAmount !== null ? parseFloat(order.finalAmount) : parseFloat(order.totalAmount || 0);
+        const amt = order.finalAmount !== null && order.finalAmount !== undefined ? parseFloat(order.finalAmount) : parseFloat(order.totalAmount || 0);
         return sum + amt;
       }, 0);
 
@@ -167,35 +173,85 @@ export const ownerController = {
       try {
         const { data: loyaltyData } = await supabase
           .from('loyalty_points')
-          .select('totalPoints');
+          .select('totalPoints')
+          .eq('restaurantId', restaurantId);
         if (loyaltyData) {
-          totalLoyaltyPoints = loyaltyData.reduce((sum, item) => sum + item.totalPoints, 0);
+          totalLoyaltyPoints = loyaltyData.reduce((sum, item) => sum + (item.totalPoints || 0), 0);
           loyaltyCustomersCount = loyaltyData.length;
         }
       } catch (_) {}
 
-      // Extract top selling dishes today
-      const dishSales = {};
-      orders.forEach((order) => {
-        if (Array.isArray(order.ordersInfo)) {
-          order.ordersInfo.forEach((item) => {
-            if (!dishSales[item.dishId]) {
-              dishSales[item.dishId] = { dishId: item.dishId, dishName: item.dishName || 'Unknown Dish', quantity: 0, revenue: 0 };
-            }
-            dishSales[item.dishId].quantity += item.quantity || 0;
-            dishSales[item.dishId].revenue += (item.quantity || 0) * (item.price || 0);
-          });
+      // Helper to extract top dishes from an array of orders
+      const extractTopDishes = (ordersList) => {
+        const dishSales = {};
+        (ordersList || []).forEach((order) => {
+          let items = [];
+          if (Array.isArray(order.ordersInfo)) {
+            items = order.ordersInfo;
+          } else if (typeof order.ordersInfo === 'string') {
+            try { items = JSON.parse(order.ordersInfo); } catch (_) {}
+          }
+          if (Array.isArray(items)) {
+            items.forEach((item) => {
+              const id = item.dishId || item.id || item.dish_id || item.dishName || 'unknown';
+              const name = item.dishName || item.name || item.dish_name || item.title || 'Special Dish';
+              const qty = parseInt(item.quantity) || 1;
+              const price = parseFloat(item.price || item.unitPrice || 0);
+
+              if (!dishSales[id]) {
+                dishSales[id] = { dishId: id, dishName: name, quantity: 0, revenue: 0 };
+              }
+              dishSales[id].quantity += qty;
+              dishSales[id].revenue += qty * price;
+            });
+          }
+        });
+
+        return Object.values(dishSales)
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, 5);
+      };
+
+      // 1. Try extracting top dishes from today's orders (or all todayOrders if no paid ones yet)
+      let topDishes = extractTopDishes(orders.length > 0 ? orders : (todayOrders || []));
+
+      // 2. If today's topDishes is empty, fallback to all historical orders for this restaurant!
+      if (topDishes.length === 0) {
+        const { data: allRestaurantOrders } = await supabase
+          .from('orders')
+          .select('ordersInfo, finalAmount, totalAmount, orderStatus, isPaymentCompleted')
+          .eq('restaurantId', restaurantId)
+          .order('createdAt', { ascending: false })
+          .limit(100);
+
+        topDishes = extractTopDishes(allRestaurantOrders);
+      }
+
+      // 3. Resolve any missing dish names from the menu table
+      if (topDishes.some(d => !d.dishName || d.dishName === 'Unknown Dish' || d.dishName === 'Special Dish')) {
+        const dishIds = topDishes.map(d => d.dishId).filter(Boolean);
+        if (dishIds.length > 0) {
+          const { data: menuData } = await supabase
+            .from('menu')
+            .select('dishId, dishName')
+            .in('dishId', dishIds);
+          if (menuData && menuData.length > 0) {
+            const menuMap = {};
+            menuData.forEach(m => { menuMap[m.dishId] = m.dishName; });
+            topDishes.forEach(d => {
+              if (menuMap[d.dishId]) {
+                d.dishName = menuMap[d.dishId];
+              }
+            });
+          }
         }
-      });
+      }
 
-      const topDishes = Object.values(dishSales)
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5);
-
-      // Get 5 recent orders
+      // Get 5 recent orders for this restaurant
       const { data: recentOrders, error: recentError } = await supabase
         .from('orders')
         .select('ordersId, tableNo, totalAmount, finalAmount, isPaymentCompleted, orderStatus, createdAt')
+        .eq('restaurantId', restaurantId)
         .order('createdAt', { ascending: false })
         .limit(5);
 
