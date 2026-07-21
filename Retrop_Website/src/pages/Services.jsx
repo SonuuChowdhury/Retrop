@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChefHat, ArrowRight, CheckCircle2, Layers, Bot, Cpu, LineChart } from 'lucide-react';
+import { ChefHat, ArrowRight, CheckCircle2, Layers, Bot, Cpu, LineChart, Tag } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PageWrapper from '../components/PageWrapper';
@@ -81,6 +81,12 @@ export default function Services() {
                   onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,107,53,0.28)'; }}
                 >
                   View Documentation <ArrowRight size={15} />
+                </Link>
+                <Link to="/docs/rms/pricing" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', border: '1.5px solid var(--color-primary)', background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700, fontSize: '14px', textDecoration: 'none', transition: 'all 0.2s ease' }}
+                  onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.background = 'rgba(255,107,53,0.15)'; }}
+                  onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = 'var(--color-primary-light)'; }}
+                >
+                  Pricing <Tag size={15} />
                 </Link>
                 <Link to="/contact" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', border: '1.5px solid var(--color-border)', background: 'transparent', color: 'var(--color-text)', fontWeight: 600, fontSize: '14px', textDecoration: 'none', transition: 'all 0.2s ease' }}
                   onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--color-border-strong)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}

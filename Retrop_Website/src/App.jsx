@@ -30,6 +30,7 @@ import RMSOverview   from './pages/docs/RMSOverview';
 import RMSApp        from './pages/docs/RMSApp';
 import RMSOrdering   from './pages/docs/RMSOrdering';
 import RMSPortal     from './pages/docs/RMSPortal';
+import RMSPricing    from './pages/docs/RMSPricing';
 
 // ── Legal Pages ───────────────────────────────────────────────────────────────
 import PrivacyPolicy   from './pages/PrivacyPolicy';
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/docs/rms/app"       element={<RMSApp />}      />
           <Route path="/docs/rms/ordering"  element={<RMSOrdering />} />
           <Route path="/docs/rms/portal"    element={<RMSPortal />}   />
+          <Route path="/docs/rms/pricing"   element={<RMSPricing />}  />
 
           {/* ── Legal ──────────────────────────────────────────────────────── */}
           <Route path="/privacy-policy"   element={<PrivacyPolicy />}  />

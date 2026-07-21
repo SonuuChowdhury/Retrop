@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Smartphone, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Smartphone, ShoppingCart, LayoutDashboard, Tag } from 'lucide-react';
 
 const docsSections = [
   {
@@ -14,6 +14,7 @@ const docsSections = [
       { to: '/docs/rms/app',      label: 'Mobile App',      icon: Smartphone      },
       { to: '/docs/rms/ordering', label: 'Ordering System', icon: ShoppingCart    },
       { to: '/docs/rms/portal',   label: "Owner's Portal",  icon: LayoutDashboard },
+      { to: '/docs/rms/pricing',  label: 'Pricing',         icon: Tag             },
     ],
   },
 ];
