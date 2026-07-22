@@ -1,7 +1,7 @@
 # Agent Memory Log
 
 ## Last Updated
-2026-07-15 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
+2026-07-22 | Updated by: Antigravity AI Agent (Gemini 3.6 Flash)
 
 ## How to use this file
 - READ this entire file before starting any task
@@ -13,6 +13,16 @@
 
 ## Session Log
 A record of every agent work session. Each entry created at the end of a session.
+
+### 2026-07-22 — Comprehensive Ecosystem Context Alignment (Retrop V3.5 Release)
+**Agent**: Antigravity (Gemini 3.6 Flash)
+**Task**: Audited the entire repository and updated all three context files (`PROJECT_BLUEPRINT.md`, `FEATURE_FLOWS.md`, `AGENT_MEMORY_LOG.md`) with recent ecosystem changes: Portal User OTP authentication system, multi-business switcher context, website telemetry & traffic analytics engine, SuperAdmin analytics dashboard, image security validation, smart CORS origin policy for Vercel, interactive documentation hub, and SPA Vercel deployment rewrites.
+**Files changed**:
+- Modified: `Context/PROJECT_BLUEPRINT.md`
+- Modified: `Context/FEATURE_FLOWS.md`
+- Modified: `Context/AGENT_MEMORY_LOG.md`
+**Outcome**: success
+**Notes**: Added documentation for migrations `010_portal_users.sql` and `011_website_analytics.sql`, cataloged 10 new feature entries in `FEATURE_FLOWS.md`, documented new API routes (`/api/portal/auth/*`, `/api/analytics/*`), and verified repository structure.
 
 ### 2026-07-15 — Context Directory Alignment & Verification
 **Agent**: Antigravity (Gemini 3.5 Flash)
@@ -107,6 +117,21 @@ A record of every agent work session. Each entry created at the end of a session
 ## Decisions & Rationale
 Architectural or design decisions made during agent sessions — so future agents don't re-open settled questions.
 
+### 2026-07-19 — Self-Service Portal User System with Multi-Business Mapping
+**Context**: Previously, owner accounts were manually provisioned per restaurant, restricting owners from managing multiple locations under a single credential.
+**Decision**: Introduced a dedicated portal user system (`010_portal_users.sql` tables: `portal_user`, `portal_otp`, `portal_user_session`, `portal_user_business`). Portal users sign up via email OTP or Google OAuth and are mapped to one or more `retrop_restaurant` entities in `portal_user_business`. Upon login, the user selects their active restaurant context via `/api/portal/auth/select-business`.
+**Do not reverse without owner confirmation**: yes
+
+### 2026-07-19 — Persistent Telemetry Ingestion & File Backup Strategy
+**Context**: Website traffic and visitor analytics needed to be monitored without slowing down page load performance or failing if database writes encountered transient errors.
+**Decision**: Built a dual-layer telemetry analytics system (`analyticsService.js` & `website_analytics` table). Telemetry track hits and active session heartbeats are written to PostgreSQL and simultaneously backed up to `.data/website_analytics_backup.json` (ignored by nodemon via `nodemon.json`).
+**Do not reverse without owner confirmation**: yes
+
+### 2026-07-19 — Dynamic Smart CORS Whitelisting for Vercel Deployments
+**Context**: Multi-surface SPA deployments on Vercel (`retrop.vercel.app`, `retrop-rms.vercel.app`, preview URLs) were blocked by strict single-origin CORS rules.
+**Decision**: Refactored `Server/src/index.js` CORS middleware to inspect request origins dynamically. Whitelists local development origins (`localhost`, `127.0.0.1`, `*.ngrok-free.app`), production Vercel domains (`*.vercel.app`), and custom origins configured via `ALLOWED_ORIGINS` environment variable.
+**Do not reverse without owner confirmation**: yes
+
 ### 2026-07-12 — Temporary 10-Minute Redis Tokens for Customer PDF Billing
 **Context**: The mobile app prints a QR code containing the billing PDF download URL. When scanned by customers on their own mobile devices, it failed with a JSON error saying `X-Product-Key missing`, as their mobile web browsers do not have the restaurant's private API product key header.
 **Decision**: Remove the product key authorization middleware constraint from `GET /api/orders/:orderId/bill-pdf`. Instead, generate a random temporary token valid for 10 minutes in Redis upon concluding the order (`temp_bill_token:<orderId>`). The customer's mobile browser scans the link `?token=xxx` which is verified directly against Redis. Bypasses the need to embed product keys on client devices.
@@ -133,40 +158,22 @@ Architectural or design decisions made during agent sessions — so future agent
 **Alternatives considered**: Manual scoping on each query (error-prone, verbose). Supabase RLS policies (would require per-request JWT with restaurant claims — complex). Separate databases per tenant (too expensive at this stage).
 **Do not reverse without owner confirmation**: yes
 
-### 2026-06-27 — Product Key as Multi-Tenant Identifier
-*(No changes from V2)*
-
-### 2026-06-27 — Separate JWT Secrets for Retrop SuperAdmin
-*(No changes from V2)*
-
-### 2026-06-27 — ECIES Encrypted Setup QR Codes
-*(No changes from V2)*
-
-### 2026-06-27 — Subscription Lifecycle: active → grace_period → suspended
-*(No changes from V2)*
-
-### 2026-06-27 — Nodemailer for Transactional Emails
-*(No changes from V2)*
-
-### 2026-06-21 — Separate JWT secrets for admin, waiter, and kitchen
-*(No changes from V2)*
-
-### 2026-06-21 — Redis session for customer order flow; Supabase for persistence
-*(No changes from V2)*
-
-### 2026-06-21 — lockedItems snapshot to prevent order malpractice (ISSUE 3)
-*(No changes from V2)*
-
-### 2026-06-21 — taxType: inclusive vs exclusive on restaurant_info
-*(No changes from V2)*
-
-### 2026-06-21 — Invoice number format: INV + YYYYMMDD + 4-digit-seq
-*(No changes from V2)*
-
 ---
 
 ## Bugs Encountered & Fixes Applied
 A record of bugs found and how they were resolved.
+
+### 2026-07-19 — ISSUE: Nodemon Server Restart Loop on Analytics Backup File Writes
+**Symptom**: Operating the website triggered rapid server restarts every time a visitor hit a page or sent a heartbeat ping.
+**Root cause**: `analyticsService.js` persisted JSON telemetry logs to `Server/.data/website_analytics_backup.json`. `nodemon` was watching all file writes inside the `Server/` directory, interpreting local JSON backup updates as server source code edits.
+**Fix applied**: Created `Server/nodemon.json` configured to explicitly ignore `.data/*` and `data/*` runtime directories.
+**Regression risk**: None.
+
+### 2026-07-19 — ISSUE: Portal User Password Reset OTP Verification Failure
+**Symptom**: Portal user password reset requests failed during OTP verification.
+**Root cause**: Incorrect field identifier handling in `portalAuthController.js` when querying `portal_otp` for purpose `'forgot_password'`.
+**Fix applied**: Aligned schema property names in `portalAuthController.js` to match `010_portal_users.sql` column definitions (`code`, `purpose`, `expiresAt`, `used`).
+**Regression risk**: None.
 
 ### 2026-07-10 — ISSUE: Zod Validation Middleware Crash & UUID Format Failures
 **Symptom**: 
@@ -180,34 +187,15 @@ A record of bugs found and how they were resolved.
 2. Introduced a `looseUuid` schema pattern using a standard regex matching structure in place of Zod's strict `.uuid()` method across all schemas in `validate.js`.
 **Regression risk**: None, fallback handles standard and non-standard/mock UUIDs.
 
-### 2026-06-22 — ISSUE: SuperAdmin API Response Check Mismatch
-*(No changes)*
-
-### 2026-06-21 — ISSUE 1: Table busy on QR re-scan by stranger
-*(No changes)*
-
-### 2026-06-21 — ISSUE 2: Customer add-on items not visible to kitchen as separate cards
-*(No changes)*
-
-### 2026-06-21 — ISSUE 3: Customer removes items after food served (malpractice)
-*(No changes)*
-
-### 2026-06-21 — ISSUE 9: Discounts not applied before tax calculation
-*(No changes)*
-
-### 2026-06-21 — ISSUE 10: Customer can bypass "restaurant closed" by typing URL directly
-*(No changes)*
-
-### 2026-06-21 — ISSUE 13: Manager logout redirect loop
-*(No changes)*
-
-### 2026-06-21 — ISSUE 16: Manager tab bar showing labels + icons (too crowded)
-*(No changes)*
-
 ---
 
 ## Patterns That Work
 Reusable approaches confirmed to work well in this codebase.
+
+### Telemetry Session Heartbeat Pattern
+**Context**: Tracking active visitor session durations on SPAs accurately without heavy polling.
+**Approach**: `useAnalytics.js` hook registers a page hit on route change, then initializes a 15-second heartbeat timer interval. The client sends `durationSeconds` to `/api/analytics/heartbeat` when the tab remains active and stops on page unload.
+**First confirmed**: 2026-07-19
 
 ### Zod Validation Middleware Pattern
 **Context**: Request validation was repetitive and error-prone across different endpoints.

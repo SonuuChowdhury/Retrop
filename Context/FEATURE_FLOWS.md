@@ -1,7 +1,7 @@
 # Feature Flows
 
 ## Last Updated
-2026-07-15 | Updated by: Antigravity AI Agent (Gemini 3.5 Flash)
+2026-07-22 | Updated by: Antigravity AI Agent (Gemini 3.6 Flash)
 
 ---
 
@@ -74,12 +74,22 @@
 | Owner Menu Management | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/menuController.js` |
 | Owner Restaurant Settings & Info Config | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/restaurantInfoController.js` |
 | Owner Dashboard Analytics | active | `Retrop_Website/src/pages/Dashboard.jsx`, `Server/src/controllers/managerController.js` |
+| Self-Service Portal User Signup & OTP Verification | active | `Retrop_Website/src/pages/Signup.jsx`, `Server/src/controllers/portalAuthController.js` |
+| Portal User Forgot & Reset Password | active | `Retrop_Website/src/pages/ForgotPassword.jsx`, `Server/src/controllers/portalAuthController.js` |
+| Google OAuth Single Sign-On | active | `Retrop_Website/src/pages/Login.jsx`, `Server/src/controllers/portalAuthController.js` |
+| Multi-Business Selection & Context Switching | active | `Retrop_Website/src/pages/BusinessSelector.jsx`, `Server/src/controllers/portalAuthController.js` |
+| Website Telemetry & Traffic Analytics Engine | active | `Retrop_Website/src/utils/analytics.js`, `Server/src/controllers/analyticsController.js` |
+| SuperAdmin Analytics Telemetry Control Panel | active | `Retrop_Admin_Dashboard/src/pages/Analytics.jsx`, `Server/src/controllers/analyticsController.js` |
+| Image Upload Security Validation | active | `Server/src/utils/imageSecurity.js` |
+| Smart CORS Origin Whitelisting for Vercel | active | `Server/src/index.js` |
+| Interactive Documentation & Knowledge Hub | active | `Retrop_Website/src/pages/Docs.jsx`, `Retrop_Website/src/pages/docs/*` |
+| Single-Page Application Vercel Deployments | active | `Retrop_Website/vercel.json`, `Retrop_Admin_Dashboard/vercel.json` |
 
 ---
 
 ## Feature Entries
 
-*(Feature entries 1-53 are documented in V2 and remain active. The primary V3 additions are below)*
+*(Feature entries 1-53 are documented in V2 and remain active)*
 
 ---
 
@@ -294,6 +304,166 @@
 1. The dashboard loads summary statistics including total sales, order count, average order value, total cost of goods sold (COGS), gross profit, profit margin, and customer loyalty totals via `GET /api/owner/dashboard/summary`.
 2. Detailed sales reports can be exported as a CSV spreadsheet using `GET /api/owner/dashboard/export`.
 3. The dashboard retrieves specific operational and tax metrics via `GET /api/owner/analytics?metrics=taxes` to chart tax summaries.
+
+---
+
+### Self-Service Portal User Signup & OTP Verification
+**Status**: active
+**Trigger**: A new restaurant owner registers on `Retrop_Website`.
+
+**Flow**:
+1. User enters name and email on `/signup` (`Signup.jsx`).
+2. Frontend posts to `POST /api/portal/auth/signup/request-otp`. The server generates a 6-digit random code, writes to `portal_otp` with 10-min expiry, and dispatches a verification email via Nodemailer.
+3. User enters 6-digit OTP (`POST /api/portal/auth/signup/verify-otp`), marking the OTP as used and email as verified.
+4. User sets account password (`POST /api/portal/auth/signup/set-password`), writing the hashed password to `portal_user` and creating an active session in `portal_user_session`.
+
+**Related Files**:
+- `Retrop_Website/src/pages/Signup.jsx`
+- `Server/src/controllers/portalAuthController.js`
+- `Server/src/services/mailer.js`
+- `Server/src/migrations/010_portal_users.sql`
+
+---
+
+### Portal User Forgot & Reset Password
+**Status**: active
+**Trigger**: Portal user forgets password on `/login`.
+
+**Flow**:
+1. User requests password reset for email (`POST /api/portal/auth/forgot-password/request-otp`).
+2. Server dispatches password reset OTP to user email.
+3. User inputs code (`POST /api/portal/auth/forgot-password/verify-otp`) and submits new password (`POST /api/portal/auth/forgot-password/reset`).
+4. Server hashes password, updates `portal_user`, and invalidates all prior portal sessions.
+
+**Related Files**:
+- `Retrop_Website/src/pages/ForgotPassword.jsx`
+- `Server/src/controllers/portalAuthController.js`
+
+---
+
+### Google OAuth Single Sign-On
+**Status**: active
+**Trigger**: Portal user clicks "Sign in with Google" on website login modal.
+
+**Flow**:
+1. Website authenticates user via Google OAuth, obtaining ID token.
+2. Posts token to `POST /api/portal/auth/google`.
+3. Server verifies token, extracts email/name/googleId, inserts or updates `portal_user`, and returns active JWT tokens.
+
+**Related Files**:
+- `Retrop_Website/src/pages/Login.jsx`
+- `Server/src/controllers/portalAuthController.js`
+
+---
+
+### Multi-Business Selection & Context Switching
+**Status**: active
+**Trigger**: Portal user logs in with access to multiple restaurants.
+
+**Flow**:
+1. Upon login, `/api/portal/auth/me` returns array of linked businesses from `portal_user_business`.
+2. If multiple restaurants exist, user is routed to `/select-business` (`BusinessSelector.jsx`).
+3. User selects target restaurant, setting active `restaurantId` in `AuthContext` and attaching it to header/request context for subsequent owner calls.
+
+**Related Files**:
+- `Retrop_Website/src/pages/BusinessSelector.jsx`
+- `Retrop_Website/src/context/AuthContext.jsx`
+- `Server/src/controllers/portalAuthController.js`
+
+---
+
+### Website Telemetry & Traffic Analytics Engine
+**Status**: active
+**Trigger**: Visitor navigates any page on `Retrop_Website`.
+
+**Flow**:
+1. `useAnalytics` hook fires `recordPageView` (`analytics.js`) on route changes, assigning/persisting unique `visitorId` and `sessionId`.
+2. Browser sends telemetry payload (`visitorId`, `sessionId`, `pathname`, `device`, `traffic`, `referrer`) to `POST /api/analytics/track`.
+3. Server resolves geo location from headers/IP, updating or inserting session record in `website_analytics` table.
+4. Active tabs maintain an automated heartbeat interval posting active duration to `POST /api/analytics/heartbeat`. Data is saved to Postgres and synced locally to `.data/website_analytics_backup.json`.
+
+**Related Files**:
+- `Retrop_Website/src/hooks/useAnalytics.js`
+- `Retrop_Website/src/utils/analytics.js`
+- `Server/src/controllers/analyticsController.js`
+- `Server/src/services/analyticsService.js`
+- `Server/src/migrations/011_website_analytics.sql`
+
+---
+
+### SuperAdmin Analytics Telemetry Control Panel
+**Status**: active
+**Trigger**: SuperAdmin views "Analytics" tab in `Retrop_Admin_Dashboard`.
+
+**Flow**:
+1. Admin panel fetches `/api/analytics/summary`.
+2. Controller computes active live visitors, session counts, average session duration, bounce rates, traffic source breakdown, browser/OS/device distributions, and conversion funnel metrics.
+3. Renders interactive charts and login audit logs for platform monitoring.
+
+**Related Files**:
+- `Retrop_Admin_Dashboard/src/pages/Analytics.jsx`
+- `Server/src/controllers/analyticsController.js`
+- `Server/src/services/analyticsService.js`
+
+---
+
+### Image Upload Security Validation
+**Status**: active
+**Trigger**: Owner uploads dish image or restaurant logo.
+
+**Flow**:
+1. Request payload is intercepted before writing to storage.
+2. `imageSecurity.js` validates image file signature (magic bytes check for JPEG, PNG, WEBP) and verifies extension match.
+3. Rejects disguised executable payloads or malformed buffers with HTTP 400 before passing clean image buffer to Supabase.
+
+**Related Files**:
+- `Server/src/utils/imageSecurity.js`
+- `Server/src/controllers/menuController.js`
+- `Server/src/controllers/ownerController.js`
+
+---
+
+### Smart CORS Origin Whitelisting for Vercel
+**Status**: active
+**Trigger**: Incoming HTTP request reaches backend server.
+
+**Flow**:
+1. Middleware inspects `Origin` header.
+2. In development (`NODE_ENV !== 'production'`), allows `localhost`, `127.0.0.1`, and `.ngrok-free.app` / `.ngrok.io`.
+3. In production, checks dynamic whitelist: `retrop.vercel.app`, `retrop-rms.vercel.app`, `retrop-admin.vercel.app`, any domain matching `*.vercel.app`, and explicit `ALLOWED_ORIGINS` environment values.
+
+**Related Files**:
+- `Server/src/index.js`
+
+---
+
+### Interactive Documentation & Knowledge Hub
+**Status**: active
+**Trigger**: User opens `/docs` on `Retrop_Website`.
+
+**Flow**:
+1. Displays interactive documentation navigation shell (`DocsLayout.jsx`, `DocsSidebar.jsx`).
+2. Renders structured manuals for RMS Overview (`RMSOverview.jsx`), Mobile App Setup (`RMSApp.jsx`), Customer QR Ordering (`RMSOrdering.jsx`), and Owner Portal (`RMSPortal.jsx`).
+
+**Related Files**:
+- `Retrop_Website/src/pages/Docs.jsx`
+- `Retrop_Website/src/pages/docs/*`
+- `Retrop_Website/src/components/DocsLayout.jsx`
+
+---
+
+### Single-Page Application Vercel Deployments
+**Status**: active
+**Trigger**: Application is deployed to Vercel.
+
+**Flow**:
+1. Root `vercel.json` rewrite rule catches all incoming client route paths (`/(.*)`).
+2. Rewrites request to `/index.html`, allowing React Router DOM client routing to resolve pages seamlessly without 404 response codes on hard refresh.
+
+**Related Files**:
+- `Retrop_Website/vercel.json`
+- `Retrop_Admin_Dashboard/vercel.json`
+- `Retrop_RMS_Frontend/vercel.json`
 
 ---
 
