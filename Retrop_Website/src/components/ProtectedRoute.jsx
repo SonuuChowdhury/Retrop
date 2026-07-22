@@ -12,7 +12,7 @@ export const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="spinner-container">
-        <div className="spinner"></div>
+        <div className="spinner animate-spin"></div>
         <p style={{ fontSize: '14px', fontWeight: '500' }}>Checking session...</p>
       </div>
     );

@@ -414,7 +414,7 @@ export default function BusinessSelector() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
+          <div className="spinner animate-spin" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
           <p style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>Loading your dashboard...</p>
         </div>
       </div>
