@@ -43,3 +43,89 @@
   color: var(--color-error);
   line-height: 1.5;
 }
+
+/* ─── Consent Card ──────────────────────────────────────────────────────────── */
+.customer-info__consent-card {
+  background: var(--color-surface-2, #1f1f1f);
+  border: 1px solid var(--color-border-strong, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 12px);
+  padding: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-1, 4px);
+  transition: var(--transition-fast, 150ms ease);
+}
+
+.customer-info__consent-card:focus-within,
+.customer-info__consent-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent, #c8963e) 40%, transparent);
+}
+
+.customer-info__consent-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.customer-info__consent-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.customer-info__consent-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #f5ede0);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.customer-info__consent-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a89880);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.customer-info__consent-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3, 10px);
+  cursor: pointer;
+  user-select: none;
+  padding-top: var(--space-2, 8px);
+  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+}
+
+.customer-info__consent-checkbox {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  accent-color: var(--color-accent, #c8963e);
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.customer-info__consent-checkbox-text {
+  font-size: 0.825rem;
+  color: var(--color-text-primary, #f5ede0);
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+@media (max-width: 480px) {
+  .customer-info__consent-card {
+    padding: var(--space-3, 12px);
+    gap: var(--space-2, 8px);
+  }
+
+  .customer-info__consent-text {
+    font-size: 0.8rem;
+  }
+
+  .customer-info__consent-checkbox-text {
+    font-size: 0.8rem;
+  }
+}

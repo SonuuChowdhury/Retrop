@@ -29,7 +29,7 @@
 | Kitchen Login | active | `Server/src/controllers/kitchenController.js`, `Server/src/services/kitchenAuthService.js` |
 | JWT Token Refresh | active | `Server/src/routes/routes.js`, `Retrop_RMS_App/src/utils/apiClient.ts` |
 | Customer QR Scan → Order Session | active | `Retrop_RMS_Frontend/src/pages/QRLanding/`, `Server/src/services/orderSessionService.js` |
-| Customer Info Submission | active | `Retrop_RMS_Frontend/src/pages/CustomerInfo/`, `Server/src/services/orderSessionService.js` |
+| Customer Info Submission & Privacy Consent | active | `Retrop_RMS_Frontend/src/pages/CustomerInfo/`, `Server/src/services/orderSessionService.js` |
 | Waiter Accepts Order Session | active | `Retrop_RMS_App/src/app/waiter/dashboard.tsx`, `Server/src/services/orderSessionService.js` |
 | Customer Browses Menu + Cart | active | `Retrop_RMS_Frontend/src/pages/Menu/`, `Retrop_RMS_Frontend/src/pages/Cart/` |
 | Customer Places Order | active | `Retrop_RMS_Frontend/src/pages/Cart/`, `Server/src/services/orderSessionService.js` |

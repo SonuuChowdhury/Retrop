@@ -19,6 +19,7 @@ export default function CustomerInfo() {
 
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [consent, setConsent] = useState(true);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
@@ -32,6 +33,9 @@ export default function CustomerInfo() {
     const digits = mobile.replace(/\D/g, '');
     if (digits.length !== 10) {
       errs.mobile = 'Please enter a valid 10-digit mobile number.';
+    }
+    if (!consent) {
+      errs.consent = 'Please accept the data collection terms to proceed.';
     }
     return errs;
   }
@@ -120,6 +124,31 @@ export default function CustomerInfo() {
             {errors.mobile && <span className="input-error-msg">{errors.mobile}</span>}
           </div>
 
+          {/* Data Privacy & Consent Notice Card */}
+          <div className="customer-info__consent-card">
+            <div className="customer-info__consent-header">
+              <span className="customer-info__consent-icon">🔒</span>
+              <span className="customer-info__consent-title">Privacy & Data Consent</span>
+            </div>
+            <p className="customer-info__consent-text">
+              We collect this data to process your order and may share order/feedback data with the restaurant.
+            </p>
+            <label className="customer-info__consent-checkbox-label" htmlFor="ci-consent">
+              <input
+                id="ci-consent"
+                type="checkbox"
+                className="customer-info__consent-checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                disabled={submitting}
+              />
+              <span className="customer-info__consent-checkbox-text">
+                I agree to the data collection terms to proceed with my order.
+              </span>
+            </label>
+            {errors.consent && <span className="input-error-msg">{errors.consent}</span>}
+          </div>
+
           {serverError && (
             <div className="customer-info__server-error" role="alert">
               {serverError}
@@ -131,7 +160,7 @@ export default function CustomerInfo() {
             className="btn btn--primary btn--full"
             disabled={submitting}
           >
-            {submitting ? 'Submitting…' : 'Continue →'}
+            {submitting ? 'Submitting…' : 'Agree & Continue →'}
           </button>
         </form>
       </main>
