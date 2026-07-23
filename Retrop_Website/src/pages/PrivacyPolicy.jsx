@@ -14,10 +14,11 @@ export default function PrivacyPolicy() {
       <main style={{ flex: 1 }}>
         <div className="legal-content">
           <h1>Privacy Policy</h1>
-          <p className="legal-meta">Last updated: July 2025 · Retrop</p>
+          <p className="legal-meta">Last updated: July 23, 2026 · Retrop</p>
 
           <p>
-            At Retrop ("we", "our", "us"), we are committed to protecting the privacy and security of
+            At Retrop ("we", "our", "us"), operated by Sonu Chowdhury, an individual proprietor based in
+            West Bengal, India, we are committed to protecting the privacy and security of
             the personal information we collect from our users. This Privacy Policy explains how we collect,
             use, store, and share information when you use our website, mobile app, and business tools
             (collectively, "Services").
@@ -51,8 +52,12 @@ export default function PrivacyPolicy() {
           <h3>1.3 Customer order data</h3>
           <p>
             When your customers place orders through our digital ordering system, we collect
-            their order details (items, table/counter reference, special instructions). This data is attributed to
-            your business account and is not used for any purpose beyond operating your ordering system.
+            their order details (items, table/counter reference, special instructions).
+            For orders placed by end-customers/diners through a restaurant's QR ordering page, Retrop
+            processes this data solely on behalf of, and under the instructions of, the respective
+            restaurant business, which remains responsible for such data as the data fiduciary under
+            applicable law, including the Digital Personal Data Protection Act, 2023.
+            This data is attributed to your business account and is not used for any purpose beyond operating your ordering system.
           </p>
 
           <h2>2. How We Use Your Information</h2>
@@ -68,7 +73,7 @@ export default function PrivacyPolicy() {
           </ul>
           <p>We do <strong>not</strong> sell your personal data or visitor analytics to third parties. We do not monetize your data for external advertising networks.</p>
 
-          <h2>3. Data Storage & Security</h2>
+          <h2>3. Data Storage, Security & Transfers</h2>
           <p>
             Your data is stored on secure servers. We use industry-standard encryption
             (TLS/SSL) for all data in transit, and AES-256 encryption for data at rest.
@@ -79,7 +84,10 @@ export default function PrivacyPolicy() {
           </p>
           <p>
             We perform regular security assessments and maintain security best practices in accordance
-            with applicable data protection standards.
+            with applicable data protection standards, including the Digital Personal Data Protection Act, 2023.
+          </p>
+          <p>
+            <strong>Cross-Border Data Transfers:</strong> Your data may be stored and processed on secure servers located in India or other jurisdictions, subject to appropriate technical, organizational, and contractual safeguards under applicable law, including the Digital Personal Data Protection Act, 2023.
           </p>
 
           <h2>4. Data Sharing</h2>
@@ -104,7 +112,9 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2>6. Your Rights</h2>
-          <p>You have the right to:</p>
+          <p>
+            Under applicable data protection laws, including the Digital Personal Data Protection Act, 2023, you have the right to:
+          </p>
           <ul>
             <li><strong>Access</strong> — Request a copy of the personal data we hold about you</li>
             <li><strong>Correction</strong> — Request correction of inaccurate data</li>
@@ -112,7 +122,7 @@ export default function PrivacyPolicy() {
             <li><strong>Portability</strong> — Request your data in a machine-readable format</li>
             <li><strong>Restriction</strong> — Request that we limit how we process your data</li>
           </ul>
-          <p>To exercise any of these rights, contact us through our <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or email us directly.</p>
+          <p>To exercise any of these rights, contact us through our <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or email our Grievance Officer directly.</p>
 
           <h2>7. Children's Privacy</h2>
           <p>
@@ -128,12 +138,16 @@ export default function PrivacyPolicy() {
             after changes take effect constitutes acceptance of the updated policy.
           </p>
 
-          <h2>9. Contact</h2>
+          <h2>9. Contact & Grievance Officer</h2>
           <p>
-            For privacy-related questions or requests, contact us through our{' '}
-            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or at:<br />
-            <strong>chowdhurysonu047@gmail.com</strong><br />
-            Retrop, India
+            Retrop is operated by Sonu Chowdhury, an individual proprietor based in West Bengal, India.
+          </p>
+          <p>
+            For privacy-related questions, data rights requests, or grievances, contact us through our{' '}
+            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or reach out directly to our Grievance Officer:<br />
+            <strong>Grievance Officer:</strong> Sonu Chowdhury<br />
+            <strong>Email:</strong> <a href="mailto:chowdhurysonu047@gmail.com" style={{ color: 'var(--color-primary)' }}>chowdhurysonu047@gmail.com</a><br />
+            <strong>Location:</strong> Retrop, West Bengal, India
           </p>
         </div>
       </main>

@@ -14,12 +14,13 @@ export default function TermsOfService() {
       <main style={{ flex: 1 }}>
         <div className="legal-content">
           <h1>Terms of Service</h1>
-          <p className="legal-meta">Last updated: July 2025 · Retrop</p>
+          <p className="legal-meta">Last updated: July 23, 2026 · Retrop</p>
 
           <p>
             These Terms of Service ("Terms") govern your access to and use of the Retrop platform,
             including the website at retrop.in, the Retrop RMS mobile app, the management tools,
-            and the ordering system (collectively, "Services") operated by Retrop ("Retrop", "we", "us").
+            and the ordering system (collectively, "Services") operated by Sonu Chowdhury, an individual
+            proprietor trading as Retrop ("Retrop", "we", "us"), based in West Bengal, India.
           </p>
           <p>
             By accessing or using our Services, you agree to be bound by these Terms. If you do not agree,
@@ -52,35 +53,38 @@ export default function TermsOfService() {
           </ul>
 
           <h2>2. Payment Terms</h2>
-          <h3>2.1 Subscription Fees</h3>
+          <h3>2.1 Subscription Fees & Plans</h3>
           <p>
-            Access to Retrop RMS is provided on a subscription basis. Pricing plans and fees are communicated
-            at the time of onboarding and may be updated with 30 days' notice to existing subscribers.
+            Access to Retrop RMS is provided on a prepaid subscription basis (Monthly Plan) or via a one-time payment (Lifetime Plan).
+            Pricing plans and fees are communicated at onboarding and listed on our website. Fees may be updated with 30 days' notice to existing subscribers.
           </p>
-          <h3>2.2 Billing Cycle</h3>
+          <h3>2.2 Billing Cycle & Grace Period</h3>
           <p>
-            Subscriptions are billed monthly or annually, as selected at the time of sign-up. Billing occurs
-            at the beginning of each billing cycle. Invoices are sent to the registered email address.
+            Monthly subscriptions operate on a 28-day prepaid billing cycle. Each 28-day cycle includes an additional 10-day grace period, providing a total active access window of 38 days per cycle. For the Lifetime Plan, billing occurs as a single, one-time payment upon sign-up granting permanent platform access.
           </p>
           <h3>2.3 Payment Methods</h3>
           <p>
             We accept UPI, net banking, credit/debit cards, and other payment methods as made available.
             All payments are processed securely through PCI-DSS compliant payment gateways.
           </p>
-          <h3>2.4 Late Payments</h3>
+          <h3>2.4 Renewal & Service Suspension</h3>
           <p>
-            If a payment fails, we will retry the charge multiple times over the grace period.
-            After the grace period, access to the Services may be temporarily suspended until payment is received.
+            If a subscription payment is not renewed prior to the end of the 10-day grace period (38 days after cycle start), access to the Services may be temporarily suspended until payment is received.
           </p>
-          <h3>2.5 Service Charges</h3>
+          <h3>2.5 Add-on Services</h3>
           <p>
-            We do not charge anything for now. All features and services are currently available free of charge.
+            Optional add-on services (such as Website Personalisation & QR Setup, incident-based Tech Support, and printed QR Table Cards) are charged separately. Full details and current prices for all plans and add-on services are available on our <a href="/services" style={{ color: 'var(--color-primary)' }}>Pricing & Services page</a>.
           </p>
 
           <h2>3. Refund Policy</h2>
           <p>
-            Any payment made is non-refundable once the payment has been completed.
+            Any payment made is non-refundable once the payment has been completed. Specifically:
           </p>
+          <ul>
+            <li><strong>Lifetime Plan:</strong> The ₹13,999 one-time fee is strictly non-refundable once paid, given its permanent-access nature.</li>
+            <li><strong>Physical Goods:</strong> Printed or dispatched physical goods (such as printed QR table cards) are non-refundable and non-exchangeable once printed.</li>
+            <li><strong>Subscription Fees & Add-ons:</strong> All prepaid monthly subscription fees and completed add-on service fees are non-refundable.</li>
+          </ul>
 
 
           <h2>4. Cancellation Policy</h2>
@@ -167,12 +171,16 @@ export default function TermsOfService() {
             Continued use of the Services after changes take effect constitutes acceptance.
           </p>
 
-          <h2>11. Contact</h2>
+          <h2>11. Contact & Grievance Officer</h2>
           <p>
-            For questions about these Terms, reach us through our{' '}
-            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or at:<br />
-            <strong>chowdhurysonu047@gmail.com</strong><br />
-            Retrop, India
+            Retrop is operated by Sonu Chowdhury, an individual proprietor based in West Bengal, India.
+          </p>
+          <p>
+            For questions or concerns regarding these Terms, contact us through our{' '}
+            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or reach out directly to our Grievance Officer:<br />
+            <strong>Grievance Officer:</strong> Sonu Chowdhury<br />
+            <strong>Email:</strong> <a href="mailto:chowdhurysonu047@gmail.com" style={{ color: 'var(--color-primary)' }}>chowdhurysonu047@gmail.com</a><br />
+            <strong>Location:</strong> Retrop, West Bengal, India
           </p>
         </div>
       </main>

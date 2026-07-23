@@ -14,7 +14,7 @@ export default function CookiePolicy() {
       <main style={{ flex: 1 }}>
         <div className="legal-content">
           <h1>Cookie Policy</h1>
-          <p className="legal-meta">Last updated: July 2025 · Retrop</p>
+          <p className="legal-meta">Last updated: July 23, 2026 · Retrop</p>
 
           <p>
             This Cookie Policy explains what cookies are, how Retrop ("Retrop", "we")
@@ -129,12 +129,16 @@ export default function CookiePolicy() {
             post the updated policy on this page with a revised "Last updated" date.
           </p>
 
-          <h2>8. Contact</h2>
+          <h2>8. Contact & Grievance Officer</h2>
           <p>
-            For questions about our use of cookies, reach us through our{' '}
-            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or at:<br />
-            <strong>chowdhurysonu047@gmail.com</strong><br />
-            Retrop, India
+            Retrop is operated by Sonu Chowdhury, an individual proprietor based in West Bengal, India.
+          </p>
+          <p>
+            For questions about our use of cookies, contact us through our{' '}
+            <a href="/contact" style={{ color: 'var(--color-primary)' }}>Contact page</a> or reach out directly to our Grievance Officer:<br />
+            <strong>Grievance Officer:</strong> Sonu Chowdhury<br />
+            <strong>Email:</strong> <a href="mailto:chowdhurysonu047@gmail.com" style={{ color: 'var(--color-primary)' }}>chowdhurysonu047@gmail.com</a><br />
+            <strong>Location:</strong> Retrop, West Bengal, India
           </p>
         </div>
       </main>
